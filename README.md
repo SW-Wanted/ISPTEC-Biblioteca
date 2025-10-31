@@ -48,40 +48,34 @@ O projeto segue a metodologia **RUP (Rational Unified Process Estendido - RUPE)*
 biblioteca-universitaria/
 │
 ├── 1_Iniciacao/
-│   ├── Documento_Visao.pdf
-│   ├── BPMN_Processos.png
-│   └── Plano_Projeto.docx
+│   ├── BPMN/
+│   |   ├── 01_Cadastro.bpmn
+|   |   ├── 02_Emprestimo.bpmn
+|   |   ├── 03_Devolucao.bpmn
+|   |   ├── 04_Renovacao.bpmn
+|   |   ├── 05_Reserva.bpmn
+|   |   ├── 06_Registro_Fotografico.bpmn
+|   |   ├── 07_Relatorios.bpmn
+|   |   └── 08_Chatbot_Apoio.bpmn
+│   └── Relatorio.docx
 │
 ├── 2_Elaboracao/
-│   ├── Casos_de_Uso/
-│   ├── Modelo_Dominio/
-│   └── Relatorio_Elaboracao.docx
 │
 ├── 3_Construcao/
-│   ├── UML/
-│   ├── Codigo_fonte/
-│   ├── Protótipo_Figma/
-│   └── Relatorio_Construcao.docx
 │
 ├── 4_Transicao/
-│   ├── Executavel/
-│   ├── Scripts_BD/
-│   ├── Relatorio_Final.docx
-│   └── Video_Demonstracao.mp4
 │
 └── README.md
 ```
 
 ## 💻 Tecnologias e Ferramentas
-| Categoria                | Ferramenta /Tecnologia                                         |
-| ------------------------ | --------------------------------------------------------------- |
-| Linguagem de Programação | Java / Python / C# (a definir pelo grupo)                       |
-| Banco de Dados           | MySQL / PostgreSQL                                              |
-| Interface Gráfica        | JavaFX / React / HTML+CSS / Figma                               |
-| Inteligência Artificial  | OCR (Tesseract ou API Cloud Vision), Chatbot (Dialogflow / NLP) |
-| Versionamento            | Git + GitHub                                                    |
-| Modelagem                | BPMN, UML (Visual Paradigm, StarUML, Lucidchart)                |
-| Documentação             | Word / Google Docs / Markdown                                   |
+| Categoria                                | Ferramenta / Tecnologia                                |
+| ---------------------------------------- | ------------------------------------------------------ |
+| **Modelagem de Processos (BPMN)**        | Camunda Modeler                                        |
+| **Planeamento e Cronograma**             | MS Project / ProjectLibre                              |
+| **Documentação**                         | Microsoft Word / LibreOffice Writer                    |
+| **Versionamento**                        | GitHub                                                 |
+| **Comunicação e Reuniões**               | Discord                                                |
 
 ## 🧩 Funcionalidades Inovadoras Propostas
 - 🔍 Reconhecimento automático de texto (OCR) para cadastro de livros.
@@ -102,4 +96,7 @@ biblioteca-universitaria/
 ## 👥 Equipa de Desenvolvimento
 | Nome     | Função                           | E-mail                                            |
 | -------- | -------------------------------- | ------------------------------------------------- |
-| Emanuel dos Santos | Gestor de Projectos| [[20230429@isptec.co.ao](mailto:email@isptec.co.ao)] |
+| Emanuel dos Santos | Gestor de Projectos | [20230429@isptec.co.ao](mailto:20230429@isptec.co.ao) |
+| Carlos Tchípia     |                     | [20221196@isptec.co.ao](mailto:20221196@isptec.co.ao)  |
+| Líria Bá           |                     | [20230237@isptec.co.ao](mailto:20230237@isptec.co.ao)  |
+| José Tala          |                     | [20232641@isptec.co.ao](mailto:20232641@isptec.co.ao)  |
