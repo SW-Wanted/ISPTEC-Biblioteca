@@ -34,12 +34,12 @@ O projeto segue a metodologia **RUP (Rational Unified Process Estendido - RUPE)*
 
 ## 🧭 Metodologia: RUPE (Rational Unified Process Estendido)
 
-| Fase | Entregas Principais | Objetivo |
-|------|---------------------|-----------|
-| **1️⃣ Iniciação** | Documento de visão, BPMN dos processos | Entender o negócio e planejar o projeto |
-| **2️⃣ Elaboração** | Casos de uso, modelo de domínio | Definir requisitos e arquitetura inicial |
-| **3️⃣ Construção** | Diagramas UML, protótipo e código | Implementar e integrar funcionalidades |
-| **4️⃣ Transição** | Relatório final, sistema funcional | Entregar, testar e documentar o produto final |
+| Fase              | Entregas Principais                    | Objetivo                                      |
+|-------------------|----------------------------------------|-----------------------------------------------|
+| **1️⃣ Iniciação**  | Documento de visão, BPMN dos processos | Entender o negócio e planejar o projeto       |
+| **2️⃣ Elaboração** | Casos de uso, modelo de domínio        | Definir requisitos e arquitetura inicial      |
+| **3️⃣ Construção** | Diagramas UML, protótipo e código      | Implementar e integrar funcionalidades        |
+| **4️⃣ Transição**  | Relatório final, sistema funcional     | Entregar, testar e documentar o produto final |
 
 ---
 
@@ -49,14 +49,14 @@ biblioteca-universitaria/
 │
 ├── 1_Iniciacao/
 │   ├── BPMN/
-│   |   ├── 01_Cadastro.bpmn
-|   |   ├── 02_Emprestimo.bpmn
-|   |   ├── 03_Devolucao.bpmn
-|   |   ├── 04_Renovacao.bpmn
-|   |   ├── 05_Reserva.bpmn
-|   |   ├── 06_Registro_Fotografico.bpmn
-|   |   ├── 07_Relatorios.bpmn
-|   |   └── 08_Chatbot_Apoio.bpmn
+│   │   ├── 01_Cadastro.bpmn
+│   │   ├── 02_Emprestimo.bpmn
+│   │   ├── 03_Devolucao.bpmn
+│   │   ├── 04_Renovacao.bpmn
+│   │   ├── 05_Reserva.bpmn
+│   │   ├── 06_Registro_Fotografico.bpmn
+│   │   ├── 07_Relatorios.bpmn
+│   │   └── 08_Chatbot_Apoio.bpmn
 │   └── Relatorio.docx
 │
 ├── 2_Elaboracao/
