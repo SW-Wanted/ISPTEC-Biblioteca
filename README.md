@@ -97,6 +97,6 @@ biblioteca-universitaria/
 | Nome     | Função                           | E-mail                                            |
 | -------- | -------------------------------- | ------------------------------------------------- |
 | Emanuel dos Santos | Gestor de Projectos | [20230429@isptec.co.ao](mailto:20230429@isptec.co.ao) |
-| Carlos Tchípia     |                     | [20221196@isptec.co.ao](mailto:20221196@isptec.co.ao)  |
+| Carlos Tchípia     |      Pesquisador    | [20221196@isptec.co.ao](mailto:20221196@isptec.co.ao)  |
 | Líria Bá           | Analista de Negócio | [20230237@isptec.co.ao](mailto:20230237@isptec.co.ao)  |
 | José Tala          |       Modelador     | [20232641@isptec.co.ao](mailto:20232641@isptec.co.ao)  |
