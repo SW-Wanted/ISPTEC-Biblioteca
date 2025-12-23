@@ -49,15 +49,14 @@ biblioteca-universitaria/
 │
 ├── 1_Iniciacao/
 │   ├── BPMN/
-│   │   ├── 01_Cadastro.bpmn
-│   │   ├── 02_Emprestimo.bpmn
-│   │   ├── 03_Devolucao.bpmn
-│   │   ├── 04_Renovacao.bpmn
-│   │   ├── 05_Reserva.bpmn
-│   │   ├── 06_Registro_Fotografico.bpmn
-│   │   ├── 07_Relatorios.bpmn
-│   │   └── 08_Chatbot_Apoio.bpmn
-│   └── Relatorio.docx
+│   │   ├── Cadastro de Membros (AS  IS).bpmn
+│   │   ├── Catalogação de Obras (AS IS).bpmn
+│   │   ├── Empréstimo de livros (AS IS).bpmn
+│   │   ├── Relatorios_Basicos (AS IS).bpmn
+│   │   ├── Renovacao de Livros (AS IS).bpmn
+│   │   └── Reserva_de_Livros (AS IS).bpmn
+│   ├── Fase1_Relatorio.docx
+│   └── Fase1_Relatorio.pdf
 │
 ├── 2_Elaboracao/
 │
