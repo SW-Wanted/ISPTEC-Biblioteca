@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_01rc4n9" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.40.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.8.0">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_01rc4n9" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.40.1" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.8.0">
   <bpmn:collaboration id="Collaboration_0avpxni">
-    <bpmn:participant id="Participant_0r96dsw" name="Reserva de livros indisponíveis, com lista de espera." processRef="Process_1p1ngtp" />
+    <bpmn:participant id="Participant_0r96dsw" name="Reserva de livros (AS IS)" processRef="Process_1p1ngtp" />
   </bpmn:collaboration>
   <bpmn:process id="Process_1p1ngtp" isExecutable="true">
     <bpmn:laneSet id="LaneSet_1i4xzlc">
@@ -182,16 +182,16 @@
         <dc:Bounds x="160" y="80" width="1390" height="750" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_1typru5_di" bpmnElement="Lane_1typru5" isHorizontal="true">
-        <dc:Bounds x="190" y="80" width="1360" height="260" />
+      <bpmndi:BPMNShape id="Lane_0e01lgi_di" bpmnElement="Lane_0e01lgi" isHorizontal="true">
+        <dc:Bounds x="190" y="670" width="1360" height="160" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="Lane_0w2gcmw_di" bpmnElement="Lane_0w2gcmw" isHorizontal="true">
         <dc:Bounds x="190" y="340" width="1360" height="330" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="Lane_0e01lgi_di" bpmnElement="Lane_0e01lgi" isHorizontal="true">
-        <dc:Bounds x="190" y="670" width="1360" height="160" />
+      <bpmndi:BPMNShape id="Lane_1typru5_di" bpmnElement="Lane_1typru5" isHorizontal="true">
+        <dc:Bounds x="190" y="80" width="1360" height="260" />
         <bpmndi:BPMNLabel />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1" bioc:stroke="#205022" bioc:fill="#c8e6c9" color:background-color="#c8e6c9" color:border-color="#205022">
