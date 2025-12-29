@@ -49,12 +49,18 @@ biblioteca-universitaria/
 │
 ├── 1_Iniciacao/
 │   ├── BPMN/
-│   │   ├── Cadastro de Membros (AS  IS).bpmn
-│   │   ├── Catalogação de Obras (AS IS).bpmn
-│   │   ├── Empréstimo de livros (AS IS).bpmn
-│   │   ├── Relatorios_Basicos (AS IS).bpmn
-│   │   ├── Renovacao de Livros (AS IS).bpmn
-│   │   └── Reserva_de_Livros (AS IS).bpmn
+│   │   ├── BPMN 01 - Catalogação de Obras (AS IS).bpmn
+│   │   ├── BPMN 02 - Catalogação de Obras (TO BE).bpmn
+│   │   ├── BPMN 03 - Cadastro de Membros  (AS IS).bpmn
+│   │   ├── BPMN 04 - Cadastro de Membros  (TO BE).bpmn
+│   │   ├── BPMN 05 - Empréstimo de livros (AS IS).bpmn
+│   │   ├── BPMN 06 - Empréstimo de livros (TO BE).bpmn
+│   │   ├── BPMN 07 - Relatorios de Livros (AS IS).bpmn
+│   │   ├── BPMN 08 - Relatorios de Livros (TO BE).bpmn
+│   │   ├── BPMN 09 - Reserva de Livros    (AS IS).bpmn
+│   │   ├── BPMN 10 - Reserva de Livros    (TO BE).bpmn
+│   │   ├── BPMN 11 - Renovacao de Livros  (AS IS).bpmn
+│   │   └── BPMN 12 - Renovacao de Livros  (TO BE).bpmn
 │   ├── Fase1_Relatorio.docx
 │   └── Fase1_Relatorio.pdf
 │
