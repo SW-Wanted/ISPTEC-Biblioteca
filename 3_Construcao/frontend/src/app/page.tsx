@@ -26,13 +26,13 @@ export default function Home() {
           </CardHeader>
           <CardContent className="flex flex-col gap-2 sm:flex-row">
             <Button asChild>
-              <Link href="/catalog">Browse catalog</Link>
+              <Link href="/search-books">Pesquisar livros</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/loans">View loans</Link>
+              <Link href="/my-loans">Meus empréstimos</Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link href="/about">About MVP</Link>
+              <Link href="/help">Ajuda</Link>
             </Button>
           </CardContent>
         </Card>
