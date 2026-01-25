@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Mail, Lock } from 'lucide-react';
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +14,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = () => {
-    // TODO: Implementar OAuth com Google
-    console.log('Google login');
+    void signIn('google', { callbackUrl: '/' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,10 +22,18 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      // TODO: Implementar autenticação
-      console.log('Login:', { email, password });
-      // Redirecionar para home após login
-      // window.location.href = '/';
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+        callbackUrl: '/',
+      });
+      if (result?.error) {
+        console.error('Erro no login:', result.error);
+        alert('Credenciais inválidas ou conta bloqueada');
+        return;
+      }
+      window.location.href = result?.url ?? '/';
     } catch (error) {
       console.error('Erro no login:', error);
     } finally {
@@ -34,11 +42,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-md">
         <div className="relative overflow-hidden border-0 shadow-2xl bg-white/95 backdrop-blur-sm rounded-2xl">
           {/* Gradient Top Border */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-slate-200 via-slate-300 to-slate-200" />
           
           <div className="p-8 sm:p-10 md:pt-12 md:pb-10 md:px-10">
             <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8">
@@ -75,7 +83,7 @@ export default function LoginPage() {
                 {/* Divider */}
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full h-[1px] bg-slate-200" />
+                    <div className="w-full h-px bg-slate-200" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
                     <span className="bg-white px-3 text-slate-400 font-medium tracking-wider">

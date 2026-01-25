@@ -83,14 +83,14 @@ export default function MyLoans() {
         <Card className={cn("border-0 shadow-sm hover:shadow-md transition-all duration-300", status.urgent && "ring-2 ring-red-200", status.warning && "ring-2 ring-orange-200")}>
           <CardContent className="p-4">
             <div className="flex gap-4">
-              <div className="w-20 h-28 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex-shrink-0 overflow-hidden"><BookOpen className="w-full h-full p-6 text-slate-300" /></div>
+              <div className="w-20 h-28 bg-linear-to-br from-slate-100 to-slate-200 rounded-lg shrink-0 overflow-hidden"><BookOpen className="w-full h-full p-6 text-slate-300" /></div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Link to={createPageUrl(`BookDetails?id=${loan.book_id}`)}><h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">{loan.book_title || 'Título não disponível'}</h3></Link>
                     <p className="text-sm text-slate-500 mt-1">Emprestado em {format(new Date(loan.loan_date), "dd/MM/yyyy")}</p>
                   </div>
-                  <Badge className={cn("flex-shrink-0", status.color)}><StatusIcon className="w-3 h-3 mr-1" />{status.label}</Badge>
+                  <Badge className={cn("shrink-0", status.color)}><StatusIcon className="w-3 h-3 mr-1" />{status.label}</Badge>
                 </div>
                 <div className="flex items-center gap-4 mt-3 text-sm text-slate-600">
                   <div className="flex items-center gap-1"><Calendar className="w-4 h-4 text-slate-400" />Devolução: {format(new Date(loan.due_date), "dd/MM/yyyy")}</div>
@@ -158,7 +158,7 @@ export default function MyLoans() {
           {selectedLoan && (
             <div className="py-4">
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg"><BookOpen className="w-12 h-12 text-slate-400" /><div><p className="font-medium text-slate-800">{selectedLoan.book_title}</p><p className="text-sm text-slate-500">Renovação {selectedLoan.renewal_count + 1} de {selectedLoan.max_renewals}</p></div></div>
-              {selectedLoan.renewal_count + 1 === selectedLoan.max_renewals && <div className="mt-4 p-3 bg-orange-50 rounded-lg flex items-start gap-2"><AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" /><p className="text-sm text-orange-700">Esta será sua última renovação permitida para este empréstimo.</p></div>}
+              {selectedLoan.renewal_count + 1 === selectedLoan.max_renewals && <div className="mt-4 p-3 bg-orange-50 rounded-lg flex items-start gap-2"><AlertCircle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" /><p className="text-sm text-orange-700">Esta será sua última renovação permitida para este empréstimo.</p></div>}
             </div>
           )}
           <DialogFooter><Button variant="outline" onClick={() => setShowRenewDialog(false)}>Cancelar</Button><Button onClick={() => renewMutation.mutate(selectedLoan)} disabled={renewMutation.isPending}>{renewMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Confirmar Renovação</Button></DialogFooter>

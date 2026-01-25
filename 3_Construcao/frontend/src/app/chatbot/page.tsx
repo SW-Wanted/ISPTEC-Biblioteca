@@ -14,6 +14,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
+type ChatMessage = {
+  role: 'assistant' | 'user';
+  content: string;
+};
+
+type LoanLike = {
+  book_title?: string | null;
+};
+
 const quickActions = [
   { label: 'Como renovar um empréstimo?', icon: RefreshCw },
   { label: 'Verificar disponibilidade de livro', icon: BookOpen },
@@ -23,10 +32,16 @@ const quickActions = [
 
 export default function Chatbot() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
-  const [messages, setMessages] = useState([{ role: 'assistant', content: 'Olá! 👋 Sou o assistente virtual da Biblioteca ISPTEC. Como posso ajudá-lo hoje?\n\nPosso ajudar com:\n- Verificar disponibilidade de livros\n- Informações sobre empréstimos e renovações\n- Dúvidas sobre o regulamento\n- Horários e serviços da biblioteca' }]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      content:
+        'Olá! 👋 Sou o assistente virtual da Biblioteca ISPTEC. Como posso ajudá-lo hoje?\n\nPosso ajudar com:\n- Verificar disponibilidade de livros\n- Informações sobre empréstimos e renovações\n- Dúvidas sobre o regulamento\n- Horários e serviços da biblioteca',
+    },
+  ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -37,11 +52,16 @@ export default function Chatbot() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const { data: activeLoans = [] } = useQuery({ queryKey: ['chatbot-loans', user?.email], queryFn: () => api.entities.Loan.filter({ member_id: user?.email, status: 'active' }), enabled: !!user?.email, initialData: [] });
+  const { data: activeLoans = [] } = useQuery<LoanLike[]>({
+    queryKey: ['chatbot-loans', user?.email],
+    queryFn: () => api.entities.Loan.filter({ member_id: user?.email, status: 'active' }),
+    enabled: !!user?.email,
+    initialData: [] as LoanLike[],
+  });
 
-  const sendMessage = async (message) => {
+  const sendMessage = async (message: string) => {
     if (!message.trim()) return;
-    const userMessage = { role: 'user', content: message };
+    const userMessage: ChatMessage = { role: 'user', content: message };
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
@@ -49,13 +69,13 @@ export default function Chatbot() {
     try {
       let context = `Você é o assistente virtual da Biblioteca Universitária do ISPTEC em Angola. Horário: Segunda a Sexta 07:30-17:00, Sábados (provas) 08:00-12:30. Estudantes: 2 livros/5 dias, 2 renovações. Docentes: 4 livros/15 dias, 2 renovações. Responda em português de Angola de forma amigável.`;
       if (user && activeLoans.length > 0) {
-        context += `\nUtilizador tem ${activeLoans.length} empréstimo(s) ativo(s): ${activeLoans.map(l => l.book_title).join(', ')}.`;
+        context += `\nUtilizador tem ${activeLoans.length} empréstimo(s) ativo(s): ${activeLoans.map(l => l.book_title ?? '').filter(Boolean).join(', ')}.`;
       }
       const response = await api.integrations.Core.InvokeLLM<string>({
 			prompt: `${context}\n\nPergunta: ${message}`,
 			response_json_schema: null,
 		});
-      const assistantMessage = { role: 'assistant', content: response };
+    const assistantMessage: ChatMessage = { role: 'assistant', content: response };
       setMessages(prev => [...prev, assistantMessage]);
       if (user) await api.entities.ChatConversation.create({ user_id: user.email, session_id: `session_${Date.now()}`, messages: [...messages, userMessage, assistantMessage], is_active: true });
     } catch (error) {
@@ -65,12 +85,12 @@ export default function Chatbot() {
     }
   };
 
-  const handleSubmit = (e) => { e.preventDefault(); sendMessage(inputValue); };
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(inputValue); };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <div className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3">
-        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center"><Bot className="w-6 h-6 text-white" /></div>
+        <div className="w-12 h-12 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center"><Bot className="w-6 h-6 text-white" /></div>
         <div><h1 className="font-semibold text-slate-800">Assistente Virtual</h1><p className="text-sm text-emerald-600 flex items-center gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />Online 24/7</p></div>
       </div>
 
@@ -79,7 +99,7 @@ export default function Chatbot() {
           <AnimatePresence mode="popLayout">
             {messages.map((message, index) => (
               <motion.div key={index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className={cn("flex gap-3", message.role === 'user' ? 'justify-end' : 'justify-start')}>
-                {message.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0"><Bot className="w-4 h-4 text-white" /></div>}
+                {message.role === 'assistant' && <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0"><Bot className="w-4 h-4 text-white" /></div>}
                 <div className={cn("max-w-[80%] rounded-2xl px-4 py-3", message.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white shadow-sm border border-slate-100')}>
                   {message.role === 'user' ? <p className="text-sm">{message.content}</p> : (
                     <div className="prose prose-sm max-w-none prose-slate">
@@ -87,11 +107,11 @@ export default function Chatbot() {
                     </div>
                   )}
                 </div>
-                {message.role === 'user' && <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0"><User className="w-4 h-4 text-slate-600" /></div>}
+                {message.role === 'user' && <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0"><User className="w-4 h-4 text-slate-600" /></div>}
               </motion.div>
             ))}
           </AnimatePresence>
-          {isLoading && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0"><Bot className="w-4 h-4 text-white" /></div><div className="bg-white shadow-sm border border-slate-100 rounded-2xl px-4 py-3"><div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" /><span className="text-sm text-slate-500">A pensar...</span></div></div></motion.div>}
+          {isLoading && <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3"><div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0"><Bot className="w-4 h-4 text-white" /></div><div className="bg-white shadow-sm border border-slate-100 rounded-2xl px-4 py-3"><div className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" /><span className="text-sm text-slate-500">A pensar...</span></div></div></motion.div>}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>

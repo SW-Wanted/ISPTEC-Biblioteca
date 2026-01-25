@@ -24,6 +24,17 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+type BookReviewRow = {
+  id?: string;
+  book_id?: string | null;
+  user_id?: string | null;
+  user_name?: string | null;
+  rating?: number | null;
+  review?: string | null;
+  is_verified_read?: boolean | null;
+  created_at?: string | null;
+};
+
 export default function BookDetails() {
   const [searchParams] = useSearchParams();
   const bookId = searchParams.get('id');
@@ -60,10 +71,11 @@ export default function BookDetails() {
     enabled: !!bookId, initialData: []
   });
 
-  const { data: reviews = [] } = useQuery({
+  const { data: reviews = [] } = useQuery<BookReviewRow[]>({
     queryKey: ['reviews', bookId],
     queryFn: () => api.entities.BookReview.filter({ book_id: bookId }),
-    enabled: !!bookId, initialData: []
+    enabled: !!bookId,
+    initialData: [] as BookReviewRow[],
   });
 
   const { data: existingReservations = [] } = useQuery({
@@ -80,7 +92,7 @@ export default function BookDetails() {
 
   const reserveMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !book) return;
+      if (!bookId || !user || !book) return;
       const queuePosition = queueReservations.length + 1;
       const availableCopiesCount = (book.available_copies ?? 0);
       await api.entities.Reservation.create({
@@ -103,7 +115,7 @@ export default function BookDetails() {
 
   const reviewMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !book) return;
+      if (!bookId || !user || !book) return;
       await api.entities.BookReview.create({ book_id: bookId, user_id: user.email, user_name: user.full_name, rating: reviewRating, review: reviewText, is_verified_read: false });
       const currentTotal = typeof book.total_reviews === 'number' ? book.total_reviews : 0;
       const currentAvg = typeof book.average_rating === 'number' ? book.average_rating : 0;
@@ -122,7 +134,7 @@ export default function BookDetails() {
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1"><Skeleton className="aspect-[2/3] w-full rounded-2xl" /></div>
+          <div className="lg:col-span-1"><Skeleton className="aspect-2/3 w-full rounded-2xl" /></div>
           <div className="lg:col-span-2 space-y-4"><Skeleton className="h-10 w-3/4" /><Skeleton className="h-6 w-1/2" /><Skeleton className="h-32 w-full" /></div>
         </div>
       </div>
@@ -141,6 +153,9 @@ export default function BookDetails() {
     );
   }
 
+  const averageRating = typeof book.average_rating === 'number' ? book.average_rating : 0;
+  const totalReviews = typeof book.total_reviews === 'number' ? book.total_reviews : 0;
+
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
       <div className="bg-white border-b border-slate-200">
@@ -157,7 +172,7 @@ export default function BookDetails() {
         <div className="grid lg:grid-cols-3 gap-8">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-1">
             <div className="sticky top-8">
-              <div className="aspect-[2/3] bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl overflow-hidden shadow-xl relative">
+              <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 rounded-2xl overflow-hidden shadow-xl relative">
                 {book.cover_url ? <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex items-center justify-center"><BookOpen className="w-24 h-24 text-slate-300" /></div>}
               </div>
               <div className="mt-4 flex gap-2">
@@ -178,11 +193,11 @@ export default function BookDetails() {
 
             <div className="flex flex-wrap items-center gap-4 text-slate-600 mb-6">
               <p className="font-medium">{book.authors?.join(', ') || 'Autor desconhecido'}</p>
-              {book.average_rating > 0 && (
+              {averageRating > 0 && (
                 <div className="flex items-center gap-1">
                   <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                  <span className="font-semibold">{book.average_rating.toFixed(1)}</span>
-                  <span className="text-slate-400">({book.total_reviews || 0} avaliações)</span>
+                  <span className="font-semibold">{averageRating.toFixed(1)}</span>
+                  <span className="text-slate-400">({totalReviews} avaliações)</span>
                 </div>
               )}
             </div>
@@ -250,7 +265,7 @@ export default function BookDetails() {
                             {review.is_verified_read && <Badge variant="secondary" className="text-[10px]">Leitura verificada</Badge>}
                           </div>
                           <div className="flex items-center gap-1">
-                            {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={cn("w-4 h-4", i < review.rating ? "text-amber-400 fill-amber-400" : "text-slate-200")} />)}
+                            {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={cn("w-4 h-4", i < (review.rating ?? 0) ? "text-amber-400 fill-amber-400" : "text-slate-200")} />)}
                           </div>
                         </div>
                         {review.review && <p className="text-slate-600 text-sm">{review.review}</p>}
@@ -267,12 +282,12 @@ export default function BookDetails() {
       <Dialog open={showReserveDialog} onOpenChange={setShowReserveDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{(book?.available_copies > 0 || availableCopies.length > 0) ? 'Confirmar Reserva' : 'Entrar na Fila de Espera'}</DialogTitle>
-            <DialogDescription>{(book?.available_copies > 0 || availableCopies.length > 0) ? `O livro "${book?.title}" ficará reservado por 48 horas. Retire na biblioteca.` : `Você será notificado quando o livro "${book?.title}" estiver disponível.`}</DialogDescription>
+            <DialogTitle>{((book?.available_copies ?? 0) > 0 || availableCopies.length > 0) ? 'Confirmar Reserva' : 'Entrar na Fila de Espera'}</DialogTitle>
+            <DialogDescription>{((book?.available_copies ?? 0) > 0 || availableCopies.length > 0) ? `O livro "${book?.title}" ficará reservado por 48 horas. Retire na biblioteca.` : `Você será notificado quando o livro "${book?.title}" estiver disponível.`}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-              <div className="w-16 h-20 bg-slate-200 rounded flex-shrink-0 overflow-hidden">{book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}</div>
+              <div className="w-16 h-20 bg-slate-200 rounded shrink-0 overflow-hidden">{book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}</div>
               <div><p className="font-medium text-slate-800">{book?.title}</p><p className="text-sm text-slate-500">{book?.authors?.join(', ')}</p></div>
             </div>
           </div>

@@ -24,6 +24,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+type MemberRow = {
+  member_type?: string | null;
+  course?: string | null;
+  status?: string | null;
+  is_blocked?: boolean | null;
+} & Record<string, unknown>;
+
 export default function Home() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,14 +47,14 @@ export default function Home() {
     loadUser();
   }, []);
 
-  const { data: member } = useQuery({
+  const { data: member } = useQuery<MemberRow | null>({
     queryKey: ['member', user?.email],
     queryFn: async () => {
       const members = await api.entities.Member.filter({ user_id: user?.email });
       return members[0] || null;
     },
     enabled: !!user?.email,
-    initialData: null
+    initialData: null as MemberRow | null
   });
 
   const { data: activeLoans = [] } = useQuery({
@@ -98,10 +105,10 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/30">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-800" />
+        <div className="absolute inset-0 bg-linear-to-br from-indigo-600 via-purple-600 to-indigo-800" />
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
@@ -211,7 +218,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 border-0 text-white overflow-hidden">
+            <Card className="bg-linear-to-r from-indigo-500 to-purple-600 border-0 text-white overflow-hidden">
               <CardContent className="p-6 relative">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="relative">
@@ -254,7 +261,7 @@ export default function Home() {
                 <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden">
                   <CardContent className="p-5">
                     <div className={cn(
-                      "w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center mb-4",
+                      "w-12 h-12 rounded-xl bg-linear-to-br flex items-center justify-center mb-4",
                       action.color
                     )}>
                       <action.icon className="w-6 h-6 text-white" />
@@ -295,7 +302,7 @@ export default function Home() {
               >
                 <Link to={createPageUrl(`BookDetails?id=${book.id}`)}>
                   <Card className="group hover:shadow-md transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden">
-                    <div className="aspect-[2/3] bg-gradient-to-br from-slate-100 to-slate-200 relative overflow-hidden">
+                    <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden">
                       {book.cover_url ? (
                         <img 
                           src={book.cover_url} 
@@ -336,7 +343,7 @@ export default function Home() {
 
         {/* Info Cards */}
         <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="border-0 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm">
+          <Card className="border-0 bg-linear-to-br from-blue-50 to-indigo-50 shadow-sm">
             <CardContent className="p-6">
               <Calendar className="w-10 h-10 text-indigo-600 mb-4" />
               <h3 className="font-semibold text-slate-800">Horário de Funcionamento</h3>
@@ -347,7 +354,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm">
+          <Card className="border-0 bg-linear-to-br from-emerald-50 to-teal-50 shadow-sm">
             <CardContent className="p-6">
               <TrendingUp className="w-10 h-10 text-emerald-600 mb-4" />
               <h3 className="font-semibold text-slate-800">Limites de Empréstimo</h3>
@@ -358,7 +365,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-purple-50 to-pink-50 shadow-sm sm:col-span-2 lg:col-span-1">
+          <Card className="border-0 bg-linear-to-br from-purple-50 to-pink-50 shadow-sm sm:col-span-2 lg:col-span-1">
             <CardContent className="p-6">
               <Sparkles className="w-10 h-10 text-purple-600 mb-4" />
               <h3 className="font-semibold text-slate-800">Precisa de Ajuda?</h3>

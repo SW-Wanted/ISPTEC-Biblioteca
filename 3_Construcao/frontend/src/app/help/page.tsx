@@ -28,7 +28,7 @@ export default function Help() {
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><HelpCircle className="w-8 h-8 text-white" /></div>
+          <div className="w-16 h-16 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><HelpCircle className="w-8 h-8 text-white" /></div>
           <h1 className="text-3xl font-bold text-slate-800">Central de Ajuda</h1>
           <p className="text-slate-500 mt-2">Encontre respostas para suas dúvidas sobre a biblioteca</p>
         </motion.div>
@@ -48,7 +48,7 @@ export default function Help() {
         </div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="border-0 shadow-sm bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+          <Card className="border-0 shadow-sm bg-linear-to-r from-indigo-500 to-purple-600 text-white">
             <CardContent className="p-6"><h3 className="text-xl font-bold mb-4">Precisa de mais ajuda?</h3><p className="text-indigo-100 mb-6">Entre em contacto connosco ou use o assistente virtual para respostas imediatas.</p><div className="grid sm:grid-cols-3 gap-4 mb-6">{contacts.map((contact, index) => <div key={index} className="flex items-center gap-3"><div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center"><contact.icon className="w-5 h-5" /></div><div><p className="text-xs text-indigo-200">{contact.label}</p><p className="font-medium text-sm">{contact.value}</p></div></div>)}</div><Link to={createPageUrl('Chatbot')}><Button className="bg-white text-indigo-600 hover:bg-indigo-50"><MessageCircle className="w-4 h-4 mr-2" />Falar com o Assistente Virtual</Button></Link></CardContent>
           </Card>
         </motion.div>

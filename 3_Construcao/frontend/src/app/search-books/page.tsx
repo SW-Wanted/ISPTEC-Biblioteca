@@ -222,7 +222,7 @@ export default function SearchBooks() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-8">
-          <aside className="hidden lg:block w-64 flex-shrink-0">
+          <aside className="hidden lg:block w-64 shrink-0">
             <Card className="p-6 border-0 shadow-sm">
               <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                 <Filter className="w-5 h-5" />
@@ -279,7 +279,7 @@ export default function SearchBooks() {
                 {Array(8).fill(0).map((_, i) => (
                   <Card key={i} className="border-0 shadow-sm overflow-hidden">
                     <div className={viewMode === 'grid' ? '' : 'flex'}>
-                      <Skeleton className={viewMode === 'grid' ? 'aspect-[2/3] w-full' : 'w-24 h-32'} />
+                      <Skeleton className={viewMode === 'grid' ? 'aspect-2/3 w-full' : 'w-24 h-32'} />
                       <div className={viewMode === 'grid' ? 'p-4' : 'p-4 flex-1'}>
                         <Skeleton className="h-4 w-3/4 mb-2" />
                         <Skeleton className="h-3 w-1/2" />
@@ -319,8 +319,8 @@ export default function SearchBooks() {
                           viewMode === 'list' && 'flex'
                         )}>
                           <div className={cn(
-                            "bg-gradient-to-br from-slate-100 to-slate-200 relative overflow-hidden flex-shrink-0",
-                            viewMode === 'grid' ? 'aspect-[2/3]' : 'w-24 h-32'
+                            "bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden shrink-0",
+                            viewMode === 'grid' ? 'aspect-2/3' : 'w-24 h-32'
                           )}>
                             {book.cover_url ? (
                               <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />

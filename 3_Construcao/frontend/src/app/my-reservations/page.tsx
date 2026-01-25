@@ -43,10 +43,6 @@ export default function MyReservations() {
   const cancelMutation = useMutation({
     mutationFn: async (reservation) => {
       await api.entities.Reservation.update(reservation.id, { status: 'cancelled' });
-      const otherReservations = await api.entities.Reservation.filter({ book_id: reservation.book_id, status: 'active' });
-      for (const res of otherReservations) {
-        if (res.queue_position > reservation.queue_position) await api.entities.Reservation.update(res.id, { queue_position: res.queue_position - 1 });
-      }
     },
     onSuccess: () => { queryClient.invalidateQueries(['my-reservations', user?.email]); setShowCancelDialog(false); setSelectedReservation(null); toast.success('Reserva cancelada com sucesso'); },
     onError: () => { toast.error('Erro ao cancelar reserva'); }
@@ -81,14 +77,14 @@ export default function MyReservations() {
         <Card className={cn("border-0 shadow-sm hover:shadow-md transition-all duration-300", status.urgent && "ring-2 ring-emerald-200")}>
           <CardContent className="p-4">
             <div className="flex gap-4">
-              <div className="w-20 h-28 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex-shrink-0 overflow-hidden"><BookOpen className="w-full h-full p-6 text-slate-300" /></div>
+              <div className="w-20 h-28 bg-linear-to-br from-slate-100 to-slate-200 rounded-lg shrink-0 overflow-hidden"><BookOpen className="w-full h-full p-6 text-slate-300" /></div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Link to={createPageUrl(`BookDetails?id=${reservation.book_id}`)}><h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">{reservation.book_title || 'Título não disponível'}</h3></Link>
                     <p className="text-sm text-slate-500 mt-1">Reservado em {format(new Date(reservation.reservation_date), "dd/MM/yyyy")}</p>
                   </div>
-                  <Badge className={cn("flex-shrink-0", status.color)}><StatusIcon className="w-3 h-3 mr-1" />{status.label}</Badge>
+                  <Badge className={cn("shrink-0", status.color)}><StatusIcon className="w-3 h-3 mr-1" />{status.label}</Badge>
                 </div>
                 {reservation.status === 'available' && (
                   <div className="mt-3 p-3 bg-emerald-50 rounded-lg">
