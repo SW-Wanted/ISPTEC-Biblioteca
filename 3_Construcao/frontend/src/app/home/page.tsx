@@ -11,18 +11,16 @@ import {
   BookOpen,
   BookMarked,
   Clock,
-  Bell,
   ArrowRight,
   TrendingUp,
   Star,
   Calendar,
   Sparkles,
-  ChevronRight,
   AlertCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -55,13 +53,15 @@ export default function Home() {
   const { data: activeLoans = [] } = useQuery({
     queryKey: ['active-loans', user?.email],
     queryFn: () => api.entities.Loan.filter({ member_id: user?.email, status: 'active' }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: []
   });
 
   const { data: activeReservations = [] } = useQuery({
     queryKey: ['active-reservations', user?.email],
     queryFn: () => api.entities.Reservation.filter({ member_id: user?.email, status: 'active' }),
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: []
   });
 
   const { data: popularBooks = [] } = useQuery({
@@ -83,15 +83,16 @@ export default function Home() {
     }
   };
 
-  const getDaysUntilDue = (dueDate) => {
+  const getDaysUntilDue = (dueDate: string | Date): number => {
     const due = new Date(dueDate);
     const today = new Date();
-    const diffTime = due - today;
+    const diffTime = due.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
 
   const urgentLoans = activeLoans.filter(loan => {
+    if (!loan.due_date) return false;
     const days = getDaysUntilDue(loan.due_date);
     return days <= 2;
   });
@@ -218,14 +219,14 @@ export default function Home() {
                   <h2 className="text-2xl font-bold mt-1">{user.full_name || 'Utilizador'}</h2>
                   <div className="flex flex-wrap gap-2 mt-4">
                     <Badge className="bg-white/20 text-white hover:bg-white/30">
-                      {member.member_type === 'student' ? 'Estudante' : 
-                       member.member_type === 'teacher' ? 'Docente' : 
-                       member.member_type === 'staff' ? 'Funcionário' : 
-                       member.member_type}
+                      {(member.member_type as string) === 'student' ? 'Estudante' : 
+                       (member.member_type as string) === 'teacher' ? 'Docente' : 
+                       (member.member_type as string) === 'staff' ? 'Funcionário' : 
+                       String(member.member_type || '')}
                     </Badge>
-                    {member.course && (
+                    {member.course && typeof member.course === 'string' && (
                       <Badge className="bg-white/20 text-white hover:bg-white/30">
-                        {member.course}
+                        {String(member.course)}
                       </Badge>
                     )}
                   </div>
