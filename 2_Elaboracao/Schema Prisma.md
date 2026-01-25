@@ -1,0 +1,781 @@
+// Schema Prisma para Sistema de Gestão de Biblioteca Universitária - ISPTEC
+// Versão: 1.0
+// Data: Janeiro 2026
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserType {
+  STUDENT      // Estudante
+  TEACHER      // Docente
+  STAFF        // Funcionário
+  LIBRARIAN    // Bibliotecário
+  CATALOGER    // Catalogador
+  SUPERVISOR   // Supervisor
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+  PENDING
+}
+
+enum BookStatus {
+  AVAILABLE
+  BORROWED
+  RESERVED
+  MAINTENANCE
+  LOST
+  DAMAGED
+}
+
+enum LoanStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  CANCELLED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  AVAILABLE
+  COLLECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum FineStatus {
+  PENDING
+  PAID
+  CANCELLED
+  WAIVED
+}
+
+enum FineType {
+  LATE_RETURN
+  LOCKER_OVERTIME
+  LOST_CREDENTIAL
+  DAMAGED_BOOK
+  LOST_BOOK
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+enum CatalogStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum LockerStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum ComputerStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum RequestStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// MÓDULO DE USUÁRIOS
+// ============================================
+
+model User {
+  id                String          @id @default(cuid())
+  email             String          @unique
+  password          String
+  name              String
+  phone             String?
+  type              UserType
+  status            UserStatus      @default(PENDING)
+  
+  // Dados específicos
+  registrationNumber String?        @unique // Matrícula (estudantes) ou Nº colaborador
+  course            String?         // Curso (estudantes)
+  department        String?         // Departamento (docentes/funcionários)
+  
+  // Credencial digital
+  qrCode            String?         @unique
+  qrCodeGeneratedAt DateTime?
+  
+  // Controles
+  totalFines        Decimal         @default(0) @db.Decimal(10, 2)
+  isBlocked         Boolean         @default(false)
+  blockedReason     String?
+  blockedAt         DateTime?
+  
+  // Preferências
+  preferredNotification NotificationType @default(EMAIL)
+  language          String          @default("pt")
+  
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  lastLoginAt       DateTime?
+  
+  // Relações
+  loans             Loan[]
+  reservations      Reservation[]
+  fines             Fine[]
+  notifications     Notification[]
+  catalogEntries    CatalogEntry[]  @relation("CatalogerEntries")
+  approvedEntries   CatalogEntry[]  @relation("SupervisorApprovals")
+  classroomLoans    ClassroomLoan[]
+  lockerRentals     LockerRental[]
+  computerSessions  ComputerSession[]
+  specialRequests   SpecialRequest[]
+  userDocuments     UserDocument[]
+  activityLogs      ActivityLog[]
+  chatMessages      ChatMessage[]
+  bookReviews       BookReview[]
+
+  @@index([email])
+  @@index([registrationNumber])
+  @@index([type, status])
+}
+
+model UserDocument {
+  id              String   @id @default(cuid())
+  userId          String
+  documentType    String   // "ID_CARD", "STUDENT_CARD", "ENROLLMENT", "STAFF_CARD"
+  documentUrl     String   // URL do documento no storage
+  isVerified      Boolean  @default(false)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// ============================================
+// MÓDULO DE CATALOGAÇÃO
+// ============================================
+
+model Category {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  parentId        String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  parent          Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children        Category[] @relation("CategoryHierarchy")
+  books           Book[]
+  
+  @@index([parentId])
+}
+
+model Author {
+  id              String   @id @default(cuid())
+  name            String
+  biography       String?  @db.Text
+  birthDate       DateTime?
+  nationality     String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  books           BookAuthor[]
+  
+  @@index([name])
+}
+
+model Publisher {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  country         String?
+  website         String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  books           Book[]
+}
+
+model Book {
+  id              String   @id @default(cuid())
+  isbn            String?  @unique
+  title           String
+  subtitle        String?
+  edition         String?
+  publicationYear Int?
+  language        String   @default("pt")
+  pages           Int?
+  description     String?  @db.Text
+  coverUrl        String?
+  
+  // Classificação
+  categoryId      String
+  keywords        String[] // Array de palavras-chave
+  deweyDecimal    String?  // Classificação Dewey
+  
+  // Contadores
+  totalCopies     Int      @default(0)
+  availableCopies Int      @default(0)
+  
+  // OCR e IA
+  extractedByOCR  Boolean  @default(false)
+  ocrConfidence   Decimal? @db.Decimal(5, 2)
+  autoClassified  Boolean  @default(false)
+  
+  publisherId     String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  category        Category @relation(fields: [categoryId], references: [id])
+  publisher       Publisher? @relation(fields: [publisherId], references: [id])
+  authors         BookAuthor[]
+  copies          Copy[]
+  reservations    Reservation[]
+  recommendations BookRecommendation[]
+  reviews         BookReview[]
+  
+  @@index([isbn])
+  @@index([categoryId])
+  @@index([title])
+}
+
+model BookAuthor {
+  bookId          String
+  authorId        String
+  order           Int      @default(1) // Ordem dos autores
+  
+  book            Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  author          Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@id([bookId, authorId])
+  @@index([authorId])
+}
+
+model Copy {
+  id              String     @id @default(cuid())
+  bookId          String
+  barcode         String     @unique
+  rfidTag         String?    @unique
+  status          BookStatus @default(AVAILABLE)
+  condition       String?    // "EXCELLENT", "GOOD", "FAIR", "POOR"
+  location        String     // Localização física na biblioteca
+  notes           String?
+  acquisitionDate DateTime   @default(now())
+  acquisitionPrice Decimal?  @db.Decimal(10, 2)
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  book            Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  loans           Loan[]
+  
+  @@index([bookId])
+  @@index([barcode])
+  @@index([status])
+}
+
+model CatalogEntry {
+  id              String        @id @default(cuid())
+  bookId          String?
+  
+  // Dados extraídos (OCR)
+  extractedTitle  String?
+  extractedAuthor String?
+  extractedISBN   String?
+  extractedPublisher String?
+  extractedYear   Int?
+  imageUrl        String?       // Foto da capa/folha rosto
+  
+  // Dados enriquecidos (APIs externas)
+  enrichedData    Json?
+  
+  // Workflow
+  status          CatalogStatus @default(DRAFT)
+  catalogerId     String
+  supervisorId    String?
+  
+  reviewNotes     String?
+  rejectionReason String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  approvedAt      DateTime?
+  
+  cataloger       User          @relation("CatalogerEntries", fields: [catalogerId], references: [id])
+  supervisor      User?         @relation("SupervisorApprovals", fields: [supervisorId], references: [id])
+  
+  @@index([catalogerId])
+  @@index([status])
+}
+
+// ============================================
+// MÓDULO DE EMPRÉSTIMOS
+// ============================================
+
+model Loan {
+  id                  String     @id @default(cuid())
+  copyId              String
+  userId              String
+  status              LoanStatus @default(ACTIVE)
+  
+  loanDate            DateTime   @default(now())
+  dueDate             DateTime
+  returnDate          DateTime?
+  
+  renewalCount        Int        @default(0)
+  maxRenewals         Int        @default(2)
+  
+  // Multas
+  fineAmount          Decimal    @default(0) @db.Decimal(10, 2)
+  daysOverdue         Int        @default(0)
+  
+  notes               String?
+  
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  
+  copy                Copy       @relation(fields: [copyId], references: [id])
+  user                User       @relation(fields: [userId], references: [id])
+  fines               Fine[]
+  notifications       Notification[]
+  
+  @@index([userId])
+  @@index([copyId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Reservation {
+  id                    String            @id @default(cuid())
+  bookId                String
+  userId                String
+  status                ReservationStatus @default(ACTIVE)
+  
+  reservationDate       DateTime          @default(now())
+  availableDate         DateTime?
+  expiryDate            DateTime?
+  collectionDate        DateTime?
+  
+  queuePosition         Int
+  
+  notifiedAt            DateTime?
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  
+  book                  Book              @relation(fields: [bookId], references: [id])
+  user                  User              @relation(fields: [userId], references: [id])
+  notifications         Notification[]
+  
+  @@index([userId])
+  @@index([bookId])
+  @@index([status])
+  @@index([queuePosition])
+}
+
+model ClassroomLoan {
+  id              String   @id @default(cuid())
+  teacherId       String
+  course          String
+  class           String
+  loanDate        DateTime @default(now())
+  returnDate      DateTime?
+  expectedReturn  DateTime // Fim da aula
+  
+  bookIds         String[] // Array de IDs de livros
+  quantities      Int[]    // Quantidades correspondentes
+  
+  notes           String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  teacher         User     @relation(fields: [teacherId], references: [id])
+  
+  @@index([teacherId])
+  @@index([loanDate])
+}
+
+// ============================================
+// MÓDULO DE MULTAS
+// ============================================
+
+model Fine {
+  id              String     @id @default(cuid())
+  userId          String
+  loanId          String?
+  type            FineType
+  amount          Decimal    @db.Decimal(10, 2)
+  status          FineStatus @default(PENDING)
+  
+  reason          String?
+  
+  generatedAt     DateTime   @default(now())
+  paidAt          DateTime?
+  paymentMethod   String?
+  paymentReference String?
+  
+  waivedAt        DateTime?
+  waivedBy        String?
+  waiverReason    String?
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  user            User       @relation(fields: [userId], references: [id])
+  loan            Loan?      @relation(fields: [loanId], references: [id])
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+// ============================================
+// MÓDULO DE NOTIFICAÇÕES
+// ============================================
+
+model Notification {
+  id              String             @id @default(cuid())
+  userId          String
+  type            NotificationType
+  status          NotificationStatus @default(PENDING)
+  
+  title           String
+  message         String             @db.Text
+  
+  loanId          String?
+  reservationId   String?
+  
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  
+  metadata        Json?              // Dados adicionais
+  
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  
+  user            User               @relation(fields: [userId], references: [id])
+  loan            Loan?              @relation(fields: [loanId], references: [id])
+  reservation     Reservation?       @relation(fields: [reservationId], references: [id])
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+// ============================================
+// MÓDULO DE SERVIÇOS ESPECIAIS
+// ============================================
+
+model LockerRental {
+  id              String       @id @default(cuid())
+  lockerId        String
+  userId          String
+  
+  startTime       DateTime     @default(now())
+  endTime         DateTime?
+  expectedEnd     DateTime     // 3h após início
+  
+  overtimeMinutes Int          @default(0)
+  fineAmount      Decimal      @default(0) @db.Decimal(10, 2)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  locker          Locker       @relation(fields: [lockerId], references: [id])
+  user            User         @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([lockerId])
+}
+
+model Locker {
+  id              String        @id @default(cuid())
+  number          String        @unique
+  location        String
+  status          LockerStatus  @default(AVAILABLE)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  rentals         LockerRental[]
+  
+  @@index([status])
+}
+
+model ComputerSession {
+  id              String         @id @default(cuid())
+  computerId      String
+  userId          String
+  
+  startTime       DateTime       @default(now())
+  endTime         DateTime?
+  expectedEnd     DateTime       // 2h após início
+  
+  renewalCount    Int            @default(0)
+  maxRenewals     Int            @default(1)
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  computer        Computer       @relation(fields: [computerId], references: [id])
+  user            User           @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([computerId])
+}
+
+model Computer {
+  id              String          @id @default(cuid())
+  number          String          @unique
+  location        String          // "Lab 1", "Lab 2"
+  status          ComputerStatus  @default(AVAILABLE)
+  specifications  Json?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  sessions        ComputerSession[]
+  
+  @@index([status])
+}
+
+model SpecialRequest {
+  id              String        @id @default(cuid())
+  userId          String
+  type            String        // "BIBLIOGRAPHY", "CATALOGING", "TRAINING"
+  
+  title           String
+  description     String        @db.Text
+  status          RequestStatus @default(PENDING)
+  
+  requestedAt     DateTime      @default(now())
+  completedAt     DateTime?
+  
+  response        String?       @db.Text
+  responseAt      DateTime?
+  
+  // Para agendamento de formações
+  scheduledDate   DateTime?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  user            User          @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+}
+
+// ============================================
+// MÓDULO DE IA E RECOMENDAÇÕES
+// ============================================
+
+model BookRecommendation {
+  id              String   @id @default(cuid())
+  bookId          String
+  
+  // Livros similares recomendados
+  recommendedBooks String[] // Array de IDs de livros
+  
+  // Metadata da recomendação
+  algorithm       String   // "COLLABORATIVE", "CONTENT_BASED", "HYBRID"
+  confidence      Decimal  @db.Decimal(5, 2)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  book            Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  @@index([bookId])
+}
+
+model ChatMessage {
+  id              String   @id @default(cuid())
+  userId          String?  // Null se for mensagem do bot
+  sessionId       String
+  
+  message         String   @db.Text
+  isBot           Boolean  @default(false)
+  
+  intent          String?  // Intenção detectada pelo NLP
+  confidence      Decimal? @db.Decimal(5, 2)
+  
+  metadata        Json?
+  
+  createdAt       DateTime @default(now())
+  
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model BookReview {
+  id              String   @id @default(cuid())
+  bookId          String
+  userId          String
+  
+  rating          Int      // 1-5
+  review          String?  @db.Text
+  
+  isVerifiedRead  Boolean  @default(false) // Se o usuário já emprestou o livro
+  
+  helpfulCount    Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  book            Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id])
+  
+  @@unique([bookId, userId])
+  @@index([bookId])
+  @@index([rating])
+}
+
+// ============================================
+// MÓDULO DE RELATÓRIOS E ANALYTICS
+// ============================================
+
+model Report {
+  id              String   @id @default(cuid())
+  name            String
+  type            String   // "LOANS", "OVERDUE", "POPULAR_BOOKS", "USER_ACTIVITY"
+  
+  filters         Json?    // Filtros aplicados
+  
+  generatedBy     String?  // User ID
+  generatedAt     DateTime @default(now())
+  
+  fileUrl         String?  // URL do arquivo gerado
+  format          String   // "PDF", "EXCEL", "CSV"
+  
+  // Para relatórios agendados
+  isScheduled     Boolean  @default(false)
+  schedule        String?  // Cron expression
+  
+  @@index([type])
+  @@index([generatedAt])
+}
+
+model SystemMetrics {
+  id              String   @id @default(cuid())
+  date            DateTime @default(now()) @db.Date
+  
+  // Contadores diários
+  totalLoans      Int      @default(0)
+  totalReturns    Int      @default(0)
+  totalReservations Int    @default(0)
+  newUsers        Int      @default(0)
+  newBooks        Int      @default(0)
+  
+  // Métricas de qualidade
+  overdueLoans    Int      @default(0)
+  finesCollected  Decimal  @default(0) @db.Decimal(10, 2)
+  
+  // Uso de recursos
+  lockerUsage     Int      @default(0)
+  computerUsage   Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([date])
+  @@index([date])
+}
+
+// ============================================
+// MÓDULO DE AUDITORIA
+// ============================================
+
+model ActivityLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  
+  action          String   // "CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT"
+  entity          String   // "BOOK", "LOAN", "USER", "RESERVATION"
+  entityId        String?
+  
+  description     String
+  ipAddress       String?
+  userAgent       String?
+  
+  metadata        Json?    // Dados adicionais
+  
+  createdAt       DateTime @default(now())
+  
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model SystemConfiguration {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  value           String   @db.Text
+  description     String?
+  
+  updatedAt       DateTime @updatedAt
+  updatedBy       String?
+  
+  @@index([key])
+}
+
+// ============================================
+// VIEWS E ÍNDICES ADICIONAIS
+// ============================================
+
+// Configurações do sistema que podem ser ajustadas:
+// - STUDENT_LOAN_DAYS: 5
+// - TEACHER_LOAN_DAYS: 15
+// - STUDENT_MAX_BOOKS: 2
+// - TEACHER_MAX_BOOKS: 4
+// - MAX_RENEWALS: 2
+// - RESERVATION_COLLECTION_HOURS: 48
+// - LOCKER_DURATION_HOURS: 3
+// - COMPUTER_SESSION_HOURS: 2
+// - FINE_PER_DAY: valor conforme tabela
+// - LOCKER_FINE_PER_HOUR: valor conforme tabela
