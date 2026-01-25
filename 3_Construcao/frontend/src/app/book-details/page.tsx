@@ -49,8 +49,9 @@ export default function BookDetails() {
 
   const { data: member } = useQuery({
     queryKey: ['member', user?.email],
-    queryFn: async () => { const members = await api.entities.Member.filter({ user_id: user?.email }); return members[0]; },
-    enabled: !!user?.email
+    queryFn: async () => { const members = await api.entities.Member.filter({ user_id: user?.email }); return members[0] || null; },
+    enabled: !!user?.email,
+    initialData: null
   });
 
   const { data: copies = [] } = useQuery({
@@ -79,33 +80,38 @@ export default function BookDetails() {
 
   const reserveMutation = useMutation({
     mutationFn: async () => {
+      if (!user || !book) return;
       const queuePosition = queueReservations.length + 1;
+      const availableCopiesCount = (book.available_copies ?? 0);
       await api.entities.Reservation.create({
         book_id: bookId, member_id: user.email, book_title: book.title, member_name: user.full_name,
-        status: book.available_copies > 0 ? 'available' : 'active', reservation_date: new Date().toISOString(),
+        status: availableCopiesCount > 0 ? 'available' : 'active', reservation_date: new Date().toISOString(),
         queue_position: queuePosition,
-        available_date: book.available_copies > 0 ? new Date().toISOString() : null,
-        expiry_date: book.available_copies > 0 ? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() : null
+        available_date: availableCopiesCount > 0 ? new Date().toISOString() : null,
+        expiry_date: availableCopiesCount > 0 ? new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() : null
       });
       await api.entities.Notification.create({
         user_id: user.email, type: 'in_app', status: 'pending',
-        title: book.available_copies > 0 ? 'Livro reservado!' : 'Entrou na fila de espera',
-        message: book.available_copies > 0 ? `O livro "${book.title}" está reservado para você. Retire em até 48 horas.` : `Você está na posição ${queuePosition} da fila para "${book.title}".`,
+        title: availableCopiesCount > 0 ? 'Livro reservado!' : 'Entrou na fila de espera',
+        message: availableCopiesCount > 0 ? `O livro "${book.title}" está reservado para você. Retire em até 48 horas.` : `Você está na posição ${queuePosition} da fila para "${book.title}".`,
         reservation_id: bookId, action_type: 'collect_reservation'
       });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['reservations', bookId, user?.email]); queryClient.invalidateQueries(['queue', bookId]); setShowReserveDialog(false); toast.success(book.available_copies > 0 ? 'Reserva realizada com sucesso!' : 'Você entrou na fila de espera!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reservations', bookId, user?.email] }); queryClient.invalidateQueries({ queryKey: ['queue', bookId] }); setShowReserveDialog(false); toast.success((book?.available_copies ?? 0) > 0 ? 'Reserva realizada com sucesso!' : 'Você entrou na fila de espera!'); },
     onError: () => { toast.error('Erro ao realizar reserva'); }
   });
 
   const reviewMutation = useMutation({
     mutationFn: async () => {
+      if (!user || !book) return;
       await api.entities.BookReview.create({ book_id: bookId, user_id: user.email, user_name: user.full_name, rating: reviewRating, review: reviewText, is_verified_read: false });
-      const newTotalReviews = (book.total_reviews || 0) + 1;
-      const newAverage = ((book.average_rating || 0) * (book.total_reviews || 0) + reviewRating) / newTotalReviews;
+      const currentTotal = typeof book.total_reviews === 'number' ? book.total_reviews : 0;
+      const currentAvg = typeof book.average_rating === 'number' ? book.average_rating : 0;
+      const newTotalReviews = currentTotal + 1;
+      const newAverage = (currentAvg * currentTotal + reviewRating) / newTotalReviews;
       await api.entities.Book.update(bookId, { average_rating: newAverage, total_reviews: newTotalReviews });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['reviews', bookId]); queryClient.invalidateQueries(['book', bookId]); setShowReviewDialog(false); setReviewRating(0); setReviewText(''); toast.success('Avaliação enviada!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reviews', bookId] }); queryClient.invalidateQueries({ queryKey: ['book', bookId] }); setShowReviewDialog(false); setReviewRating(0); setReviewText(''); toast.success('Avaliação enviada!'); },
     onError: () => { toast.error('Erro ao enviar avaliação'); }
   });
 
@@ -181,22 +187,22 @@ export default function BookDetails() {
               )}
             </div>
 
-            <Card className={cn("border-2 mb-6", availableCopies.length > 0 || book.available_copies > 0 ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50")}>
+            <Card className={cn("border-2 mb-6", availableCopies.length > 0 || (book.available_copies ?? 0) > 0 ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50")}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {(availableCopies.length > 0 || book.available_copies > 0) ? <CheckCircle className="w-8 h-8 text-emerald-600" /> : <AlertCircle className="w-8 h-8 text-orange-600" />}
+                    {(availableCopies.length > 0 || (book.available_copies ?? 0) > 0) ? <CheckCircle className="w-8 h-8 text-emerald-600" /> : <AlertCircle className="w-8 h-8 text-orange-600" />}
                     <div>
-                      <p className={cn("font-semibold text-lg", (availableCopies.length > 0 || book.available_copies > 0) ? "text-emerald-800" : "text-orange-800")}>
-                        {(availableCopies.length > 0 || book.available_copies > 0) ? `${book.available_copies || availableCopies.length} exemplar(es) disponível(is)` : 'Indisponível no momento'}
+                      <p className={cn("font-semibold text-lg", (availableCopies.length > 0 || (book.available_copies ?? 0) > 0) ? "text-emerald-800" : "text-orange-800")}>
+                        {(availableCopies.length > 0 || (book.available_copies ?? 0) > 0) ? `${book.available_copies ?? availableCopies.length} exemplar(es) disponível(is)` : 'Indisponível no momento'}
                       </p>
-                      {queueReservations.length > 0 && !book.available_copies && <p className="text-sm text-orange-700">{queueReservations.length} pessoa(s) na fila de espera</p>}
+                      {queueReservations.length > 0 && !(book.available_copies ?? 0) && <p className="text-sm text-orange-700">{queueReservations.length} pessoa(s) na fila de espera</p>}
                     </div>
                   </div>
                   {user ? (
                     hasExistingReservation ? <Badge className="bg-indigo-100 text-indigo-700 py-2 px-4">Já reservado</Badge> : (
-                      <Button onClick={() => setShowReserveDialog(true)} className={(book.available_copies > 0 || availableCopies.length > 0) ? "bg-emerald-600 hover:bg-emerald-700" : "bg-orange-600 hover:bg-orange-700"}>
-                        {(book.available_copies > 0 || availableCopies.length > 0) ? 'Reservar para Retirada' : 'Entrar na Fila'}
+                      <Button onClick={() => setShowReserveDialog(true)} className={((book.available_copies ?? 0) > 0 || availableCopies.length > 0) ? "bg-emerald-600 hover:bg-emerald-700" : "bg-orange-600 hover:bg-orange-700"}>
+                        {((book.available_copies ?? 0) > 0 || availableCopies.length > 0) ? 'Reservar para Retirada' : 'Entrar na Fila'}
                       </Button>
                     )
                   ) : <Link to={createPageUrl('Home')}><Button variant="outline">Faça login para reservar</Button></Link>}

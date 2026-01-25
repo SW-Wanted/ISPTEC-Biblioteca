@@ -68,7 +68,7 @@ export default function AdminDashboard() {
   const { data: fines = [] } = useQuery({ queryKey: ['admin-fines'], queryFn: () => api.entities.Fine.list(), initialData: [] });
 
   const activeLoans = loans.filter(l => l.status === 'active');
-  const overdueLoans = loans.filter(l => l.status === 'overdue' || (l.status === 'active' && new Date(l.due_date) < new Date()));
+  const overdueLoans = loans.filter(l => l.status === 'overdue' || (l.status === 'active' && l.due_date && new Date(l.due_date) < new Date()));
   const activeReservations = reservations.filter(r => r.status === 'active' || r.status === 'available');
   const pendingFines = fines.filter(f => f.status === 'pending');
   const totalPendingFinesAmount = pendingFines.reduce((sum, f) => sum + (f.amount || 0), 0);
@@ -82,6 +82,7 @@ export default function AdminDashboard() {
     const dayEnd = endOfDay(date);
 
     const dayLoans = loans.filter(l => {
+      if (!l.loan_date) return false;
       const loanDate = new Date(l.loan_date);
       return loanDate >= dayStart && loanDate <= dayEnd;
     });
@@ -117,13 +118,13 @@ export default function AdminDashboard() {
           <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><span className="text-sm text-slate-500">Total de Livros</span><BookOpen className="w-5 h-5 text-indigo-600" /></div><p className="text-2xl font-bold text-slate-800">{books.length}</p><p className="text-xs text-slate-400 mt-1">{totalCopies} exemplares • {availableBooks} disponíveis</p></CardContent></Card>
           <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><span className="text-sm text-slate-500">Membros Ativos</span><Users className="w-5 h-5 text-emerald-600" /></div><p className="text-2xl font-bold text-slate-800">{activeMembers.length}</p><p className="text-xs text-slate-400 mt-1">de {members.length} cadastrados</p></CardContent></Card>
           <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><span className="text-sm text-slate-500">Taxa de Ocupação</span><Activity className="w-5 h-5 text-purple-600" /></div><p className="text-2xl font-bold text-slate-800">{totalCopies > 0 ? Math.round(((totalCopies - availableBooks) / totalCopies) * 100) : 0}%</p><Progress value={totalCopies > 0 ? ((totalCopies - availableBooks) / totalCopies) * 100 : 0} className="mt-2" /></CardContent></Card>
-          <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><span className="text-sm text-slate-500">Empréstimos Hoje</span><Calendar className="w-5 h-5 text-amber-600" /></div><p className="text-2xl font-bold text-slate-800">{loans.filter(l => { const loanDate = new Date(l.loan_date); return loanDate >= startOfDay(DASHBOARD_NOW) && loanDate <= endOfDay(DASHBOARD_NOW); }).length}</p></CardContent></Card>
+          <Card className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between mb-2"><span className="text-sm text-slate-500">Empréstimos Hoje</span><Calendar className="w-5 h-5 text-amber-600" /></div><p className="text-2xl font-bold text-slate-800">{loans.filter(l => { if (!l.loan_date) return false; const loanDate = new Date(l.loan_date); return loanDate >= startOfDay(DASHBOARD_NOW) && loanDate <= endOfDay(DASHBOARD_NOW); }).length}</p></CardContent></Card>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           <Card className="border-0 shadow-sm lg:col-span-2"><CardHeader><CardTitle className="text-sm font-medium text-slate-800">Movimentação da Semana</CardTitle></CardHeader><CardContent><div className="h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={loanChartData}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="date" stroke="#94a3b8" fontSize={12} /><YAxis stroke="#94a3b8" fontSize={12} /><Tooltip /><Area type="monotone" dataKey="emprestimos" stackId="1" stroke="#6366f1" fill="#6366f1" fillOpacity={0.6} name="Empréstimos" /><Area type="monotone" dataKey="devolucoes" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Devoluções" /></AreaChart></ResponsiveContainer></div></CardContent></Card>
 
-          <Card className="border-0 shadow-sm"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium text-slate-800">Empréstimos em Atraso</CardTitle><Badge className="bg-red-100 text-red-700">{overdueLoans.length}</Badge></CardHeader><CardContent>{overdueLoans.length === 0 ? <div className="text-center py-8"><CheckCircle className="w-12 h-12 text-emerald-300 mx-auto mb-2" /><p className="text-sm text-slate-500">Nenhum empréstimo em atraso</p></div> : <div className="space-y-3">{overdueLoans.slice(0, 5).map(loan => <div key={loan.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg"><div><p className="font-medium text-slate-800 text-sm">{loan.book_title}</p><p className="text-xs text-slate-500">{loan.member_name}</p></div><Badge className="bg-red-100 text-red-700 text-xs">{Math.abs(Math.floor((new Date() - new Date(loan.due_date)) / (1000 * 60 * 60 * 24)))} dias</Badge></div>)}</div>}</CardContent></Card>
+          <Card className="border-0 shadow-sm"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium text-slate-800">Empréstimos em Atraso</CardTitle><Badge className="bg-red-100 text-red-700">{overdueLoans.length}</Badge></CardHeader><CardContent>{overdueLoans.length === 0 ? <div className="text-center py-8"><CheckCircle className="w-12 h-12 text-emerald-300 mx-auto mb-2" /><p className="text-sm text-slate-500">Nenhum empréstimo em atraso</p></div> : <div className="space-y-3">{overdueLoans.slice(0, 5).map(loan => <div key={loan.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg"><div><p className="font-medium text-slate-800 text-sm">{loan.book_title}</p><p className="text-xs text-slate-500">{loan.member_name}</p></div><Badge className="bg-red-100 text-red-700 text-xs">{loan.due_date ? Math.abs(Math.floor((new Date().getTime() - new Date(loan.due_date).getTime()) / (1000 * 60 * 60 * 24))) : 0} dias</Badge></div>)}</div>}</CardContent></Card>
         </div>
       </div>
     </div>

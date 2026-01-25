@@ -22,7 +22,7 @@ const TRAINING_MIN_DATE = format(addHours(new Date(), 24 * 7), 'yyyy-MM-dd');
 
 export default function Services() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
-  const [activeService, setActiveService] = useState(null);
+  const [activeService, setActiveService] = useState<string | null>(null);
   const [requestForm, setRequestForm] = useState({ type: '', title: '', description: '', scheduled_date: '' });
   const queryClient = useQueryClient();
 
@@ -41,29 +41,32 @@ export default function Services() {
   const availableComputers = computers.filter(c => c.status === 'available');
 
   const reserveLockerMutation = useMutation({
-    mutationFn: async (locker) => {
+    mutationFn: async (locker: any) => {
+      if (!user) return;
       await api.entities.Locker.update(locker.id, { status: 'occupied', current_user_id: user.email, occupied_at: new Date().toISOString(), expected_end: addHours(new Date(), 3).toISOString() });
       await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Cacifo reservado!', message: `Cacifo ${locker.number} reservado por 3 horas. Libere até ${format(addHours(new Date(), 3), 'HH:mm')}.`, action_type: 'none' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['lockers']); setActiveService(null); toast.success('Cacifo reservado com sucesso!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lockers'] }); setActiveService(null); toast.success('Cacifo reservado com sucesso!'); },
     onError: () => { toast.error('Erro ao reservar cacifo'); }
   });
 
   const reserveComputerMutation = useMutation({
-    mutationFn: async (computer) => {
+    mutationFn: async (computer: any) => {
+      if (!user) return;
       await api.entities.Computer.update(computer.id, { status: 'occupied', current_user_id: user.email, session_start: new Date().toISOString(), session_end: addHours(new Date(), 2).toISOString() });
       await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Computador reservado!', message: `Computador ${computer.number} no ${computer.location} reservado por 2 horas. Faça check-in no balcão.`, action_type: 'none' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['computers']); setActiveService(null); toast.success('Computador reservado! Faça check-in no balcão.'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['computers'] }); setActiveService(null); toast.success('Computador reservado! Faça check-in no balcão.'); },
     onError: () => { toast.error('Erro ao reservar computador'); }
   });
 
   const submitRequestMutation = useMutation({
     mutationFn: async () => {
+      if (!user) return;
       await api.entities.SpecialRequest.create({ user_id: user.email, user_name: user.full_name, type: requestForm.type, title: requestForm.title, description: requestForm.description, status: 'pending', scheduled_date: requestForm.scheduled_date || null });
       await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Solicitação enviada!', message: `Sua solicitação de ${requestForm.type === 'bibliography' ? 'levantamento bibliográfico' : requestForm.type === 'cataloging' ? 'catalogação na fonte' : 'formação'} foi recebida. Prazo: 5 dias úteis.`, action_type: 'none' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['my-requests', user?.email]); setActiveService(null); setRequestForm({ type: '', title: '', description: '', scheduled_date: '' }); toast.success('Solicitação enviada com sucesso!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['my-requests', user?.email] }); setActiveService(null); setRequestForm({ type: '', title: '', description: '', scheduled_date: '' }); toast.success('Solicitação enviada com sucesso!'); },
     onError: () => { toast.error('Erro ao enviar solicitação'); }
   });
 
@@ -75,7 +78,7 @@ export default function Services() {
     { id: 'training', icon: GraduationCap, title: 'Formações', description: 'Agende formação em bases de dados', color: 'from-indigo-500 to-violet-500' }
   ];
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending': return <Badge className="bg-yellow-100 text-yellow-700">Pendente</Badge>;
       case 'in_progress': return <Badge className="bg-blue-100 text-blue-700">Em andamento</Badge>;
@@ -116,7 +119,7 @@ export default function Services() {
           </TabsContent>
           <TabsContent value="requests">
             {myRequests.length === 0 ? <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhuma solicitação</h3><p className="text-slate-500">Suas solicitações de serviços especiais aparecerão aqui.</p></CardContent></Card> : (
-              <div className="space-y-4">{myRequests.map(request => <Card key={request.id} className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-start justify-between"><div><div className="flex items-center gap-2 mb-1">{getStatusBadge(request.status)}<Badge variant="outline" className="text-xs">{request.type === 'bibliography' && 'Levantamento Bibliográfico'}{request.type === 'cataloging' && 'Catalogação na Fonte'}{request.type === 'training' && 'Formação'}</Badge></div><h3 className="font-medium text-slate-800">{request.title}</h3><p className="text-sm text-slate-500 mt-1">{request.description}</p><p className="text-xs text-slate-400 mt-2">Solicitado em {format(new Date(request.created_date), "dd/MM/yyyy")}</p></div>{request.response && <div className="text-right"><p className="text-xs text-slate-500">Resposta:</p><p className="text-sm text-slate-700">{request.response}</p></div>}</div></CardContent></Card>)}</div>
+              <div className="space-y-4">{myRequests.map(request => <Card key={request.id} className="border-0 shadow-sm"><CardContent className="p-4"><div className="flex items-start justify-between"><div><div className="flex items-center gap-2 mb-1">{getStatusBadge(request.status)}<Badge variant="outline" className="text-xs">{request.type === 'bibliography' && 'Levantamento Bibliográfico'}{request.type === 'cataloging' && 'Catalogação na Fonte'}{request.type === 'training' && 'Formação'}</Badge></div><h3 className="font-medium text-slate-800">{request.title}</h3><p className="text-sm text-slate-500 mt-1">{request.description}</p>{request.created_date && <p className="text-xs text-slate-400 mt-2">Solicitado em {format(new Date(request.created_date), "dd/MM/yyyy")}</p>}</div>{request.response && <div className="text-right"><p className="text-xs text-slate-500">Resposta:</p><p className="text-sm text-slate-700">{request.response}</p></div>}</div></CardContent></Card>)}</div>
             )}
           </TabsContent>
         </Tabs>

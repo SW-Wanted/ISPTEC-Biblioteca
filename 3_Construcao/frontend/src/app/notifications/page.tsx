@@ -55,9 +55,10 @@ export default function Notifications() {
     queryKey: ['member-prefs', user?.email],
     queryFn: async () => {
       const members = await api.entities.Member.filter({ user_id: user?.email });
-      return members[0];
+      return members[0] || null;
     },
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: null
   });
 
   // Real-time subscription

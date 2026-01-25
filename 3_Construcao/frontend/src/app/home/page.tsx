@@ -46,9 +46,10 @@ export default function Home() {
     queryKey: ['member', user?.email],
     queryFn: async () => {
       const members = await api.entities.Member.filter({ user_id: user?.email });
-      return members[0];
+      return members[0] || null;
     },
-    enabled: !!user?.email
+    enabled: !!user?.email,
+    initialData: null
   });
 
   const { data: activeLoans = [] } = useQuery({
@@ -75,7 +76,7 @@ export default function Home() {
     initialData: []
   });
 
-  const handleSearch = (e) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       window.location.href = createPageUrl(`SearchBooks?q=${encodeURIComponent(searchQuery)}`);
@@ -305,7 +306,7 @@ export default function Home() {
                           <BookOpen className="w-12 h-12 text-slate-300" />
                         </div>
                       )}
-                      {book.available_copies > 0 && (
+                      {book.available_copies != null && book.available_copies > 0 && (
                         <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
                           Disponível
                         </Badge>
@@ -318,10 +319,10 @@ export default function Home() {
                       <p className="text-xs text-slate-500 mt-1 line-clamp-1">
                         {book.authors?.join(', ') || 'Autor desconhecido'}
                       </p>
-                      {book.average_rating > 0 && (
+                      {book.average_rating != null && book.average_rating > 0 && (
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                          <span className="text-xs text-slate-600">{book.average_rating.toFixed(1)}</span>
+                          <span className="text-xs text-slate-600">{book.average_rating?.toFixed(1)}</span>
                         </div>
                       )}
                     </CardContent>

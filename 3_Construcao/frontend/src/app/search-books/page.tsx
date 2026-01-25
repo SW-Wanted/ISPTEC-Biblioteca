@@ -64,12 +64,12 @@ function FilterSidebar({
     <div className="space-y-6">
       <div>
         <h4 className="font-medium text-slate-800 mb-3">Categoria</h4>
-        <Select value={filters.category} onValueChange={(v) => setFilters({ ...filters, category: v })}>
+        <Select value={filters.category || 'all'} onValueChange={(v) => setFilters({ ...filters, category: v === 'all' ? '' : v })}>
           <SelectTrigger>
             <SelectValue placeholder="Todas as categorias" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todas as categorias</SelectItem>
+            <SelectItem value="all">Todas as categorias</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.name}>
                 {cat.name}
@@ -81,12 +81,12 @@ function FilterSidebar({
 
       <div>
         <h4 className="font-medium text-slate-800 mb-3">Idioma</h4>
-        <Select value={filters.language} onValueChange={(v) => setFilters({ ...filters, language: v })}>
+        <Select value={filters.language || 'all'} onValueChange={(v) => setFilters({ ...filters, language: v === 'all' ? '' : v })}>
           <SelectTrigger>
             <SelectValue placeholder="Todos os idiomas" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos os idiomas</SelectItem>
+            <SelectItem value="all">Todos os idiomas</SelectItem>
             <SelectItem value="pt">Português</SelectItem>
             <SelectItem value="en">Inglês</SelectItem>
             <SelectItem value="es">Espanhol</SelectItem>

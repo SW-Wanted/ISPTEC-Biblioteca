@@ -32,8 +32,9 @@ export default function MyLoans() {
 
   const { data: member } = useQuery({
     queryKey: ['member', user?.email],
-    queryFn: async () => { const members = await api.entities.Member.filter({ user_id: user?.email }); return members[0]; },
-    enabled: !!user?.email
+    queryFn: async () => { const members = await api.entities.Member.filter({ user_id: user?.email }); return members[0] || null; },
+    enabled: !!user?.email,
+    initialData: null
   });
 
   const { data: loans = [], isLoading } = useQuery({
