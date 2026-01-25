@@ -12,12 +12,31 @@ import {
   BookMarked,
   Clock,
   Bell,
+  User,
+  Settings,
+  LogOut,
+  MessageCircle,
+  ChevronDown,
+  Library,
+  Users,
+  FileText,
+  BarChart3,
+  Computer,
   KeyRound,
   HelpCircle,
-  Shield,
+  Sparkles,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type NavItem = {
   name: string
@@ -25,15 +44,24 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>
 }
 
-const NAV_ITEMS: NavItem[] = [
+const USER_NAV_ITEMS: NavItem[] = [
   { name: "Início", href: "/", icon: LayoutDashboard },
   { name: "Pesquisar Livros", href: "/search-books", icon: Search },
   { name: "Meus Empréstimos", href: "/my-loans", icon: BookMarked },
   { name: "Minhas Reservas", href: "/my-reservations", icon: Clock },
-  { name: "Notificações", href: "/notifications", icon: Bell },
-  { name: "Serviços", href: "/services", icon: KeyRound },
-  { name: "Ajuda", href: "/help", icon: HelpCircle },
-  { name: "Admin", href: "/admin-dashboard", icon: Shield },
+  { name: "Recomendações", href: "/recommendations", icon: Sparkles },
+  { name: "Serviços", href: "/services", icon: Computer },
+  { name: "Assistente", href: "/chatbot", icon: MessageCircle },
+]
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  { name: "Dashboard Admin", href: "/admin-dashboard", icon: BarChart3 },
+  { name: "Gestão de Livros", href: "/manage-books", icon: Library },
+  { name: "Gestão de Membros", href: "/manage-members", icon: Users },
+  { name: "Empréstimos", href: "/manage-loans", icon: BookMarked },
+  { name: "Multas", href: "/manage-fines", icon: KeyRound },
+  { name: "Catalogação", href: "/cataloging", icon: FileText },
+  { name: "Relatórios", href: "/reports", icon: BarChart3 },
 ]
 
 function isActive(pathname: string, href: string) {
@@ -44,6 +72,29 @@ function isActive(pathname: string, href: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
+  
+  // TODO: Implementar autenticação real
+  const [user, setUser] = React.useState<any>(null)
+  const [member, setMember] = React.useState<any>(null)
+  
+  // Simular usuário logado (remover quando autenticação estiver implementada)
+  React.useEffect(() => {
+    // setUser({ full_name: 'Utilizador Demo', email: 'demo@isptec.ao' })
+    // setMember({ member_type: 'student' })
+  }, [])
+
+  const isAdmin = member?.member_type === 'librarian' || 
+                  member?.member_type === 'supervisor' || 
+                  member?.member_type === 'cataloger' || 
+                  user?.role === 'admin'
+  
+  const unreadCount = 0 // TODO: Integrar com notificações reais
+
+  const handleLogout = () => {
+    setUser(null)
+    setMember(null)
+    // TODO: Chamar API de logout
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -106,11 +157,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-64px)]">
+        <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-180px)]">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
             Principal
           </p>
-          {NAV_ITEMS.map((item) => {
+          {USER_NAV_ITEMS.map((item) => {
             const active = isActive(pathname, item.href)
             const Icon = item.icon
 
@@ -136,12 +187,105 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             )
           })}
+
+          {isAdmin && (
+            <>
+              <div className="pt-4 pb-2">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3">
+                  Administração
+                </p>
+              </div>
+              {ADMIN_NAV_ITEMS.map((item) => {
+                const active = isActive(pathname, item.href)
+                const Icon = item.icon
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                      active
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "w-5 h-5",
+                        active ? "text-indigo-600" : "text-slate-400"
+                      )}
+                    />
+                    {item.name}
+                  </Link>
+                )
+              })}
+            </>
+          )}
         </nav>
+
+        {/* User Section */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-100 bg-white">
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button type="button" className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                    {user.full_name?.charAt(0) || user.email?.charAt(0)?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-slate-800 truncate">
+                      {user.full_name || 'Utilizador'}
+                    </p>
+                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem>
+                  <Link href="/profile" className="flex items-center gap-2 w-full">
+                    <User className="w-4 h-4" />
+                    Meu Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link href="/notifications" className="flex items-center gap-2 w-full">
+                    <Bell className="w-4 h-4" />
+                    Notificações
+                    {unreadCount > 0 && (
+                      <Badge variant="destructive" className="ml-auto text-[10px] h-5">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Link href="/help" className="flex items-center gap-2 w-full">
+                    <HelpCircle className="w-4 h-4" />
+                    Ajuda
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button asChild className="w-full">
+              <Link href="/login">Entrar</Link>
+            </Button>
+          )}
+        </div>
       </aside>
 
       {/* Main Content */}
       <main className={cn("transition-all duration-300 pt-16 lg:pt-0", "lg:ml-72")}>
-        <div className="min-h-screen p-4 sm:p-6">{children}</div>
+        <div className="min-h-screen">{children}</div>
       </main>
     </div>
   )
