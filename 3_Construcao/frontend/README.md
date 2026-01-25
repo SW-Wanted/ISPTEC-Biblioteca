@@ -2,6 +2,34 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Prisma (Base de Dados)
+
+1) Cria um ficheiro `.env` a partir do exemplo:
+
+```bash
+cp .env.example .env
+```
+
+2) Ajusta o `DATABASE_URL` para o teu PostgreSQL.
+
+3) Gera o Prisma Client (também corre automaticamente no `postinstall`):
+
+```bash
+npm run prisma:generate
+```
+
+4) Para criar/aplicar migrations (dev):
+
+```bash
+npm run prisma:migrate
+```
+
+Opcional: abrir o Prisma Studio:
+
+```bash
+npm run prisma:studio
+```
+
 First, run the development server:
 
 ```bash
