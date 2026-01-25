@@ -73,6 +73,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = React.useState(false)
   
+  // Check if current page is an auth page (no layout)
+  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password'
+  
   // TODO: Implementar autenticação real
   const [user, setUser] = React.useState<any>(null)
   const [member, setMember] = React.useState<any>(null)
@@ -94,6 +97,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setUser(null)
     setMember(null)
     // TODO: Chamar API de logout
+  }
+
+  // Render without layout for auth pages
+  if (isAuthPage) {
+    return <>{children}</>
   }
 
   return (
