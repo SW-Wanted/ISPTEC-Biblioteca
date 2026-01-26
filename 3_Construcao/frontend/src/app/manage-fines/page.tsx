@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPageUrl } from '@/utils';
 import { api } from '@/api/apiClient';
+import type { Fine as FineBase } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { DollarSign, Search, CheckCircle, XCircle, MoreHorizontal, Loader2, Filter, Download, CreditCard, AlertTriangle } from 'lucide-react';
@@ -21,13 +22,26 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+type FineRow = FineBase & {
+  member_id?: string;
+  member_name?: string;
+  type?: string;
+  reason?: string;
+  generated_at?: string;
+  paid_at?: string;
+  waived_by?: string;
+  waiver_reason?: string;
+  payment_method?: string;
+  payment_reference?: string;
+};
+
 export default function ManageFines() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showWaiverDialog, setShowWaiverDialog] = useState(false);
-  const [selectedFine, setSelectedFine] = useState(null);
+  const [selectedFine, setSelectedFine] = useState<FineRow | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentReference, setPaymentReference] = useState('');
   const [waiverReason, setWaiverReason] = useState('');
@@ -40,10 +54,10 @@ export default function ManageFines() {
     loadUser();
   }, []);
 
-  const { data: fines = [], isLoading } = useQuery({ 
+  const { data: fines = [], isLoading } = useQuery<FineRow[]>({ 
     queryKey: ['manage-fines'], 
-    queryFn: () => api.entities.Fine.list('-created_date', 200), 
-    initialData: [] 
+    queryFn: async () => (await api.entities.Fine.list('-created_date', 200)) as FineRow[], 
+    initialData: [] as FineRow[] 
   });
 
   const pendingFines = fines.filter(f => f.status === 'pending');
@@ -55,36 +69,27 @@ export default function ManageFines() {
 
   const markAsPaidMutation = useMutation({
     mutationFn: async () => {
-      await api.entities.Fine.update(selectedFine.id, {
+      const fine = selectedFine;
+      if (!fine?.id) throw new Error('Nenhuma multa selecionada');
+
+      await api.entities.Fine.update(fine.id, {
         status: 'paid',
         paid_at: new Date().toISOString(),
         payment_method: paymentMethod,
         payment_reference: paymentReference
       });
-      
-      // Update member's total fines
-      const members = await api.entities.Member.filter({ user_id: selectedFine.member_id });
-      if (members[0]) {
-        const newTotalFines = Math.max(0, (members[0].total_fines || 0) - selectedFine.amount);
-        await api.entities.Member.update(members[0].id, { total_fines: newTotalFines });
-        
-        // Unblock member if no more fines
-        if (newTotalFines === 0 && members[0].is_blocked && members[0].blocked_reason?.includes('multa')) {
-          await api.entities.Member.update(members[0].id, { is_blocked: false, blocked_reason: null });
-        }
-      }
 
       await api.entities.Notification.create({
-        user_id: selectedFine.member_id,
+        user_id: fine.member_id,
         type: 'in_app',
         status: 'pending',
         title: 'Pagamento confirmado',
-        message: `Seu pagamento de ${selectedFine.amount?.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })} foi confirmado.`,
+        message: `Seu pagamento de ${fine.amount?.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })} foi confirmado.`,
         action_type: 'none'
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['manage-fines']);
+      void queryClient.invalidateQueries({ queryKey: ['manage-fines'] });
       setShowPaymentDialog(false);
       setSelectedFine(null);
       setPaymentMethod('cash');
@@ -96,30 +101,28 @@ export default function ManageFines() {
 
   const waiveFinesMutation = useMutation({
     mutationFn: async () => {
-      await api.entities.Fine.update(selectedFine.id, {
+      const fine = selectedFine;
+      const actorEmail = user?.email;
+      if (!fine?.id) throw new Error('Nenhuma multa selecionada');
+      if (!actorEmail) throw new Error('Utilizador não autenticado');
+
+      await api.entities.Fine.update(fine.id, {
         status: 'waived',
-        waived_by: user.email,
+        waived_by: actorEmail,
         waiver_reason: waiverReason
       });
 
-      // Update member's total fines
-      const members = await api.entities.Member.filter({ user_id: selectedFine.member_id });
-      if (members[0]) {
-        const newTotalFines = Math.max(0, (members[0].total_fines || 0) - selectedFine.amount);
-        await api.entities.Member.update(members[0].id, { total_fines: newTotalFines });
-      }
-
       await api.entities.Notification.create({
-        user_id: selectedFine.member_id,
+        user_id: fine.member_id,
         type: 'in_app',
         status: 'pending',
         title: 'Multa dispensada',
-        message: `Sua multa de ${selectedFine.amount?.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })} foi dispensada. Motivo: ${waiverReason}`,
+        message: `Sua multa de ${fine.amount?.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA' })} foi dispensada. Motivo: ${waiverReason}`,
         action_type: 'none'
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['manage-fines']);
+      void queryClient.invalidateQueries({ queryKey: ['manage-fines'] });
       setShowWaiverDialog(false);
       setSelectedFine(null);
       setWaiverReason('');
@@ -128,7 +131,7 @@ export default function ManageFines() {
     onError: () => { toast.error('Erro ao dispensar multa'); }
   });
 
-  const getFineTypeLabel = (type) => {
+  const getFineTypeLabel = (type?: string) => {
     switch (type) {
       case 'late_return': return 'Atraso na devolução';
       case 'damaged_book': return 'Livro danificado';
@@ -139,7 +142,7 @@ export default function ManageFines() {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'pending': return <Badge className="bg-amber-100 text-amber-700">Pendente</Badge>;
       case 'paid': return <Badge className="bg-emerald-100 text-emerald-700">Pago</Badge>;
@@ -149,7 +152,7 @@ export default function ManageFines() {
     }
   };
 
-  const filteredFines = (finesList) => {
+  const filteredFines = (finesList: FineRow[]) => {
     return finesList.filter(fine => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -161,7 +164,7 @@ export default function ManageFines() {
     });
   };
 
-  const FineRow = ({ fine }) => (
+  const FineRow = ({ fine }: { fine: FineRow }) => (
     <TableRow className="group">
       <TableCell>
         <div>
@@ -177,9 +180,13 @@ export default function ManageFines() {
       </TableCell>
       <TableCell>{getStatusBadge(fine.status)}</TableCell>
       <TableCell className="text-slate-600 text-sm">
-        {fine.generated_at ? format(new Date(fine.generated_at), 'dd/MM/yyyy') : format(new Date(fine.created_date), 'dd/MM/yyyy')}
+        {(() => {
+          const dateStr = fine.generated_at ?? fine.created_date;
+          if (!dateStr) return '-';
+          return format(new Date(dateStr), 'dd/MM/yyyy');
+        })()}
       </TableCell>
-      <TableCell className="text-slate-500 text-sm max-w-[200px] truncate">
+      <TableCell className="text-slate-500 text-sm max-w-50 truncate">
         {fine.reason || '-'}
       </TableCell>
       <TableCell>
@@ -272,7 +279,7 @@ export default function ManageFines() {
         <Card className="border-0 shadow-sm mb-6">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px] relative">
+              <div className="flex-1 min-w-50 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <Input 
                   placeholder="Pesquisar por membro..." 

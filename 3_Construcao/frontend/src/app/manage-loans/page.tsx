@@ -39,13 +39,7 @@ export default function ManageLoans() {
 
   const returnLoanMutation = useMutation({
     mutationFn: async (loan) => {
-      const isOverdue = isPast(new Date(loan.due_date));
-      const daysOverdue = isOverdue ? differenceInDays(new Date(), new Date(loan.due_date)) : 0;
-      const finePerDay = 100; const fineAmount = daysOverdue * finePerDay;
-      await api.entities.Loan.update(loan.id, { status: 'returned', return_date: new Date().toISOString(), days_overdue: daysOverdue, fine_amount: fineAmount });
-      const books = await api.entities.Book.filter({ id: loan.book_id });
-      if (books[0]) await api.entities.Book.update(loan.book_id, { available_copies: (books[0].available_copies || 0) + 1 });
-      if (fineAmount > 0) await api.entities.Fine.create({ member_id: loan.member_id, loan_id: loan.id, member_name: loan.member_name, type: 'late_return', amount: fineAmount, status: 'pending', reason: `Atraso de ${daysOverdue} dia(s) na devolução de "${loan.book_title}"`, generated_at: new Date().toISOString() });
+      await api.entities.Loan.update(loan.id, { status: 'returned' });
     },
     onSuccess: () => { queryClient.invalidateQueries(['manage-loans']); setShowReturnDialog(false); setSelectedLoan(null); toast.success('Devolução registrada!'); },
     onError: () => { toast.error('Erro ao registrar devolução'); }

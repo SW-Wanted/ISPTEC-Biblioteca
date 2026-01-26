@@ -28,7 +28,7 @@ function BookCard({ book }: BookCardProps) {
   return (
     <Link to={createPageUrl(`BookDetails?id=${book.id}`)}>
       <Card className="group hover:shadow-md transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden h-full">
-        <div className="aspect-[2/3] bg-gradient-to-br from-slate-100 to-slate-200 relative overflow-hidden">
+        <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden">
           {book.cover_url ? (
             <img
               src={book.cover_url}
@@ -75,7 +75,7 @@ function BookSection({ title, icon: Icon, books, isLoading, description }: BookS
   return (
     <section className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -89,7 +89,7 @@ function BookSection({ title, icon: Icon, books, isLoading, description }: BookS
             .fill(0)
             .map((_, i) => (
               <Card key={i} className="border-0 shadow-sm overflow-hidden">
-                <Skeleton className="aspect-[2/3] w-full" />
+                <Skeleton className="aspect-2/3 w-full" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -187,7 +187,7 @@ Retorne apenas os números dos livros recomendados (1-20) em ordem de relevânci
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center"><Sparkles className="w-7 h-7 text-white" /></div>
+            <div className="w-14 h-14 bg-linear-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center"><Sparkles className="w-7 h-7 text-white" /></div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Recomendações para Você</h1>
               <p className="text-slate-500">Sugestões personalizadas baseadas no seu histórico de leitura</p>

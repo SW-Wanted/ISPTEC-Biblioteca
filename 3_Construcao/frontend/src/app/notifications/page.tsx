@@ -350,7 +350,7 @@ export default function Notifications() {
                               onClick={() => handleNotificationClick(notification)}
                             >
                               <div className={cn(
-                                "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                                "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
                                 notification.status !== 'read' ? "bg-indigo-100" : "bg-slate-100"
                               )}>
                                 {getNotificationIcon(notification)}
@@ -363,7 +363,7 @@ export default function Notifications() {
                                   )}>
                                     {notification.title}
                                   </h3>
-                                  <span className="text-xs text-slate-400 flex-shrink-0">
+                                  <span className="text-xs text-slate-400 shrink-0">
                                     {formatDistanceToNow(new Date(notification.created_date), { addSuffix: true })}
                                   </span>
                                 </div>
@@ -381,7 +381,7 @@ export default function Notifications() {
                               </div>
                             </div>
                             {notification.status !== 'read' && (
-                              <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-2" />
+                              <div className="w-2 h-2 bg-indigo-500 rounded-full shrink-0 mt-2" />
                             )}
                           </div>
                         </CardContent>

@@ -1,65 +1,3 @@
-type SortField = string | undefined;
-
-type ListResult<T> = T[];
-
-type SubscriptionEvent<T> =
-	| { type: 'create'; record: T }
-	| { type: 'update'; id: string; patch: Partial<T>; record: T }
-	| { type: 'delete'; id: string }
-	| { type: 'refetch' };
-
-type Unsubscribe = () => void;
-
-function nowIso(): string {
-	return new Date().toISOString();
-}
-
-function ensureBrowser(): void {
-	if (typeof window === 'undefined') {
-		throw new Error('apiClient: browser-only client called on server');
-	}
-}
-
-function safeParseJson<T>(value: string | null): T | null {
-	if (!value) return null;
-	try {
-		return JSON.parse(value) as T;
-	} catch {
-		return null;
-	}
-}
-
-function randomId(): string {
-	// crypto.randomUUID() is available in modern browsers
-	if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-		return crypto.randomUUID();
-	}
-	return `id_${Math.random().toString(16).slice(2)}_${Date.now()}`;
-}
-
-class EntityBus {
-	private listeners = new Map<string, Set<(event: SubscriptionEvent<unknown>) => void>>();
-
-	on<T>(entity: string, cb: (event: SubscriptionEvent<T>) => void): Unsubscribe {
-		const set = this.listeners.get(entity) ?? new Set();
-		const wrapped = cb as unknown as (event: SubscriptionEvent<unknown>) => void;
-		set.add(wrapped);
-		this.listeners.set(entity, set);
-		return () => {
-			set.delete(wrapped);
-			if (set.size === 0) this.listeners.delete(entity);
-		};
-	}
-
-	emit(entity: string, event: SubscriptionEvent<unknown>): void {
-		const set = this.listeners.get(entity);
-		if (!set) return;
-		for (const cb of set) cb(event);
-	}
-}
-
-const bus = new EntityBus();
-
 type BaseEntity = {
 	id: string;
 	created_date?: string;
@@ -136,137 +74,90 @@ export type SpecialRequest = BaseEntity;
 export type BookReview = BaseEntity;
 export type ChatConversation = BaseEntity;
 
-function storageKey(entity: string): string {
-	return `sgbu:${entity}`;
-}
+type SortField = string | undefined;
+type ListResult<T> = T[];
 
-function readAll<T>(entity: string): T[] {
-	ensureBrowser();
-	return safeParseJson<T[]>(window.localStorage.getItem(storageKey(entity))) ?? [];
-}
+type SubscriptionEvent<T> =
+	| { type: 'create'; record: T }
+	| { type: 'update'; id: string; patch: Partial<T>; record: T }
+	| { type: 'delete'; id: string }
+	| { type: 'refetch' };
 
-function writeAll<T>(entity: string, records: T[]): void {
-	ensureBrowser();
-	window.localStorage.setItem(storageKey(entity), JSON.stringify(records));
-	// Trigger storage event in other tabs
-	window.localStorage.setItem(`${storageKey(entity)}:touch`, nowIso());
-}
+type Unsubscribe = () => void;
 
-function matchesFilter(record: Record<string, unknown>, filter: Record<string, unknown>): boolean {
-	for (const [key, expected] of Object.entries(filter)) {
-		if (expected === undefined) continue;
-		if (expected === null) {
-			if (record[key] !== null && record[key] !== undefined) return false;
-			continue;
-		}
-		if (record[key] !== expected) return false;
+function ensureBrowser(): void {
+	if (typeof window === 'undefined') {
+		throw new Error('apiClient: browser-only client called on server');
 	}
-	return true;
 }
 
-function sortRecords<T extends Record<string, unknown>>(records: T[], sort: SortField): T[] {
-	if (!sort) return records;
-	const desc = sort.startsWith('-');
-	const field = desc ? sort.slice(1) : sort;
-	return [...records].sort((a, b) => {
-		const av = a[field];
-		const bv = b[field];
-		if (av == null && bv == null) return 0;
-		if (av == null) return desc ? 1 : -1;
-		if (bv == null) return desc ? -1 : 1;
-		if (typeof av === 'number' && typeof bv === 'number') return desc ? bv - av : av - bv;
-		const as = String(av);
-		const bs = String(bv);
-		return desc ? bs.localeCompare(as) : as.localeCompare(bs);
+async function http<T>(input: string, init?: RequestInit): Promise<T> {
+	const res = await fetch(input, {
+		...init,
+		headers: {
+			'Content-Type': 'application/json',
+			...(init?.headers ?? {}),
+		},
+		credentials: 'include',
 	});
+
+	if (!res.ok) {
+		const body = await res.json().catch(() => null);
+		const msg = body?.error ?? `HTTP ${res.status}`;
+		throw new Error(msg);
+	}
+
+	return (await res.json()) as T;
 }
 
 function createEntityClient<T extends { id: string }>(entity: string) {
+	const base = `/api/entities/${encodeURIComponent(entity)}`;
 	return {
 		list: async (sort?: SortField, take?: number): Promise<ListResult<T>> => {
-			const all = sortRecords(readAll<T>(entity), sort);
-			return typeof take === 'number' ? all.slice(0, take) : all;
+			const url = new URL(base, window.location.origin);
+			if (sort) url.searchParams.set('sort', sort);
+			if (typeof take === 'number') url.searchParams.set('take', String(take));
+			return await http<T[]>(url.toString(), { method: 'GET' });
 		},
 		filter: async (criteria: Record<string, unknown>): Promise<ListResult<T>> => {
-			const all = readAll<T>(entity);
-			return all.filter((r) => matchesFilter(r as unknown as Record<string, unknown>, criteria));
+			const url = new URL(base, window.location.origin);
+			url.searchParams.set('filter', JSON.stringify(criteria));
+			return await http<T[]>(url.toString(), { method: 'GET' });
 		},
 		create: async (data: Omit<Partial<T>, 'id'> & Record<string, unknown>): Promise<T> => {
-			const all = readAll<T>(entity);
-			const dataRecord = data as Record<string, unknown>;
-			const record = {
-				...dataRecord,
-				id: randomId(),
-				created_date: (dataRecord.created_date as string | undefined) ?? nowIso(),
-				updated_date: nowIso(),
-			} as unknown as T;
-			all.unshift(record);
-			writeAll(entity, all);
-			bus.emit(entity, { type: 'create', record: record as unknown });
-			return record as T;
+			return await http<T>(base, { method: 'POST', body: JSON.stringify(data) });
 		},
 		update: async (id: string, patch: Partial<T> & Record<string, unknown>): Promise<T> => {
-			const all = readAll<T>(entity);
-			const idx = all.findIndex((r) => r.id === id);
-			if (idx < 0) throw new Error(`${entity}: registo não encontrado`);
-			const updated = {
-				...(all[idx] as unknown as Record<string, unknown>),
-				...(patch as unknown as Record<string, unknown>),
-				updated_date: nowIso(),
-			} as unknown as T;
-			all[idx] = updated;
-			writeAll(entity, all);
-			bus.emit(entity, { type: 'update', id, patch, record: updated as unknown });
-			return updated as T;
+			return await http<T>(`${base}/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) });
 		},
 		delete: async (id: string): Promise<void> => {
-			const all = readAll<T>(entity);
-			const next = all.filter((r) => r.id !== id);
-			writeAll(entity, next);
-			bus.emit(entity, { type: 'delete', id });
+			await http(`${base}/${encodeURIComponent(id)}`, { method: 'DELETE' });
 		},
 		subscribe: (cb: (event: SubscriptionEvent<T>) => void): Unsubscribe => {
 			ensureBrowser();
-			const offBus = bus.on<T>(entity, cb);
-
-			const onStorage = (e: StorageEvent) => {
-				if (!e.key) return;
-				if (e.key === storageKey(entity) || e.key === `${storageKey(entity)}:touch`) {
-					// Best-effort: just tell consumer to refetch.
-					cb({ type: 'refetch' });
-				}
-			};
-			window.addEventListener('storage', onStorage);
-			return () => {
-				offBus();
-				window.removeEventListener('storage', onStorage);
-			};
+			// Simple polling fallback (keeps existing UI behaviour)
+			const interval = window.setInterval(() => cb({ type: 'refetch' }), 5000);
+			return () => window.clearInterval(interval);
 		},
 	};
 }
 
-type AuthUser = { email: string; full_name?: string | null };
-
-const AUTH_STORAGE_KEY = 'sgbu:auth:user';
+type AuthUser = { email: string; full_name?: string | null; type?: string | null; id?: string };
 
 export const api = {
 	auth: {
 		me: async (): Promise<AuthUser> => {
 			ensureBrowser();
-			const existing = safeParseJson<AuthUser>(window.localStorage.getItem(AUTH_STORAGE_KEY));
-			if (existing?.email) return existing;
-			// Default demo user (keeps UI usable without external auth)
-			const demo: AuthUser = { email: 'demo@isptec.ao', full_name: 'Utilizador Demo' };
-			window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(demo));
-			return demo;
+			return await http<AuthUser>('/api/auth/me', { method: 'GET' });
 		},
 		setUser: async (user: AuthUser): Promise<void> => {
-			ensureBrowser();
-			window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+			// No-op (session is managed by NextAuth cookies)
+			void user;
 		},
 		logout: async (): Promise<void> => {
 			ensureBrowser();
-			window.localStorage.removeItem(AUTH_STORAGE_KEY);
+			const { signOut } = await import('next-auth/react');
+			await signOut({ callbackUrl: '/login' });
 		},
 	},
 	entities: {

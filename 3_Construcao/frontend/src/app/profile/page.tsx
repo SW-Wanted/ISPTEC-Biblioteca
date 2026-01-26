@@ -243,7 +243,7 @@ export default function Profile() {
 		<div className="min-h-screen bg-slate-50 py-8">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 				<Card className="border-0 shadow-sm overflow-hidden">
-					<div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600" />
+					<div className="h-32 bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-600" />
 					<CardContent className="relative pt-0 pb-6">
 						<div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
 							<div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center text-3xl font-bold text-indigo-600">

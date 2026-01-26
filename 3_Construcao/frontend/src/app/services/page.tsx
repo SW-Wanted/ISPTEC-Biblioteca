@@ -20,6 +20,34 @@ import { createPageUrl } from '@/utils';
 
 const TRAINING_MIN_DATE = format(addHours(new Date(), 24 * 7), 'yyyy-MM-dd');
 
+type LockerRow = {
+  id: string;
+  number?: string | number | null;
+  status?: string | null;
+  current_user_id?: string | null;
+} & Record<string, unknown>;
+
+type ComputerRow = {
+  id: string;
+  number?: string | number | null;
+  status?: string | null;
+  location?: string | null;
+  current_user_id?: string | null;
+} & Record<string, unknown>;
+
+type SpecialRequestRow = {
+  id: string;
+  user_id?: string | null;
+  user_name?: string | null;
+  type?: string | null;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  created_date?: string | null;
+  scheduled_date?: string | null;
+  response?: string | null;
+} & Record<string, unknown>;
+
 export default function Services() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [activeService, setActiveService] = useState<string | null>(null);
@@ -33,15 +61,28 @@ export default function Services() {
     loadUser();
   }, []);
 
-  const { data: lockers = [] } = useQuery({ queryKey: ['lockers'], queryFn: () => api.entities.Locker.list(), initialData: [] });
-  const { data: computers = [] } = useQuery({ queryKey: ['computers'], queryFn: () => api.entities.Computer.list(), initialData: [] });
-  const { data: myRequests = [] } = useQuery({ queryKey: ['my-requests', user?.email], queryFn: () => api.entities.SpecialRequest.filter({ user_id: user?.email }), enabled: !!user?.email, initialData: [] });
+  const { data: lockers = [] } = useQuery<LockerRow[]>({
+    queryKey: ['lockers'],
+    queryFn: () => api.entities.Locker.list(),
+    initialData: [] as LockerRow[],
+  });
+  const { data: computers = [] } = useQuery<ComputerRow[]>({
+    queryKey: ['computers'],
+    queryFn: () => api.entities.Computer.list(),
+    initialData: [] as ComputerRow[],
+  });
+  const { data: myRequests = [] } = useQuery<SpecialRequestRow[]>({
+    queryKey: ['my-requests', user?.email],
+    queryFn: () => api.entities.SpecialRequest.filter({ user_id: user?.email }),
+    enabled: !!user?.email,
+    initialData: [] as SpecialRequestRow[],
+  });
 
   const availableLockers = lockers.filter(l => l.status === 'available');
   const availableComputers = computers.filter(c => c.status === 'available');
 
   const reserveLockerMutation = useMutation({
-    mutationFn: async (locker: any) => {
+    mutationFn: async (locker: LockerRow) => {
       if (!user) return;
       await api.entities.Locker.update(locker.id, { status: 'occupied', current_user_id: user.email, occupied_at: new Date().toISOString(), expected_end: addHours(new Date(), 3).toISOString() });
       await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Cacifo reservado!', message: `Cacifo ${locker.number} reservado por 3 horas. Libere até ${format(addHours(new Date(), 3), 'HH:mm')}.`, action_type: 'none' });
@@ -51,7 +92,7 @@ export default function Services() {
   });
 
   const reserveComputerMutation = useMutation({
-    mutationFn: async (computer: any) => {
+    mutationFn: async (computer: ComputerRow) => {
       if (!user) return;
       await api.entities.Computer.update(computer.id, { status: 'occupied', current_user_id: user.email, session_start: new Date().toISOString(), session_end: addHours(new Date(), 2).toISOString() });
       await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Computador reservado!', message: `Computador ${computer.number} no ${computer.location} reservado por 2 horas. Faça check-in no balcão.`, action_type: 'none' });
@@ -106,7 +147,7 @@ export default function Services() {
                 <motion.div key={service.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.1 }}>
                   <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden" onClick={() => setActiveService(service.id)}>
                     <CardContent className="p-6">
-                      <div className={cn("w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center mb-4", service.color)}><service.icon className="w-7 h-7 text-white" /></div>
+                      <div className={cn("w-14 h-14 rounded-2xl bg-linear-to-br flex items-center justify-center mb-4", service.color)}><service.icon className="w-7 h-7 text-white" /></div>
                       <h3 className="font-semibold text-slate-800 mb-1">{service.title}</h3>
                       <p className="text-sm text-slate-500 mb-3">{service.description}</p>
                       {service.available !== undefined && <div className="flex items-center gap-2"><Badge variant="secondary" className={cn(service.available > 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>{service.available > 0 ? `${service.available} disponível(is)` : 'Todos ocupados'}</Badge></div>}
