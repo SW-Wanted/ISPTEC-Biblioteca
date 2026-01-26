@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { signOut } from "next-auth/react"
 import {
   BookOpen,
   Menu,
@@ -76,15 +77,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Check if current page is an auth page (no layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password'
   
-  // TODO: Implementar autenticação real
   const [user, setUser] = React.useState<any>(null)
   const [member, setMember] = React.useState<any>(null)
+  const [isLoadingUser, setIsLoadingUser] = React.useState(true)
   
-  // Simular usuário logado (remover quando autenticação estiver implementada)
+  // Carregar utilizador autenticado
   React.useEffect(() => {
-    // setUser({ full_name: 'Utilizador Demo', email: 'demo@isptec.ao' })
-    // setMember({ member_type: 'student' })
-  }, [])
+    const loadUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
+          
+          // Carregar dados do membro
+          if (userData?.email) {
+            const memberResponse = await fetch(`/api/entities/Member?filter=${encodeURIComponent(JSON.stringify({ user_id: userData.email }))}`)
+            if (memberResponse.ok) {
+              const members = await memberResponse.json()
+              if (members.length > 0) {
+                setMember(members[0])
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar utilizador:', error)
+      } finally {
+        setIsLoadingUser(false)
+      }
+    }
+    
+    if (!isAuthPage) {
+      loadUser()
+    } else {
+      setIsLoadingUser(false)
+    }
+  }, [pathname, isAuthPage])
 
   const isAdmin = member?.member_type === 'librarian' || 
                   member?.member_type === 'supervisor' || 
@@ -93,10 +122,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   
   const unreadCount = 0 // TODO: Integrar com notificações reais
 
-  const handleLogout = () => {
-    setUser(null)
-    setMember(null)
-    // TODO: Chamar API de logout
+  const handleLogout = async () => {
+    try {
+      setUser(null)
+      setMember(null)
+      await signOut({ callbackUrl: '/login', redirect: true })
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+      window.location.href = '/login'
+    }
   }
 
   // Render without layout for auth pages
@@ -144,7 +178,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -239,7 +273,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
                     {user.full_name?.charAt(0) || user.email?.charAt(0)?.toUpperCase()}
                   </div>
                   <div className="flex-1 text-left">
