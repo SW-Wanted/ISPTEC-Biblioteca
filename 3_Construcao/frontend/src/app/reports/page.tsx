@@ -66,7 +66,7 @@ export default function Reports() {
   const availableCopies = books.reduce((sum, b) => sum + (b.available_copies || 0), 0);
   const activeMembers = members.filter(m => m.status === 'active').length;
   const activeLoans = loans.filter(l => l.status === 'active').length;
-  const overdueLoans = loans.filter(l => l.status === 'active' && new Date(l.due_date) < new Date()).length;
+  const overdueLoans = loans.filter(l => l.status === 'active' && (l.due_date ? new Date(l.due_date) < new Date() : false)).length;
   const pendingFines = fines.filter(f => f.status === 'pending');
   const totalPendingFines = pendingFines.reduce((sum, f) => sum + (f.amount || 0), 0);
   const paidFines = fines.filter(f => f.status === 'paid');
@@ -76,6 +76,7 @@ export default function Reports() {
   const loansByDay = Array.from({ length: 7 }, (_, i) => {
     const date = subDays(new Date(), 6 - i);
     const dayLoans = loans.filter(l => {
+      if (!l.loan_date) return false;
       const loanDate = new Date(l.loan_date);
       return loanDate.toDateString() === date.toDateString();
     });
@@ -105,7 +106,7 @@ export default function Reports() {
     { name: 'Atraso', value: fines.filter(f => f.type === 'late_return').length },
     { name: 'Livro Danificado', value: fines.filter(f => f.type === 'damaged_book').length },
     { name: 'Livro Perdido', value: fines.filter(f => f.type === 'lost_book').length },
-    { name: 'Outros', value: fines.filter(f => !['late_return', 'damaged_book', 'lost_book'].includes(f.type)).length },
+    { name: 'Outros', value: fines.filter(f => !['late_return', 'damaged_book', 'lost_book'].includes(String(f.type ?? ''))).length },
   ].filter(f => f.value > 0);
 
   return (
@@ -188,7 +189,7 @@ export default function Reports() {
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={membersByType} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false}>
+                        <Pie data={membersByType} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`} labelLine={false}>
                           {membersByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
                         <Tooltip />

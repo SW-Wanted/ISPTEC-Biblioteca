@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 export default function MyReservations() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
-  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [selectedReservation, setSelectedReservation] = useState<any>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const queryClient = useQueryClient();
 
@@ -41,14 +41,14 @@ export default function MyReservations() {
   const historyReservations = reservations.filter(r => r.status === 'collected' || r.status === 'expired' || r.status === 'cancelled');
 
   const cancelMutation = useMutation({
-    mutationFn: async (reservation) => {
+    mutationFn: async (reservation: any) => {
       await api.entities.Reservation.update(reservation.id, { status: 'cancelled' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['my-reservations', user?.email]); setShowCancelDialog(false); setSelectedReservation(null); toast.success('Reserva cancelada com sucesso'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['my-reservations', user?.email] }); setShowCancelDialog(false); setSelectedReservation(null); toast.success('Reserva cancelada com sucesso'); },
     onError: () => { toast.error('Erro ao cancelar reserva'); }
   });
 
-  const getReservationStatus = (reservation) => {
+  const getReservationStatus = (reservation: any) => {
     switch (reservation.status) {
       case 'available': return { label: 'Disponível para retirada', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle, urgent: true };
       case 'active': return { label: `Posição ${reservation.queue_position} na fila`, color: 'bg-indigo-100 text-indigo-700', icon: Clock };
@@ -59,7 +59,7 @@ export default function MyReservations() {
     }
   };
 
-  const getTimeRemaining = (expiryDate) => {
+  const getTimeRemaining = (expiryDate: any) => {
     if (!expiryDate) return null;
     const hours = differenceInHours(new Date(expiryDate), new Date());
     if (hours < 0) return 'Expirado';
@@ -67,7 +67,7 @@ export default function MyReservations() {
     return `${Math.ceil(hours / 24)} dias restantes`;
   };
 
-  const ReservationCard = ({ reservation }) => {
+  const ReservationCard = ({ reservation }: { reservation: any }) => {
     const status = getReservationStatus(reservation);
     const StatusIcon = status.icon;
     const timeRemaining = getTimeRemaining(reservation.expiry_date);
@@ -135,10 +135,10 @@ export default function MyReservations() {
         <Tabs defaultValue="active">
           <TabsList className="mb-6"><TabsTrigger value="active" className="flex items-center gap-2"><Clock className="w-4 h-4" />Ativas ({activeReservations.length})</TabsTrigger><TabsTrigger value="history" className="flex items-center gap-2"><Calendar className="w-4 h-4" />Histórico ({historyReservations.length})</TabsTrigger></TabsList>
           <TabsContent value="active">
-            {isLoading ? <div className="space-y-4">{Array(3).fill(0).map((_, i) => <Card key={i} className="border-0 shadow-sm"><CardContent className="p-4 flex gap-4"><Skeleton className="w-20 h-28 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-1/2" /></div></CardContent></Card>)}</div> : activeReservations.length === 0 ? <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><Clock className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhuma reserva ativa</h3><p className="text-slate-500 mb-4">Reserve livros que não estão disponíveis para entrar na fila de espera.</p><Link to={createPageUrl('SearchBooks')}><Button>Pesquisar Livros</Button></Link></CardContent></Card> : <AnimatePresence mode="popLayout"><div className="space-y-4">{activeReservations.sort((a, b) => { if (a.status === 'available' && b.status !== 'available') return -1; if (b.status === 'available' && a.status !== 'available') return 1; return a.queue_position - b.queue_position; }).map(reservation => <ReservationCard key={reservation.id} reservation={reservation} />)}</div></AnimatePresence>}
+            {isLoading ? <div className="space-y-4">{Array(3).fill(0).map((_, i) => <Card key={i} className="border-0 shadow-sm"><CardContent className="p-4 flex gap-4"><Skeleton className="w-20 h-28 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-1/2" /></div></CardContent></Card>)}</div> : activeReservations.length === 0 ? <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><Clock className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhuma reserva ativa</h3><p className="text-slate-500 mb-4">Reserve livros que não estão disponíveis para entrar na fila de espera.</p><Link to={createPageUrl('SearchBooks')}><Button>Pesquisar Livros</Button></Link></CardContent></Card> : <AnimatePresence mode="popLayout"><div className="space-y-4">{activeReservations.sort((a: any, b: any) => { if (a.status === 'available' && b.status !== 'available') return -1; if (b.status === 'available' && a.status !== 'available') return 1; return (a.queue_position ?? Number.MAX_SAFE_INTEGER) - (b.queue_position ?? Number.MAX_SAFE_INTEGER); }).map((reservation: any) => <ReservationCard key={reservation.id} reservation={reservation} />)}</div></AnimatePresence>}
           </TabsContent>
           <TabsContent value="history">
-            {historyReservations.length === 0 ? <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhum histórico</h3><p className="text-slate-500">Seu histórico de reservas aparecerá aqui.</p></CardContent></Card> : <div className="space-y-4">{historyReservations.sort((a, b) => new Date(b.reservation_date) - new Date(a.reservation_date)).map(reservation => <ReservationCard key={reservation.id} reservation={reservation} />)}</div>}
+            {historyReservations.length === 0 ? <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhum histórico</h3><p className="text-slate-500">Seu histórico de reservas aparecerá aqui.</p></CardContent></Card> : <div className="space-y-4">{historyReservations.sort((a: any, b: any) => { const bTime = b.reservation_date ? new Date(b.reservation_date).getTime() : 0; const aTime = a.reservation_date ? new Date(a.reservation_date).getTime() : 0; return bTime - aTime; }).map((reservation: any) => <ReservationCard key={reservation.id} reservation={reservation} />)}</div>}
           </TabsContent>
         </Tabs>
       </div>

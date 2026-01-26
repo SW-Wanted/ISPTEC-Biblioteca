@@ -133,7 +133,7 @@ export default function Recommendations() {
   }, []);
 
   const { data: popularBooks = [] } = useQuery({ queryKey: ['popular-recommendations'], queryFn: () => api.entities.Book.list('-total_loans', 8), initialData: [] });
-  const { data: topRatedBooks = [] } = useQuery({ queryKey: ['top-rated-recommendations'], queryFn: async () => { const books = await api.entities.Book.list('-average_rating', 20); return books.filter(b => b.average_rating > 0).slice(0, 8); }, initialData: [] });
+  const { data: topRatedBooks = [] } = useQuery({ queryKey: ['top-rated-recommendations'], queryFn: async () => { const books = await api.entities.Book.list('-average_rating', 20); return books.filter((b: any) => (b.average_rating ?? 0) > 0).slice(0, 8); }, initialData: [] });
   const { data: newArrivals = [] } = useQuery({ queryKey: ['new-arrivals'], queryFn: () => api.entities.Book.list('-created_date', 8), initialData: [] });
   const { data: userLoans = [] } = useQuery({ queryKey: ['user-loans', user?.email], queryFn: () => api.entities.Loan.filter({ member_id: user?.email }), enabled: !!user?.email, initialData: [] });
 
@@ -146,7 +146,7 @@ export default function Recommendations() {
       const borrowedTitles = userLoans.slice(0, 5).map(l => l.book_title).join(', ');
       const allBooks = await api.entities.Book.list('-average_rating', 50);
       const borrowedBookIds = userLoans.map(l => l.book_id);
-      const availableBooks = allBooks.filter(b => !borrowedBookIds.includes(b.id) && b.available_copies > 0);
+      const availableBooks = allBooks.filter((b: any) => !borrowedBookIds.includes(b.id) && (b.available_copies ?? 0) > 0);
       
       if (availableBooks.length === 0) return [];
       

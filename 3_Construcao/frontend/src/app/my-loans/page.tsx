@@ -7,6 +7,7 @@ import { api } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, differenceInDays, isPast, addDays } from 'date-fns';
+import { pt } from 'date-fns/locale';
 import { BookMarked, Clock, AlertTriangle, CheckCircle, RefreshCw, History, ChevronRight, Calendar, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 export default function MyLoans() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
-  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [selectedLoan, setSelectedLoan] = useState<any>(null);
   const [showRenewDialog, setShowRenewDialog] = useState(false);
   const queryClient = useQueryClient();
 
@@ -46,24 +47,28 @@ export default function MyLoans() {
   const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'overdue');
   const historyLoans = loans.filter(l => l.status === 'returned' || l.status === 'cancelled');
 
-  const checkReservationsMutation = useMutation({ mutationFn: async (bookId) => { const reservations = await api.entities.Reservation.filter({ book_id: bookId, status: 'active' }); return reservations.length > 0; } });
+  const checkReservationsMutation = useMutation({ mutationFn: async (bookId: any) => { const reservations = await api.entities.Reservation.filter({ book_id: bookId, status: 'active' }); return reservations.length > 0; } });
 
   const renewMutation = useMutation({
-    mutationFn: async (loan) => {
+    mutationFn: async (loan: any) => {
       if (loan.renewal_count >= loan.max_renewals) throw new Error('Limite de renovações atingido');
       const hasReservations = await checkReservationsMutation.mutateAsync(loan.book_id);
       if (hasReservations) throw new Error('Este livro tem reservas pendentes');
-      if (member?.total_fines > 0) throw new Error('Regularize suas multas antes de renovar');
-      const loanDays = member?.member_type === 'teacher' ? 15 : 5;
+      const totalFines = Number((member as any)?.total_fines ?? 0);
+      if (totalFines > 0) throw new Error('Regularize suas multas antes de renovar');
+      const memberType = (member as any)?.member_type as string | undefined;
+      const loanDays = memberType === 'teacher' ? 15 : 5;
       const newDueDate = addDays(new Date(), loanDays);
       await api.entities.Loan.update(loan.id, { due_date: newDueDate.toISOString(), renewal_count: loan.renewal_count + 1, status: 'active' });
-      await api.entities.Notification.create({ user_id: user.email, type: 'in_app', status: 'pending', title: 'Renovação realizada!', message: `O empréstimo de "${loan.book_title}" foi renovado até ${format(newDueDate, "dd 'de' MMMM", { locale: { code: 'pt' } })}.`, loan_id: loan.id, action_type: 'view_loan' });
+      const userEmail = user?.email;
+      if (!userEmail) throw new Error('Utilizador não autenticado');
+      await api.entities.Notification.create({ user_id: userEmail, type: 'in_app', status: 'pending', title: 'Renovação realizada!', message: `O empréstimo de "${loan.book_title}" foi renovado até ${format(newDueDate, "dd 'de' MMMM", { locale: pt })}.`, loan_id: loan.id, action_type: 'view_loan' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['my-loans', user?.email]); setShowRenewDialog(false); setSelectedLoan(null); toast.success('Renovação realizada com sucesso!'); },
-    onError: (error) => { toast.error(error.message || 'Erro ao renovar empréstimo'); }
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['my-loans', user?.email] }); setShowRenewDialog(false); setSelectedLoan(null); toast.success('Renovação realizada com sucesso!'); },
+    onError: (error: any) => { toast.error(error?.message || 'Erro ao renovar empréstimo'); }
   });
 
-  const getLoanStatus = (loan) => {
+  const getLoanStatus = (loan: any) => {
     const dueDate = new Date(loan.due_date);
     const today = new Date();
     const daysLeft = differenceInDays(dueDate, today);
@@ -73,9 +78,9 @@ export default function MyLoans() {
     return { label: `${daysLeft} dias restantes`, color: 'bg-emerald-100 text-emerald-700', icon: Calendar };
   };
 
-  const canRenew = (loan) => loan.status === 'active' && loan.renewal_count < loan.max_renewals && !isPast(new Date(loan.due_date));
+  const canRenew = (loan: any) => loan.status === 'active' && loan.renewal_count < loan.max_renewals && (loan.due_date ? !isPast(new Date(loan.due_date)) : false);
 
-  const LoanCard = ({ loan }) => {
+  const LoanCard = ({ loan }: { loan: any }) => {
     const status = getLoanStatus(loan);
     const StatusIcon = status.icon;
     return (
@@ -121,8 +126,8 @@ export default function MyLoans() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-indigo-600">{activeLoans.length}</p><p className="text-xs text-slate-500 mt-1">Empréstimos Ativos</p></CardContent></Card>
-          <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-orange-600">{activeLoans.filter(l => { const days = differenceInDays(new Date(l.due_date), new Date()); return days <= 2 && days >= 0; }).length}</p><p className="text-xs text-slate-500 mt-1">Próx. Vencimento</p></CardContent></Card>
-          <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-red-600">{activeLoans.filter(l => isPast(new Date(l.due_date))).length}</p><p className="text-xs text-slate-500 mt-1">Em Atraso</p></CardContent></Card>
+          <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-orange-600">{activeLoans.filter((l: any) => { if (!l.due_date) return false; const days = differenceInDays(new Date(l.due_date), new Date()); return days <= 2 && days >= 0; }).length}</p><p className="text-xs text-slate-500 mt-1">Próx. Vencimento</p></CardContent></Card>
+          <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-red-600">{activeLoans.filter((l: any) => l.due_date ? isPast(new Date(l.due_date)) : false).length}</p><p className="text-xs text-slate-500 mt-1">Em Atraso</p></CardContent></Card>
           <Card className="border-0 shadow-sm"><CardContent className="p-4 text-center"><p className="text-3xl font-bold text-slate-600">{historyLoans.length}</p><p className="text-xs text-slate-500 mt-1">Total Devolvidos</p></CardContent></Card>
         </div>
 
@@ -138,7 +143,7 @@ export default function MyLoans() {
             ) : activeLoans.length === 0 ? (
               <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhum empréstimo ativo</h3><p className="text-slate-500 mb-4">Explore nosso catálogo e encontre sua próxima leitura!</p><Link to={createPageUrl('SearchBooks')}><Button>Pesquisar Livros</Button></Link></CardContent></Card>
             ) : (
-              <AnimatePresence mode="popLayout"><div className="space-y-4">{activeLoans.sort((a, b) => new Date(a.due_date) - new Date(b.due_date)).map(loan => <LoanCard key={loan.id} loan={loan} />)}</div></AnimatePresence>
+              <AnimatePresence mode="popLayout"><div className="space-y-4">{activeLoans.sort((a: any, b: any) => { const aTime = a.due_date ? new Date(a.due_date).getTime() : Number.MAX_SAFE_INTEGER; const bTime = b.due_date ? new Date(b.due_date).getTime() : Number.MAX_SAFE_INTEGER; return aTime - bTime; }).map((loan: any) => <LoanCard key={loan.id} loan={loan} />)}</div></AnimatePresence>
             )}
           </TabsContent>
 
@@ -146,7 +151,7 @@ export default function MyLoans() {
             {historyLoans.length === 0 ? (
               <Card className="border-0 shadow-sm"><CardContent className="p-12 text-center"><History className="w-16 h-16 text-slate-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhum histórico</h3><p className="text-slate-500">Seu histórico de empréstimos aparecerá aqui.</p></CardContent></Card>
             ) : (
-              <div className="space-y-4">{historyLoans.sort((a, b) => new Date(b.return_date || b.loan_date) - new Date(a.return_date || a.loan_date)).map(loan => <LoanCard key={loan.id} loan={loan} />)}</div>
+              <div className="space-y-4">{historyLoans.sort((a: any, b: any) => { const bTime = new Date(b.return_date || b.loan_date).getTime(); const aTime = new Date(a.return_date || a.loan_date).getTime(); return bTime - aTime; }).map((loan: any) => <LoanCard key={loan.id} loan={loan} />)}</div>
             )}
           </TabsContent>
         </Tabs>
@@ -154,7 +159,7 @@ export default function MyLoans() {
 
       <Dialog open={showRenewDialog} onOpenChange={setShowRenewDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Confirmar Renovação</DialogTitle><DialogDescription>O empréstimo será renovado por mais {member?.loan_days || (member?.member_type === 'teacher' ? 15 : 5)} dias.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>Confirmar Renovação</DialogTitle><DialogDescription>O empréstimo será renovado por mais {Number((member as any)?.loan_days ?? ((member as any)?.member_type === 'teacher' ? 15 : 5))} dias.</DialogDescription></DialogHeader>
           {selectedLoan && (
             <div className="py-4">
               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg"><BookOpen className="w-12 h-12 text-slate-400" /><div><p className="font-medium text-slate-800">{selectedLoan.book_title}</p><p className="text-sm text-slate-500">Renovação {selectedLoan.renewal_count + 1} de {selectedLoan.max_renewals}</p></div></div>

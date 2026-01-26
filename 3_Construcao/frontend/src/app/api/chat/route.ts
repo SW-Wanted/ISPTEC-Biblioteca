@@ -269,6 +269,8 @@ async function getUserLoans(userId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  let lastMessage = ''
+
   try {
     console.log('📨 Chat request received')
     
@@ -286,7 +288,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const messages: IncomingMessage[] = Array.isArray(body?.messages) ? body.messages : []
-    const lastMessage = messages[messages.length - 1]?.content ?? ''
+    lastMessage = messages[messages.length - 1]?.content ?? ''
 
     console.log('💬 Last message:', lastMessage.substring(0, 100))
 
@@ -369,7 +371,7 @@ export async function POST(request: NextRequest) {
     // Retry com delay exponencial para rate limit
     let retries = 0
     const maxRetries = 1
-    let result
+    let result: unknown
     
     while (retries <= maxRetries) {
       try {
@@ -393,8 +395,12 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Gemini response received')
 
+    if (!result || typeof (result as any)?.response?.text !== 'function') {
+      throw new Error('Resposta inválida do Gemini')
+    }
+
     return NextResponse.json({
-      message: result.response.text(),
+      message: (result as any).response.text(),
       provider: 'gemini-2.5-flash-lite',
     })
   } catch (error: any) {

@@ -22,7 +22,7 @@ export default function ManageLoans() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showReturnDialog, setShowReturnDialog] = useState(false);
-  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [selectedLoan, setSelectedLoan] = useState<any>(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -34,30 +34,31 @@ export default function ManageLoans() {
 
   const { data: loans = [], isLoading } = useQuery({ queryKey: ['manage-loans'], queryFn: () => api.entities.Loan.list('-loan_date', 200), initialData: [] });
   const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'overdue');
-  const overdueLoans = activeLoans.filter(l => isPast(new Date(l.due_date)));
+  const overdueLoans = activeLoans.filter(l => l.due_date ? isPast(new Date(l.due_date)) : false);
   const returnedLoans = loans.filter(l => l.status === 'returned');
 
   const returnLoanMutation = useMutation({
-    mutationFn: async (loan) => {
+    mutationFn: async (loan: any) => {
       await api.entities.Loan.update(loan.id, { status: 'returned' });
     },
-    onSuccess: () => { queryClient.invalidateQueries(['manage-loans']); setShowReturnDialog(false); setSelectedLoan(null); toast.success('Devolução registrada!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['manage-loans'] }); setShowReturnDialog(false); setSelectedLoan(null); toast.success('Devolução registrada!'); },
     onError: () => { toast.error('Erro ao registrar devolução'); }
   });
 
-  const getLoanStatus = (loan) => {
+  const getLoanStatus = (loan: any) => {
     if (loan.status === 'returned') return { label: 'Devolvido', color: 'bg-slate-100 text-slate-700' };
+    if (!loan.due_date) return { label: 'Sem data', color: 'bg-slate-100 text-slate-700' };
     if (isPast(new Date(loan.due_date))) { const days = differenceInDays(new Date(), new Date(loan.due_date)); return { label: `${days} dia(s) atraso`, color: 'bg-red-100 text-red-700' }; }
     const daysLeft = differenceInDays(new Date(loan.due_date), new Date());
     if (daysLeft <= 2) return { label: `${daysLeft} dia(s) restante(s)`, color: 'bg-orange-100 text-orange-700' };
     return { label: `${daysLeft} dias restantes`, color: 'bg-emerald-100 text-emerald-700' };
   };
 
-  const filteredLoans = (loansList) => { if (!searchQuery) return loansList; const query = searchQuery.toLowerCase(); return loansList.filter(loan => loan.book_title?.toLowerCase().includes(query) || loan.member_name?.toLowerCase().includes(query) || loan.member_id?.toLowerCase().includes(query)); };
+  const filteredLoans = (loansList: any[]) => { if (!searchQuery) return loansList; const query = searchQuery.toLowerCase(); return loansList.filter((loan: any) => loan.book_title?.toLowerCase().includes(query) || loan.member_name?.toLowerCase().includes(query) || loan.member_id?.toLowerCase().includes(query)); };
 
-  const LoanRow = ({ loan }) => {
+  const LoanRow = ({ loan }: { loan: any }) => {
     const status = getLoanStatus(loan);
-    return <TableRow className="group"><TableCell><div><p className="font-medium text-slate-800">{loan.book_title}</p><p className="text-xs text-slate-500">ID: {loan.copy_id}</p></div></TableCell><TableCell><div><p className="text-slate-800">{loan.member_name}</p><p className="text-xs text-slate-500">{loan.member_id}</p></div></TableCell><TableCell className="text-slate-600">{format(new Date(loan.loan_date), 'dd/MM/yyyy')}</TableCell><TableCell className="text-slate-600">{format(new Date(loan.due_date), 'dd/MM/yyyy')}</TableCell><TableCell><Badge className={status.color}>{status.label}</Badge></TableCell><TableCell><span className="text-slate-600">{loan.renewal_count}/{loan.max_renewals}</span></TableCell><TableCell>{loan.status !== 'returned' && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => { setSelectedLoan(loan); setShowReturnDialog(true); }}><Undo2 className="w-4 h-4 mr-2" />Registrar Devolução</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell></TableRow>;
+    return <TableRow className="group"><TableCell><div><p className="font-medium text-slate-800">{loan.book_title}</p><p className="text-xs text-slate-500">ID: {loan.copy_id}</p></div></TableCell><TableCell><div><p className="text-slate-800">{loan.member_name}</p><p className="text-xs text-slate-500">{loan.member_id}</p></div></TableCell><TableCell className="text-slate-600">{loan.loan_date ? format(new Date(loan.loan_date), 'dd/MM/yyyy') : '-'}</TableCell><TableCell className="text-slate-600">{loan.due_date ? format(new Date(loan.due_date), 'dd/MM/yyyy') : '-'}</TableCell><TableCell><Badge className={status.color}>{status.label}</Badge></TableCell><TableCell><span className="text-slate-600">{loan.renewal_count}/{loan.max_renewals}</span></TableCell><TableCell>{loan.status !== 'returned' && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => { setSelectedLoan(loan); setShowReturnDialog(true); }}><Undo2 className="w-4 h-4 mr-2" />Registrar Devolução</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</TableCell></TableRow>;
   };
 
   return (
@@ -77,7 +78,7 @@ export default function ManageLoans() {
       </div>
 
       <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
-  		<DialogContent><DialogHeader><DialogTitle>Registrar Devolução</DialogTitle><DialogDescription>Confirmar a devolução do livro &quot;{selectedLoan?.book_title}&quot;.</DialogDescription></DialogHeader>{selectedLoan && <div className="py-4 space-y-4"><div className="p-4 bg-slate-50 rounded-lg space-y-2"><div className="flex justify-between"><span className="text-slate-500">Membro:</span><span className="font-medium">{selectedLoan.member_name}</span></div><div className="flex justify-between"><span className="text-slate-500">Data empréstimo:</span><span>{format(new Date(selectedLoan.loan_date), 'dd/MM/yyyy')}</span></div></div>{isPast(new Date(selectedLoan.due_date)) && <div className="p-4 bg-red-50 rounded-lg"><div className="flex items-center gap-2 text-red-700 mb-2"><AlertTriangle className="w-5 h-5" /><span className="font-medium">Devolução em atraso</span></div><p className="text-sm text-red-600">{differenceInDays(new Date(), new Date(selectedLoan.due_date))} dia(s) de atraso. Multa será gerada automaticamente.</p></div>}</div>}<DialogFooter><Button variant="outline" onClick={() => setShowReturnDialog(false)}>Cancelar</Button><Button onClick={() => returnLoanMutation.mutate(selectedLoan)} disabled={returnLoanMutation.isPending}>{returnLoanMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Confirmar Devolução</Button></DialogFooter></DialogContent>
+			<DialogContent><DialogHeader><DialogTitle>Registrar Devolução</DialogTitle><DialogDescription>Confirmar a devolução do livro &quot;{selectedLoan?.book_title}&quot;.</DialogDescription></DialogHeader>{selectedLoan && <div className="py-4 space-y-4"><div className="p-4 bg-slate-50 rounded-lg space-y-2"><div className="flex justify-between"><span className="text-slate-500">Membro:</span><span className="font-medium">{selectedLoan.member_name}</span></div><div className="flex justify-between"><span className="text-slate-500">Data empréstimo:</span><span>{selectedLoan.loan_date ? format(new Date(selectedLoan.loan_date), 'dd/MM/yyyy') : '-'}</span></div></div>{selectedLoan.due_date && isPast(new Date(selectedLoan.due_date)) && <div className="p-4 bg-red-50 rounded-lg"><div className="flex items-center gap-2 text-red-700 mb-2"><AlertTriangle className="w-5 h-5" /><span className="font-medium">Devolução em atraso</span></div><p className="text-sm text-red-600">{differenceInDays(new Date(), new Date(selectedLoan.due_date))} dia(s) de atraso. Multa será gerada automaticamente.</p></div>}</div>}<DialogFooter><Button variant="outline" onClick={() => setShowReturnDialog(false)}>Cancelar</Button><Button onClick={() => returnLoanMutation.mutate(selectedLoan)} disabled={returnLoanMutation.isPending}>{returnLoanMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Confirmar Devolução</Button></DialogFooter></DialogContent>
       </Dialog>
     </div>
   );

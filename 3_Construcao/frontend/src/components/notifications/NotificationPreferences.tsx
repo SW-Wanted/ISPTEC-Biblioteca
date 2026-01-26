@@ -89,26 +89,37 @@ const channels = [
   { id: 'push', label: 'Push', icon: Smartphone, description: 'Notificações push no navegador' }
 ];
 
-export default function NotificationPreferences({ preferences, onUpdate, isUpdating }) {
-  const handleToggle = (typeId, channelId) => {
+type NotificationPreferencesProps = {
+  preferences?: Record<string, unknown> | null;
+  onUpdate: (preferences: Record<string, unknown>) => void;
+  isUpdating?: boolean;
+};
+
+export default function NotificationPreferences({
+  preferences,
+  onUpdate,
+  isUpdating,
+}: NotificationPreferencesProps) {
+  const handleToggle = (typeId: string, channelId: string) => {
     const key = `${typeId}_${channelId}`;
-    const newValue = !preferences?.[key];
-    onUpdate({ ...preferences, [key]: newValue });
+    const isCurrentlyEnabled = preferences?.[key] !== false;
+    const newValue = !isCurrentlyEnabled;
+    onUpdate({ ...(preferences ?? {}), [key]: newValue });
   };
 
-  const handleToggleAll = (channelId, enabled) => {
-    const updates = {};
+  const handleToggleAll = (channelId: string, enabled: boolean) => {
+    const updates: Record<string, boolean> = {};
     notificationTypes.forEach(type => {
       updates[`${type.id}_${channelId}`] = enabled;
     });
-    onUpdate({ ...preferences, ...updates });
+    onUpdate({ ...(preferences ?? {}), ...updates });
   };
 
-  const isEnabled = (typeId, channelId) => {
+  const isEnabled = (typeId: string, channelId: string) => {
     return preferences?.[`${typeId}_${channelId}`] !== false; // Default to true
   };
 
-  const getChannelCount = (channelId) => {
+  const getChannelCount = (channelId: string) => {
     return notificationTypes.filter(type => isEnabled(type.id, channelId)).length;
   };
 

@@ -139,11 +139,15 @@ export default function Notifications() {
     if (filter === 'unread') return n.status !== 'read';
     if (filter === 'read') return n.status === 'read';
     return true;
-  }).sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+  }).sort((a: any, b: any) => {
+    const bTime = b.created_date ? new Date(b.created_date).getTime() : 0;
+    const aTime = a.created_date ? new Date(a.created_date).getTime() : 0;
+    return bTime - aTime;
+  });
 
   const unreadCount = notifications.filter(n => n.status !== 'read').length;
 
-  const getNotificationIcon = (notification) => {
+  const getNotificationIcon = (notification: any) => {
     switch (notification.action_type) {
       case 'renew': return <RefreshCw className="w-5 h-5 text-indigo-600" />;
       case 'pay_fine': return <CreditCard className="w-5 h-5 text-red-600" />;
@@ -153,7 +157,7 @@ export default function Notifications() {
     }
   };
 
-  const getActionUrl = (notification) => {
+  const getActionUrl = (notification: any) => {
     switch (notification.action_type) {
       case 'renew':
       case 'view_loan': return createPageUrl('MyLoans');
@@ -163,7 +167,7 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = async (notification: any) => {
     if (notification.status !== 'read') {
       await markAsReadMutation.mutateAsync([notification.id]);
     }
@@ -364,7 +368,9 @@ export default function Notifications() {
                                     {notification.title}
                                   </h3>
                                   <span className="text-xs text-slate-400 shrink-0">
-                                    {formatDistanceToNow(new Date(notification.created_date), { addSuffix: true })}
+                                    {notification.created_date
+                                      ? formatDistanceToNow(new Date(notification.created_date), { addSuffix: true })
+                                      : ''}
                                   </span>
                                 </div>
                                 <p className="text-sm text-slate-500 mt-1 line-clamp-2">
@@ -396,7 +402,7 @@ export default function Notifications() {
           <TabsContent value="preferences">
             <NotificationPreferences 
               preferences={member?.notification_preferences || {}}
-              onUpdate={(prefs) => updatePreferencesMutation.mutate(prefs)}
+              onUpdate={(prefs: Record<string, unknown>) => updatePreferencesMutation.mutate(prefs)}
               isUpdating={updatePreferencesMutation.isPending}
             />
           </TabsContent>

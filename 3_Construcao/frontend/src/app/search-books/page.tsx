@@ -135,6 +135,10 @@ export default function SearchBooks() {
     initialData: []
   });
 
+  const categoryOptions = categories.filter(
+    (c): c is { id: string; name: string } => typeof c.name === 'string' && c.name.trim().length > 0
+  );
+
   const { data: books = [], isLoading } = useQuery({
     queryKey: ['books', searchQuery, filters, sortBy],
     queryFn: async () => {
@@ -156,7 +160,7 @@ export default function SearchBooks() {
         }
         if (filters.category && book.category !== filters.category) return false;
         if (filters.language && book.language !== filters.language) return false;
-        if (filters.available && book.available_copies === 0) return false;
+        if (filters.available && (book.available_copies ?? 0) === 0) return false;
         if (filters.year && book.publication_year?.toString() !== filters.year) return false;
         return true;
       });
@@ -164,7 +168,7 @@ export default function SearchBooks() {
     initialData: []
   });
 
-  const handleSearch = (e) => {
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (searchQuery) params.set('q', searchQuery);
@@ -212,7 +216,7 @@ export default function SearchBooks() {
                   <SheetTitle>Filtros</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6">
-                  <FilterSidebar filters={filters} setFilters={setFilters} categories={categories} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
+                  <FilterSidebar filters={filters} setFilters={setFilters} categories={categoryOptions} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
                 </div>
               </SheetContent>
             </Sheet>
@@ -228,7 +232,7 @@ export default function SearchBooks() {
                 <Filter className="w-5 h-5" />
                 Filtros
               </h3>
-              <FilterSidebar filters={filters} setFilters={setFilters} categories={categories} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
+              <FilterSidebar filters={filters} setFilters={setFilters} categories={categoryOptions} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
             </Card>
           </aside>
 
@@ -329,10 +333,10 @@ export default function SearchBooks() {
                                 <BookOpen className="w-12 h-12 text-slate-300" />
                               </div>
                             )}
-                            {book.available_copies > 0 && (
-                              <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">{book.available_copies} disp.</Badge>
+                            {(book.available_copies ?? 0) > 0 && (
+                              <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">{book.available_copies ?? 0} disp.</Badge>
                             )}
-                            {book.available_copies === 0 && (
+                            {(book.available_copies ?? 0) === 0 && (
                               <Badge className="absolute top-2 right-2 bg-red-500 text-white text-[10px]">Indisponível</Badge>
                             )}
                           </div>
@@ -342,10 +346,10 @@ export default function SearchBooks() {
                             </h3>
                             <p className="text-sm text-slate-500 mt-1 line-clamp-1">{book.authors?.join(', ') || 'Autor desconhecido'}</p>
                             <div className="flex items-center gap-3 mt-2">
-                              {book.average_rating > 0 && (
+                              {(book.average_rating ?? 0) > 0 && (
                                 <div className="flex items-center gap-1">
                                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                                  <span className="text-xs text-slate-600">{book.average_rating.toFixed(1)}</span>
+                                  <span className="text-xs text-slate-600">{(book.average_rating ?? 0).toFixed(1)}</span>
                                 </div>
                               )}
                               {book.publication_year && (

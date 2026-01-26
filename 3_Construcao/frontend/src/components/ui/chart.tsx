@@ -10,7 +10,19 @@ const THEMES = {
   dark: ".dark"
 }
 
-const ChartContext = React.createContext(null)
+type ThemeName = keyof typeof THEMES
+
+export type ChartItemConfig = {
+  label?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  icon?: React.ComponentType<any>
+  color?: string
+  theme?: Partial<Record<ThemeName, string>>
+}
+
+export type ChartConfig = Record<string, ChartItemConfig>
+
+const ChartContext = React.createContext<{ config: ChartConfig } | null>(null)
 
 function useChart() {
   const context = React.useContext(ChartContext)
@@ -22,7 +34,13 @@ function useChart() {
   return context
 }
 
-const ChartContainer = React.forwardRef(({ id, className, children, config, ...props }, ref) => {
+type ChartContainerProps = React.HTMLAttributes<HTMLDivElement> & {
+  id?: string
+  config: ChartConfig
+  children: React.ReactNode
+}
+
+const ChartContainer = React.forwardRef<HTMLDivElement, ChartContainerProps>(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
 
@@ -49,6 +67,9 @@ ChartContainer.displayName = "Chart"
 const ChartStyle = ({
   id,
   config
+}: {
+  id: string
+  config: ChartConfig
 }) => {
   const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color)
 
@@ -59,7 +80,7 @@ const ChartStyle = ({
   return (
     (<style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
+        __html: (Object.entries(THEMES) as Array<[ThemeName, string]>)
           .map(([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
@@ -79,7 +100,25 @@ return color ? `  --color-${key}: ${color};` : null
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
-const ChartTooltipContent = React.forwardRef((
+type ChartTooltipContentProps = React.HTMLAttributes<HTMLDivElement> & {
+  active?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[]
+  indicator?: "dot" | "line" | "dashed"
+  hideLabel?: boolean
+  hideIndicator?: boolean
+  label?: unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  labelFormatter?: (value: any, payload: any[]) => React.ReactNode
+  labelClassName?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  formatter?: (...args: any[]) => React.ReactNode
+  color?: string
+  nameKey?: string
+  labelKey?: string
+}
+
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContentProps>((
   {
     active,
     payload,
@@ -180,9 +219,9 @@ const ChartTooltipContent = React.forwardRef((
                         })}
                         style={
                           {
-                            "--color-bg": indicatorColor,
-                            "--color-border": indicatorColor
-                          }
+                            ["--color-bg" as any]: indicatorColor,
+                            ["--color-border" as any]: indicatorColor,
+                          } as React.CSSProperties
                         } />
                     )
                   )}
@@ -216,8 +255,16 @@ ChartTooltipContent.displayName = "ChartTooltip"
 
 const ChartLegend = RechartsPrimitive.Legend
 
-const ChartLegendContent = React.forwardRef((
-  { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey },
+type ChartLegendContentProps = React.HTMLAttributes<HTMLDivElement> & {
+  hideIcon?: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[]
+  verticalAlign?: "top" | "bottom"
+  nameKey?: string
+}
+
+const ChartLegendContent = React.forwardRef<HTMLDivElement, ChartLegendContentProps>((
+  { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey, ...props },
   ref
 ) => {
   const { config } = useChart()
@@ -233,7 +280,8 @@ const ChartLegendContent = React.forwardRef((
         "flex items-center justify-center gap-4",
         verticalAlign === "top" ? "pb-3" : "pt-3",
         className
-      )}>
+      )}
+      {...props}>
       {payload.map((item) => {
         const key = `${nameKey || item.dataKey || "value"}`
         const itemConfig = getPayloadConfigFromPayload(config, item, key)
@@ -264,34 +312,36 @@ ChartLegendContent.displayName = "ChartLegend"
 
 // Helper to extract item config from a payload.
 function getPayloadConfigFromPayload(
-  config,
-  payload,
-  key
+  config: ChartConfig,
+  payload: unknown,
+  key: string
 ) {
   if (typeof payload !== "object" || payload === null) {
     return undefined
   }
 
+  const payloadRecord = payload as Record<string, unknown>
+
   const payloadPayload =
-    "payload" in payload &&
-    typeof payload.payload === "object" &&
-    payload.payload !== null
-      ? payload.payload
+    "payload" in payloadRecord &&
+    typeof payloadRecord.payload === "object" &&
+    payloadRecord.payload !== null
+      ? (payloadRecord.payload as Record<string, unknown>)
       : undefined
 
   let configLabelKey = key
 
   if (
-    key in payload &&
-    typeof payload[key] === "string"
+    key in payloadRecord &&
+    typeof payloadRecord[key] === "string"
   ) {
-    configLabelKey = payload[key]
+    configLabelKey = payloadRecord[key] as string
   } else if (
     payloadPayload &&
     key in payloadPayload &&
     typeof payloadPayload[key] === "string"
   ) {
-    configLabelKey = payloadPayload[key]
+    configLabelKey = payloadPayload[key] as string
   }
 
   return configLabelKey in config
