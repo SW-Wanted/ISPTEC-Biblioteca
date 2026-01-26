@@ -39,6 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import NotificationCenter from "@/components/notifications/NotificationCenter"
 
 type NavItem = {
   name: string
@@ -140,7 +141,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-lg text-slate-800">SGBU</span>
         </div>
 
-        <div className="w-10" />
+        <div className="flex items-center gap-2">
+          <NotificationCenter />
+        </div>
       </header>
 
       {/* Mobile Sidebar Overlay */}

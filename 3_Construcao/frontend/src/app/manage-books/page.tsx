@@ -26,7 +26,7 @@ export default function ManageBooks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedBook, setSelectedBook] = useState(null);
+  const [selectedBook, setSelectedBook] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ title: '', subtitle: '', isbn: '', authors: '', publisher: '', publication_year: '', edition: '', language: 'pt', pages: '', category: '', description: '', location: '', total_copies: 1, available_copies: 1 });
   const queryClient = useQueryClient();
@@ -42,19 +42,30 @@ export default function ManageBooks() {
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => api.entities.Category.list(), initialData: [] });
 
   const createBookMutation = useMutation({
-    mutationFn: async (data) => {
-      const bookData = { ...data, authors: data.authors.split(',').map(a => a.trim()).filter(Boolean), publication_year: data.publication_year ? parseInt(data.publication_year) : null, pages: data.pages ? parseInt(data.pages) : null, total_copies: parseInt(data.total_copies) || 1, available_copies: parseInt(data.available_copies) || 1 };
+    mutationFn: async (data: any) => {
+      const raw = (data ?? {}) as Record<string, any>;
+      const bookData = {
+        ...raw,
+        authors: String(raw.authors ?? '')
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean),
+        publication_year: raw.publication_year ? parseInt(String(raw.publication_year), 10) : null,
+        pages: raw.pages ? parseInt(String(raw.pages), 10) : null,
+        total_copies: parseInt(String(raw.total_copies ?? '1'), 10) || 1,
+        available_copies: parseInt(String(raw.available_copies ?? '1'), 10) || 1,
+      };
       if (isEditing && selectedBook) await api.entities.Book.update(selectedBook.id, bookData); else await api.entities.Book.create(bookData);
     },
-    onSuccess: () => { queryClient.invalidateQueries(['manage-books']); setShowAddDialog(false); resetForm(); toast.success(isEditing ? 'Livro atualizado!' : 'Livro adicionado!'); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['manage-books'] }); setShowAddDialog(false); resetForm(); toast.success(isEditing ? 'Livro atualizado!' : 'Livro adicionado!'); },
     onError: () => { toast.error('Erro ao salvar livro'); }
   });
 
-  const deleteBookMutation = useMutation({ mutationFn: async (bookId) => { await api.entities.Book.delete(bookId); }, onSuccess: () => { queryClient.invalidateQueries(['manage-books']); setShowDeleteDialog(false); setSelectedBook(null); toast.success('Livro removido!'); }, onError: () => { toast.error('Erro ao remover livro'); } });
+  const deleteBookMutation = useMutation({ mutationFn: async (bookId: string) => { await api.entities.Book.delete(bookId); }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['manage-books'] }); setShowDeleteDialog(false); setSelectedBook(null); toast.success('Livro removido!'); }, onError: () => { toast.error('Erro ao remover livro'); } });
 
   const resetForm = () => { setFormData({ title: '', subtitle: '', isbn: '', authors: '', publisher: '', publication_year: '', edition: '', language: 'pt', pages: '', category: '', description: '', location: '', total_copies: 1, available_copies: 1 }); setSelectedBook(null); setIsEditing(false); };
 
-  const handleEdit = (book) => { setFormData({ title: book.title || '', subtitle: book.subtitle || '', isbn: book.isbn || '', authors: book.authors?.join(', ') || '', publisher: book.publisher || '', publication_year: book.publication_year?.toString() || '', edition: book.edition || '', language: book.language || 'pt', pages: book.pages?.toString() || '', category: book.category || '', description: book.description || '', location: book.location || '', total_copies: book.total_copies || 1, available_copies: book.available_copies || 1 }); setSelectedBook(book); setIsEditing(true); setShowAddDialog(true); };
+  const handleEdit = (book: any) => { setFormData({ title: book.title || '', subtitle: book.subtitle || '', isbn: book.isbn || '', authors: book.authors?.join(', ') || '', publisher: book.publisher || '', publication_year: book.publication_year?.toString() || '', edition: book.edition || '', language: book.language || 'pt', pages: book.pages?.toString() || '', category: book.category || '', description: book.description || '', location: book.location || '', total_copies: book.total_copies || 1, available_copies: book.available_copies || 1 }); setSelectedBook(book); setIsEditing(true); setShowAddDialog(true); };
 
   const filteredBooks = books.filter(book => { if (!searchQuery) return true; const query = searchQuery.toLowerCase(); return book.title?.toLowerCase().includes(query) || book.isbn?.toLowerCase().includes(query) || book.authors?.some(a => a.toLowerCase().includes(query)); });
 

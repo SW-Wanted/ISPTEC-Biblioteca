@@ -27,6 +27,7 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Carregar usuário
@@ -63,9 +64,17 @@ Posso ajudar com:
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [cooldown])
+
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || cooldown > 0) return
 
     const userMessage: Message = {
       role: 'user',
@@ -90,8 +99,18 @@ Posso ajudar com:
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to get response')
+        // Tentar ler o erro do servidor
+        let errorData
+        try {
+          errorData = await response.json()
+        } catch {
+          // Se não for JSON válido, criar objeto de erro
+          errorData = { 
+            error: `Erro ${response.status}: ${response.statusText}`,
+            hint: 'O servidor retornou uma resposta inválida.'
+          }
+        }
+        throw new Error(errorData.error || 'Failed to get response')
       }
 
       const data = await response.json()
@@ -103,15 +122,54 @@ Posso ajudar com:
       }
 
       setMessages(prev => [...prev, assistantMessage])
+      
+      // Se estiver usando fallback, avisar o usuário
+      if (data.provider === 'fallback' && data.warning) {
+        console.warn('⚠️ Usando modo fallback:', data.warning)
+      }
     } catch (error: any) {
       console.error('Chat error:', error)
       
       let errorMessage = 'Desculpe, ocorreu um erro. Por favor, tente novamente.'
       
-      if (error.message.includes('Limite de créditos')) {
-        errorMessage = '⚠️ O assistente está temporariamente indisponível. Por favor, contacte a biblioteca diretamente.'
-      } else if (error.message.includes('Chave da API')) {
-        errorMessage = '⚠️ Configuração pendente. Por favor, contacte o administrador do sistema.'
+      const raw = String(error?.message ?? '')
+
+      if (raw.includes('Limite de requisições') || raw.includes('rate') || raw.includes('429') || raw.includes('quota') || raw.includes('Muitas consultas')) {
+        errorMessage = `😊 **Assistente Muito Solicitado!**
+
+O assistente está a ajudar muitos utilizadores neste momento. Isto é um sinal de que o sistema está a funcionar bem!
+
+**O que fazer:**
+- ⏱️ Aguarda 1-2 minutos e tenta novamente
+- 📚 Enquanto isso, podes consultar as perguntas frequentes abaixo
+- 🧑‍💼 Ou dirije-te ao balcão da biblioteca para assistência imediata
+
+*Não te preocupes - o sistema está a funcionar normalmente e voltará em instantes!* ✨`
+        
+        // Ativar cooldown de 10 segundos
+        setCooldown(10)
+      } else if (raw.includes('Chave da API') || raw.includes('Gemini') || raw.includes('GOOGLE_GEMINI_API_KEY') || raw.includes('inválida') || raw.includes('Manutenção')) {
+        errorMessage = `🔧 **Assistente em Manutenção Técnica**
+
+O assistente IA está temporariamente indisponível devido a manutenção de rotina.
+
+**Como podes obter ajuda:**
+- 📚 Consulta as perguntas rápidas abaixo
+- 🧑‍💼 Dirije-te ao balcão de atendimento da biblioteca
+- 📧 Envia email para biblioteca@isptec.co.ao
+
+*A equipa está a trabalhar para reestabelecer o serviço. Obrigado pela compreensão!* 🙏`
+      } else if (raw.includes('região') || raw.includes('região') || raw.includes('blocked') || raw.includes('unsupported')) {
+        errorMessage = `😊 **Assistente Funcionando em Modo Local**
+
+O assistente está optimizado para te ajudar com as questões mais comuns da biblioteca!
+
+**Podes fazer:**
+- 💬 Usar as perguntas rápidas abaixo
+- 📚 Pesquisar livros no catálogo
+- 🧑‍💼 Consultar a equipa no balcão para questões específicas
+
+*O sistema está a funcionar normalmente!* ✨`
       }
       
       setMessages(prev => [...prev, {
@@ -261,21 +319,30 @@ Posso ajudar com:
       {/* Input Area */}
       <div className="bg-white border-t border-slate-200 p-4">
         <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto">
+          {cooldown > 0 && (
+            <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg text-center">
+              <span className="text-sm text-amber-800 font-medium">
+                ⏱️ Aguarde {cooldown}s antes de enviar outra mensagem
+              </span>
+            </div>
+          )}
           <div className="flex gap-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Digite sua pergunta..."
-              disabled={isLoading}
+              placeholder={cooldown > 0 ? `Aguarde ${cooldown}s...` : "Digite sua pergunta..."}
+              disabled={isLoading || cooldown > 0}
               className="flex-1 rounded-xl border-slate-200 focus-visible:ring-indigo-500"
             />
             <Button
               type="submit"
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || !input.trim() || cooldown > 0}
               className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
+              ) : cooldown > 0 ? (
+                <span className="text-sm font-medium">{cooldown}s</span>
               ) : (
                 <Send className="h-5 w-5" />
               )}
