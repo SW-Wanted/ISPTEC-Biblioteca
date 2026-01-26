@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
+import { useQuery } from "@tanstack/react-query"
 import {
   BookOpen,
   Menu,
@@ -77,55 +78,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Check if current page is an auth page (no layout)
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password'
   
-  const [user, setUser] = React.useState<any>(null)
-  const [member, setMember] = React.useState<any>(null)
-  const [isLoadingUser, setIsLoadingUser] = React.useState(true)
-  
-  // Carregar utilizador autenticado
-  React.useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me')
-        if (response.ok) {
-          const userData = await response.json()
-          setUser(userData)
-          
-          // Carregar dados do membro
-          if (userData?.email) {
-            const memberResponse = await fetch(`/api/entities/Member?filter=${encodeURIComponent(JSON.stringify({ user_id: userData.email }))}`)
-            if (memberResponse.ok) {
-              const members = await memberResponse.json()
-              if (members.length > 0) {
-                setMember(members[0])
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao carregar utilizador:', error)
-      } finally {
-        setIsLoadingUser(false)
-      }
-    }
-    
-    if (!isAuthPage) {
-      loadUser()
-    } else {
-      setIsLoadingUser(false)
-    }
-  }, [pathname, isAuthPage])
+  // Carregar utilizador autenticado com React Query
+  const { data: user } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/me')
+      if (!response.ok) return null
+      return response.json()
+    },
+    enabled: !isAuthPage,
+    retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  })
 
-  const isAdmin = member?.member_type === 'librarian' || 
-                  member?.member_type === 'supervisor' || 
-                  member?.member_type === 'cataloger' || 
-                  user?.role === 'admin'
+  // Verificar se é admin baseado no UserType
+  const isAdmin = user?.type === 'LIBRARIAN' || 
+                  user?.type === 'CATALOGER' || 
+                  user?.type === 'SUPERVISOR'
+  
+  // Log para debug
+  React.useEffect(() => {
+    console.log('🔍 Debug AppShell:', { 
+      email: user?.email,
+      name: user?.name,
+      type: user?.type,
+      isAdmin 
+    })
+  }, [user, isAdmin])
   
   const unreadCount = 0 // TODO: Integrar com notificações reais
 
   const handleLogout = async () => {
     try {
-      setUser(null)
-      setMember(null)
       await signOut({ callbackUrl: '/login', redirect: true })
     } catch (error) {
       console.error('Erro ao fazer logout:', error)
