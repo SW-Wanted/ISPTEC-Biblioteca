@@ -22,14 +22,23 @@ export default function LoginPage() {
     void signIn('google', { callbackUrl: '/' });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Importante: autofill do browser pode preencher o input sem disparar onChange.
+    // Para evitar falha na 1ª tentativa, lemos os valores reais do form.
+    const formData = new FormData(e.currentTarget);
+    const emailValue = String(formData.get('email') ?? '').trim();
+    const passwordValue = String(formData.get('password') ?? '');
+
+    setEmail(emailValue);
+    setPassword(passwordValue);
     setIsLoading(true);
     
     try {
       const result = await signIn('credentials', {
-        email,
-        password,
+        email: emailValue,
+        password: passwordValue,
         redirect: false,
         callbackUrl: '/',
       });
@@ -114,6 +123,8 @@ export default function LoginPage() {
                         <Input
                           type="email"
                           id="email"
+                          name="email"
+                          autoComplete="email"
                           placeholder="you@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -133,6 +144,8 @@ export default function LoginPage() {
                         <Input
                           type="password"
                           id="password"
+                          name="password"
+                          autoComplete="current-password"
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}

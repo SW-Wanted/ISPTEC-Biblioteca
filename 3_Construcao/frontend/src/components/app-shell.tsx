@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password'
   
   // Carregar utilizador autenticado com React Query
-  const { data: user } = useQuery({
+  const { data: user, isLoading: isUserLoading } = useQuery({
     queryKey: ['current-user'],
     queryFn: async () => {
       const response = await fetch('/api/auth/me')
@@ -142,7 +143,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <NotificationCenter />
+          {isUserLoading ? (
+            <Skeleton className="h-9 w-9 rounded-lg" />
+          ) : user ? (
+            <NotificationCenter />
+          ) : (
+            <Link
+              href="/login"
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Entrar"
+            >
+              <User className="w-5 h-5 text-slate-600" />
+            </Link>
+          )}
         </div>
       </header>
 
@@ -217,6 +230,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )
           })}
 
+          {isUserLoading && (
+            <>
+              <div className="pt-4 pb-2">
+                <Skeleton className="h-3 w-28 mx-3" />
+              </div>
+              {Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="flex items-center gap-3 px-3 py-2.5">
+                  <Skeleton className="h-5 w-5 rounded-md" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ))}
+            </>
+          )}
+
           {isAdmin && (
             <>
               <div className="pt-4 pb-2">
@@ -256,7 +283,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* User Section */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-100 bg-white">
-          {user ? (
+          {isUserLoading ? (
+            <div className="w-full flex items-center gap-3 p-2 rounded-xl">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-44" />
+              </div>
+              <Skeleton className="h-4 w-4 rounded" />
+            </div>
+          ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button type="button" className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
