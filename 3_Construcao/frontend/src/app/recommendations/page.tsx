@@ -1,17 +1,16 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
-import { api } from '@/api/apiClient';
+import { api, type Book } from '@/api/apiClient';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Sparkles, BookOpen, Star, TrendingUp, ArrowRight } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { Sparkles, BookOpen, Star, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 type BookLike = {
   id: string;
@@ -30,10 +29,14 @@ function BookCard({ book }: BookCardProps) {
       <Card className="group hover:shadow-md transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden h-full">
         <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden">
           {book.cover_url ? (
-            <img
+            <Image
               src={book.cover_url}
               alt={book.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              unoptimized
+              loader={({ src }) => src}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -127,13 +130,18 @@ export default function Recommendations() {
 
   useEffect(() => {
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        const userData = await api.auth.me();
+        setUser(userData);
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);
 
   const { data: popularBooks = [] } = useQuery({ queryKey: ['popular-recommendations'], queryFn: () => api.entities.Book.list('-total_loans', 8), initialData: [] });
-  const { data: topRatedBooks = [] } = useQuery({ queryKey: ['top-rated-recommendations'], queryFn: async () => { const books = await api.entities.Book.list('-average_rating', 20); return books.filter((b: any) => (b.average_rating ?? 0) > 0).slice(0, 8); }, initialData: [] });
+  const { data: topRatedBooks = [] } = useQuery({ queryKey: ['top-rated-recommendations'], queryFn: async () => { const books = await api.entities.Book.list('-average_rating', 20); return books.filter((b: Book) => (b.average_rating ?? 0) > 0).slice(0, 8); }, initialData: [] });
   const { data: newArrivals = [] } = useQuery({ queryKey: ['new-arrivals'], queryFn: () => api.entities.Book.list('-created_date', 8), initialData: [] });
   const { data: userLoans = [] } = useQuery({ queryKey: ['user-loans', user?.email], queryFn: () => api.entities.Loan.filter({ member_id: user?.email }), enabled: !!user?.email, initialData: [] });
 
@@ -145,8 +153,8 @@ export default function Recommendations() {
       
       const borrowedTitles = userLoans.slice(0, 5).map(l => l.book_title).join(', ');
       const allBooks = await api.entities.Book.list('-average_rating', 50);
-      const borrowedBookIds = userLoans.map(l => l.book_id);
-      const availableBooks = allBooks.filter((b: any) => !borrowedBookIds.includes(b.id) && (b.available_copies ?? 0) > 0);
+      const borrowedBookIds = userLoans.map((l) => l.book_id).filter((id): id is string => typeof id === 'string');
+      const availableBooks = allBooks.filter((b: Book) => !borrowedBookIds.includes(b.id) && (b.available_copies ?? 0) > 0);
       
       if (availableBooks.length === 0) return [];
       

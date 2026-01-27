@@ -30,7 +30,14 @@ export type Book = BaseEntity & {
 
 export type Category = BaseEntity & { name?: string };
 export type Copy = BaseEntity & { book_id?: string; status?: string };
-export type Member = BaseEntity & { user_id?: string; status?: string; notification_preferences?: Record<string, unknown> };
+export type Member = BaseEntity & {
+	user_id?: string;
+	full_name?: string;
+	status?: string;
+	role?: string;
+	total_fines?: number;
+	notification_preferences?: Record<string, unknown>;
+};
 
 export type Loan = BaseEntity & {
 	status?: string;
@@ -44,11 +51,14 @@ export type Loan = BaseEntity & {
 	copy_id?: string;
 	renewal_count?: number;
 	max_renewals?: number;
+	days_overdue?: number;
+	fine_amount?: number;
 };
 
 export type Reservation = BaseEntity & {
 	status?: string;
 	user_id?: string;
+	member_id?: string;
 	book_id?: string;
 	book_title?: string;
 	reservation_date?: string;
@@ -61,10 +71,13 @@ export type Fine = BaseEntity & { status?: string; user_id?: string; amount?: nu
 
 export type Notification = BaseEntity & {
 	user_id?: string;
+	type?: string;
 	title?: string;
 	message?: string;
 	status?: string;
 	action_type?: string;
+	loan_id?: string;
+	reservation_id?: string;
 	read_at?: string | null;
 };
 

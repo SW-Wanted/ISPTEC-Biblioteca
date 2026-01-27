@@ -5,12 +5,12 @@ import { api } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { format, addHours } from 'date-fns';
-import { Computer, KeyRound, FileText, GraduationCap, BookOpen, Clock, CheckCircle, AlertCircle, Loader2, MapPin, ArrowRight } from 'lucide-react';
+import { Computer, KeyRound, FileText, GraduationCap, BookOpen, AlertCircle, Loader2, MapPin, ArrowRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -56,7 +56,12 @@ export default function Services() {
 
   useEffect(() => {
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        const userData = await api.auth.me();
+        setUser(userData);
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);

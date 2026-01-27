@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -545,7 +546,15 @@ export default function Profile() {
 					<div className="flex flex-col items-center py-6">
 						<div className="w-48 h-48 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
 							{member?.qr_code ? (
-								<img src={member.qr_code} alt="QR Code" className="w-full h-full object-contain" />
+								<Image
+									src={member.qr_code}
+									alt="QR Code"
+									width={192}
+									height={192}
+									className="w-full h-full object-contain"
+									unoptimized
+									loader={({ src }) => src}
+								/>
 							) : (
 								<QrCode className="w-24 h-24 text-slate-400" />
 							)}

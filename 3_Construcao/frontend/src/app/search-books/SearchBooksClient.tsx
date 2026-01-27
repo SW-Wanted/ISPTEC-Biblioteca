@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
+import Image from 'next/image';
+import type { CheckedState } from '@radix-ui/react-checkbox';
 import { Link, useSearchParams } from '@/lib/router';
 import { createPageUrl } from '@/utils';
 import { api } from '@/api/apiClient';
@@ -99,8 +101,9 @@ function FilterSidebar({
         <Checkbox
           id="available"
           checked={filters.available}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onCheckedChange={(checked: any) => setFilters({ ...filters, available: Boolean(checked) })}
+          onCheckedChange={(checked: CheckedState) =>
+            setFilters({ ...filters, available: checked === true })
+          }
         />
         <label htmlFor="available" className="text-sm text-slate-700 cursor-pointer">
           Apenas disponíveis
@@ -327,7 +330,27 @@ export default function SearchBooksClient() {
                             viewMode === 'grid' ? 'aspect-2/3' : 'w-24 h-32'
                           )}>
                             {book.cover_url ? (
-                              <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              viewMode === 'grid' ? (
+                                <Image
+                                  src={book.cover_url}
+                                  alt={book.title}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                  unoptimized
+                                  loader={({ src }) => src}
+                                />
+                              ) : (
+                                <Image
+                                  src={book.cover_url}
+                                  alt={book.title}
+                                  width={96}
+                                  height={128}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  unoptimized
+                                  loader={({ src }) => src}
+                                />
+                              )
                             ) : (
                               <div className="absolute inset-0 flex items-center justify-center">
                                 <BookOpen className="w-12 h-12 text-slate-300" />

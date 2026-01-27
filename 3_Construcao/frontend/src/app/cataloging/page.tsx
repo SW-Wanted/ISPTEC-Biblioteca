@@ -1,16 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
 import { api } from '@/api/apiClient';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Camera, BookOpen, CheckCircle, ArrowRight, Loader2, Sparkles, Wand2, X } from 'lucide-react';
+import { Camera, CheckCircle, ArrowRight, Loader2, Wand2, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +19,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export default function Cataloging() {
-  const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [step, setStep] = useState<number>(1);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedBookData | null>(null);
@@ -78,7 +77,11 @@ export default function Cataloging() {
 
   useEffect(() => {
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        await api.auth.me();
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);
@@ -146,7 +149,7 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
       }));
       setStep(2);
       toast.success('Dados extraídos com sucesso!');
-    } catch (error) {
+    } catch {
       toast.error('Erro ao processar imagem. Tente novamente.');
     } finally {
       setIsExtracting(false);
@@ -206,7 +209,7 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
 
         {step === 1 && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className="border-0 shadow-sm"><CardHeader className="text-center"><CardTitle>Fotografe o Livro</CardTitle><CardDescription>Tire uma foto da capa ou folha de rosto para extração automática dos dados</CardDescription></CardHeader><CardContent><input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" /><div onClick={() => fileInputRef.current?.click()} className={cn("border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all", isExtracting ? "border-indigo-300 bg-indigo-50" : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50")}>{isExtracting ? <div className="space-y-4"><Loader2 className="w-16 h-16 text-indigo-600 mx-auto animate-spin" /><div><p className="font-medium text-indigo-800">Processando imagem...</p><p className="text-sm text-indigo-600 mt-1">Extraindo dados com IA</p></div><Progress value={66} className="w-48 mx-auto" /></div> : uploadedImage ? <div className="space-y-4"><img src={uploadedImage} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow" /><p className="text-sm text-slate-500">Clique para trocar a imagem</p></div> : <div className="space-y-4"><div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto"><Camera className="w-10 h-10 text-indigo-600" /></div><div><p className="font-medium text-slate-800">Clique para capturar ou selecionar</p><p className="text-sm text-slate-500 mt-1">JPG, PNG ou HEIC até 10MB</p></div></div>}</div></CardContent></Card>
+            <Card className="border-0 shadow-sm"><CardHeader className="text-center"><CardTitle>Fotografe o Livro</CardTitle><CardDescription>Tire uma foto da capa ou folha de rosto para extração automática dos dados</CardDescription></CardHeader><CardContent><input type="file" ref={fileInputRef} accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" /><div onClick={() => fileInputRef.current?.click()} className={cn("border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all", isExtracting ? "border-indigo-300 bg-indigo-50" : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50")}>{isExtracting ? <div className="space-y-4"><Loader2 className="w-16 h-16 text-indigo-600 mx-auto animate-spin" /><div><p className="font-medium text-indigo-800">Processando imagem...</p><p className="text-sm text-indigo-600 mt-1">Extraindo dados com IA</p></div><Progress value={66} className="w-48 mx-auto" /></div> : uploadedImage ? <div className="space-y-4"><Image src={uploadedImage} alt="Preview" width={320} height={192} className="max-h-48 mx-auto rounded-lg shadow object-contain" unoptimized loader={({ src }) => src} /><p className="text-sm text-slate-500">Clique para trocar a imagem</p></div> : <div className="space-y-4"><div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto"><Camera className="w-10 h-10 text-indigo-600" /></div><div><p className="font-medium text-slate-800">Clique para capturar ou selecionar</p><p className="text-sm text-slate-500 mt-1">JPG, PNG ou HEIC até 10MB</p></div></div>}</div></CardContent></Card>
           </motion.div>
         )}
 

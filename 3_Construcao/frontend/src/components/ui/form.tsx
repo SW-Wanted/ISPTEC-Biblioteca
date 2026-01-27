@@ -47,7 +47,7 @@ const useFormField = () => {
     throw new Error("useFormField should be used within <FormItem>")
   }
 
-  const fieldState = getFieldState(fieldContext.name as any, formState)
+  const fieldState = getFieldState(fieldContext.name as FieldPath<FieldValues>, formState)
 
   const { id } = itemContext
 

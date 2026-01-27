@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
+import type { JWT } from "next-auth/jwt"
+import type { UserType } from "@prisma/client"
 
 const PUBLIC_PATHS = [
   "/login",
@@ -77,8 +79,9 @@ export async function proxy(req: NextRequest) {
   }
 
   if (isAdminRoute(pathname)) {
-    const type = (token as any).type as string | undefined
-    const allowed = ["SUPERVISOR", "LIBRARIAN", "STAFF", "CATALOGER"]
+    const typedToken = token as JWT
+    const type = typedToken.type
+    const allowed: UserType[] = ["SUPERVISOR", "LIBRARIAN", "STAFF", "CATALOGER"]
     if (!type || !allowed.includes(type)) {
       const url = req.nextUrl.clone()
       url.pathname = "/"

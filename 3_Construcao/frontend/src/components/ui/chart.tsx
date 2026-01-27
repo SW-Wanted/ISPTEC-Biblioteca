@@ -14,8 +14,7 @@ type ThemeName = keyof typeof THEMES
 
 export type ChartItemConfig = {
   label?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  icon?: React.ComponentType<any>
+  icon?: React.ComponentType<{ className?: string }>
   color?: string
   theme?: Partial<Record<ThemeName, string>>
 }
@@ -100,19 +99,25 @@ return color ? `  --color-${key}: ${color};` : null
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+type TooltipPayloadItem = {
+  dataKey?: unknown
+  name?: unknown
+  value?: unknown
+  payload?: Record<string, unknown>
+  color?: string
+  fill?: string
+}
+
 type ChartTooltipContentProps = React.HTMLAttributes<HTMLDivElement> & {
   active?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: any[]
+  payload?: TooltipPayloadItem[]
   indicator?: "dot" | "line" | "dashed"
   hideLabel?: boolean
   hideIndicator?: boolean
   label?: unknown
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  labelFormatter?: (value: any, payload: any[]) => React.ReactNode
+  labelFormatter?: (value: unknown, payload: TooltipPayloadItem[]) => React.ReactNode
   labelClassName?: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  formatter?: (...args: any[]) => React.ReactNode
+  formatter?: (...args: unknown[]) => React.ReactNode
   color?: string
   nameKey?: string
   labelKey?: string
@@ -192,11 +197,15 @@ const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContent
         {payload.map((item, index) => {
           const key = `${nameKey || item.name || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
-          const indicatorColor = color || item.payload.fill || item.color
+          const indicatorColor = color || item.payload?.fill || item.color
+          const indicatorColorCss = typeof indicatorColor === "string" ? indicatorColor : "transparent"
+          const labelText = itemConfig?.label ?? (typeof item.name === "string" ? item.name : key)
+          const valueText =
+            typeof item.value === "number" ? item.value.toLocaleString() : typeof item.value === "string" ? item.value : null
 
           return (
             (<div
-              key={item.dataKey}
+              key={key}
               className={cn(
                 "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                 indicator === "dot" && "items-center"
@@ -219,9 +228,9 @@ const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContent
                         })}
                         style={
                           {
-                            ["--color-bg" as any]: indicatorColor,
-                            ["--color-border" as any]: indicatorColor,
-                          } as React.CSSProperties
+                            "--color-bg": indicatorColorCss,
+                            "--color-border": indicatorColorCss,
+                          } as React.CSSProperties & Record<`--${string}`, string>
                         } />
                     )
                   )}
@@ -233,12 +242,12 @@ const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContent
                     <div className="grid gap-1.5">
                       {nestLabel ? tooltipLabel : null}
                       <span className="text-muted-foreground">
-                        {itemConfig?.label || item.name}
+                        {labelText}
                       </span>
                     </div>
-                    {item.value && (
+                    {valueText !== null && (
                       <span className="font-mono font-medium tabular-nums text-foreground">
-                        {item.value.toLocaleString()}
+                        {valueText}
                       </span>
                     )}
                   </div>
@@ -257,11 +266,16 @@ const ChartLegend = RechartsPrimitive.Legend
 
 type ChartLegendContentProps = React.HTMLAttributes<HTMLDivElement> & {
   hideIcon?: boolean
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  payload?: any[]
+  payload?: LegendPayloadItem[]
   verticalAlign?: "top" | "bottom"
   nameKey?: string
 }
+
+type LegendPayloadItem = {
+  dataKey?: unknown
+  value?: unknown
+  color?: unknown
+} & Record<string, unknown>
 
 const ChartLegendContent = React.forwardRef<HTMLDivElement, ChartLegendContentProps>((
   { className, hideIcon = false, payload, verticalAlign = "bottom", nameKey, ...props },
@@ -283,12 +297,13 @@ const ChartLegendContent = React.forwardRef<HTMLDivElement, ChartLegendContentPr
       )}
       {...props}>
       {payload.map((item) => {
-        const key = `${nameKey || item.dataKey || "value"}`
+        const key = `${nameKey || String(item.dataKey ?? "value")}`
         const itemConfig = getPayloadConfigFromPayload(config, item, key)
+        const colorValue = typeof item.color === "string" ? item.color : undefined
 
         return (
           (<div
-            key={item.value}
+            key={key}
             className={cn(
               "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
             )}>
@@ -298,7 +313,7 @@ const ChartLegendContent = React.forwardRef<HTMLDivElement, ChartLegendContentPr
               <div
                 className="h-2 w-2 shrink-0 rounded-[2px]"
                 style={{
-                  backgroundColor: item.color,
+                  backgroundColor: colorValue,
                 }} />
             )}
             {itemConfig?.label}

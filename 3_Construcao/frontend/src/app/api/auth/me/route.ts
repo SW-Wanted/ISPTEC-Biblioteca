@@ -10,9 +10,9 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    id: (session.user as any).id,
+    id: session.user.id,
     email: session.user.email,
     full_name: session.user.name ?? null,
-    type: (session.user as any).type ?? null,
+    type: session.user.type ?? null,
   })
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -40,6 +41,40 @@ const SYSTEM_PROMPT = `Você é o assistente virtual da Biblioteca do ISPTEC (In
 type IncomingMessage = {
   role: 'user' | 'assistant'
   content: string
+}
+
+const chatBodySchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+      }),
+    )
+    .default([]),
+})
+
+type GeminiSendMessageResult = {
+  response: {
+    text: () => string
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isGeminiSendMessageResult(value: unknown): value is GeminiSendMessageResult {
+  if (!isRecord(value)) return false
+  const response = value.response
+  if (!isRecord(response)) return false
+  return typeof response.text === 'function'
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return ''
 }
 
 // Respostas de fallback quando Gemini não está disponível
@@ -282,12 +317,17 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Session valid:', session.user.email)
 
-    const userId = (session.user as any).id as string
+    const userId = session.user.id
+    if (!userId) {
+      return NextResponse.json({ error: 'Sessão inválida' }, { status: 401 })
+    }
     const userName = session.user.name || 'Utilizador'
-    const userType = (session.user as any).type as string | undefined
 
-    const body = await request.json()
-    const messages: IncomingMessage[] = Array.isArray(body?.messages) ? body.messages : []
+    const userType = session.user.type
+
+    const bodyJson: unknown = await request.json()
+    const body = chatBodySchema.parse(bodyJson)
+    const messages: IncomingMessage[] = body.messages
     lastMessage = messages[messages.length - 1]?.content ?? ''
 
     console.log('💬 Last message:', lastMessage.substring(0, 100))
@@ -371,14 +411,18 @@ export async function POST(request: NextRequest) {
     // Retry com delay exponencial para rate limit
     let retries = 0
     const maxRetries = 1
-    let result: unknown
+    let result: GeminiSendMessageResult | undefined
     
     while (retries <= maxRetries) {
       try {
-        result = await chat.sendMessage(prompt)
+        const maybeResult: unknown = await chat.sendMessage(prompt)
+        if (!isGeminiSendMessageResult(maybeResult)) {
+          throw new Error('Resposta inválida do Gemini')
+        }
+        result = maybeResult
         break // Sucesso, sai do loop
-      } catch (retryError: any) {
-        const errMsg = String(retryError?.message ?? '')
+      } catch (retryError: unknown) {
+        const errMsg = getErrorMessage(retryError)
         
         // Se for rate limit e ainda temos retries, aguarda e tenta novamente
         if (/rate|quota|429|too many requests/i.test(errMsg) && retries < maxRetries) {
@@ -395,25 +439,21 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Gemini response received')
 
-    if (!result || typeof (result as any)?.response?.text !== 'function') {
-      throw new Error('Resposta inválida do Gemini')
-    }
+    if (!result) throw new Error('Resposta inválida do Gemini')
 
     return NextResponse.json({
-      message: (result as any).response.text(),
+      message: result.response.text(),
       provider: 'gemini-2.5-flash-lite',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Gemini Error:', error)
     console.error('Error details:', {
-      name: error?.name,
-      message: error?.message,
-      status: error?.status,
-      statusText: error?.statusText,
-      stack: error?.stack?.split('\n').slice(0, 3),
+      name: error instanceof Error ? error.name : undefined,
+      message: getErrorMessage(error),
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 3) : undefined,
     })
 
-    const message = String(error?.message ?? '')
+    const message = getErrorMessage(error)
 
     // Rate limit / Quota exceeded
     if (/rate|quota|resource has been exhausted|too many requests|429/i.test(message)) {

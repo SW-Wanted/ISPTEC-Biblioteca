@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/api/apiClient';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Users, Search, Edit2, Ban, CheckCircle, MoreHorizontal, Loader2, Filter, Download } from 'lucide-react';
+import { Users, Search, Download } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import { createPageUrl } from '@/utils';
 
 type MemberRow = {
@@ -28,15 +26,17 @@ type MemberRow = {
 } & Record<string, unknown>;
 
 export default function ManageMembers() {
-  const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        await api.auth.me();
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);
