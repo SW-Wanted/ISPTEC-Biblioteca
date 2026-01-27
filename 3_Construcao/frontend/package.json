@@ -4,19 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --no-engine --no-hints && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
+    "postinstall": "prisma generate --no-engine --no-hints",
+    "prisma:generate": "prisma generate --no-engine --no-hints",
     "prisma:format": "prisma format",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "db:push": "prisma db push"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

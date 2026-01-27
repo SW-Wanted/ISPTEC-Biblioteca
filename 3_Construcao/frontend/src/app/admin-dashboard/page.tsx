@@ -53,8 +53,10 @@ function StatCard({ title, value, icon: Icon, color, link }: StatCardProps) {
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const loadUser = async () => {
       try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
     };
@@ -122,7 +124,7 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
-          <Card className="border-0 shadow-sm lg:col-span-2"><CardHeader><CardTitle className="text-sm font-medium text-slate-800">Movimentação da Semana</CardTitle></CardHeader><CardContent><div className="h-64"><ResponsiveContainer width="100%" height="100%"><AreaChart data={loanChartData}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="date" stroke="#94a3b8" fontSize={12} /><YAxis stroke="#94a3b8" fontSize={12} /><Tooltip /><Area type="monotone" dataKey="emprestimos" stackId="1" stroke="#6366f1" fill="#6366f1" fillOpacity={0.6} name="Empréstimos" /><Area type="monotone" dataKey="devolucoes" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Devoluções" /></AreaChart></ResponsiveContainer></div></CardContent></Card>
+          <Card className="border-0 shadow-sm lg:col-span-2"><CardHeader><CardTitle className="text-sm font-medium text-slate-800">Movimentação da Semana</CardTitle></CardHeader><CardContent><div className="h-64">{isMounted ? (<ResponsiveContainer width="100%" height="100%"><AreaChart data={loanChartData}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="date" stroke="#94a3b8" fontSize={12} /><YAxis stroke="#94a3b8" fontSize={12} /><Tooltip /><Area type="monotone" dataKey="emprestimos" stackId="1" stroke="#6366f1" fill="#6366f1" fillOpacity={0.6} name="Empréstimos" /><Area type="monotone" dataKey="devolucoes" stackId="2" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name="Devoluções" /></AreaChart></ResponsiveContainer>) : (<div className="h-full w-full rounded-md bg-slate-100" />)}</div></CardContent></Card>
 
           <Card className="border-0 shadow-sm"><CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm font-medium text-slate-800">Empréstimos em Atraso</CardTitle><Badge className="bg-red-100 text-red-700">{overdueLoans.length}</Badge></CardHeader><CardContent>{overdueLoans.length === 0 ? <div className="text-center py-8"><CheckCircle className="w-12 h-12 text-emerald-300 mx-auto mb-2" /><p className="text-sm text-slate-500">Nenhum empréstimo em atraso</p></div> : <div className="space-y-3">{overdueLoans.slice(0, 5).map(loan => <div key={loan.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg"><div><p className="font-medium text-slate-800 text-sm">{loan.book_title}</p><p className="text-xs text-slate-500">{loan.member_name}</p></div><Badge className="bg-red-100 text-red-700 text-xs">{loan.due_date ? Math.abs(Math.floor((new Date().getTime() - new Date(loan.due_date).getTime()) / (1000 * 60 * 60 * 24))) : 0} dias</Badge></div>)}</div>}</CardContent></Card>
         </div>

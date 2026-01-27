@@ -46,8 +46,10 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: StatCardProps) 
 export default function Reports() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [dateRange, setDateRange] = useState('month');
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const loadUser = async () => {
       try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
     };
@@ -165,7 +167,8 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={loansByDay}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} />
@@ -175,7 +178,10 @@ export default function Reports() {
                         <Bar dataKey="emprestimos" name="Empréstimos" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         <Bar dataKey="devolucoes" name="Devoluções" fill="#10b981" radius={[4, 4, 0, 0]} />
                       </BarChart>
-                    </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full rounded-md bg-slate-100" />
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -187,14 +193,18 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={membersByType} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`} labelLine={false}>
                           {membersByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
                         <Tooltip />
                       </PieChart>
-                    </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full rounded-md bg-slate-100" />
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -279,7 +289,8 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
+                    {isMounted ? (
+                      <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={booksByCategory} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis type="number" stroke="#94a3b8" fontSize={12} />
@@ -287,7 +298,10 @@ export default function Reports() {
                         <Tooltip />
                         <Bar dataKey="value" name="Livros" fill="#6366f1" radius={[0, 4, 4, 0]} />
                       </BarChart>
-                    </ResponsiveContainer>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full w-full rounded-md bg-slate-100" />
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -350,14 +364,18 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
+                  {isMounted ? (
+                    <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={finesByType} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
                         {finesByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
                       <Tooltip />
                     </PieChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full w-full rounded-md bg-slate-100" />
+                  )}
                 </div>
               </CardContent>
             </Card>
