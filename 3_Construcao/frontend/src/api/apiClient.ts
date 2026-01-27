@@ -173,6 +173,14 @@ export const api = {
 			await signOut({ callbackUrl: '/login' });
 		},
 	},
+	loans: {
+		renew: async (loanId: string): Promise<{ ok: true; loan: Loan }> => {
+			ensureBrowser();
+			return await http<{ ok: true; loan: Loan }>(`/api/loans/${encodeURIComponent(loanId)}/renew`, {
+				method: 'POST',
+			});
+		},
+	},
 	entities: {
 		Book: createEntityClient<Book>('Book'),
 		Category: createEntityClient<Category>('Category'),

@@ -3,11 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
-import { api, type Loan, type Member, type Reservation } from '@/api/apiClient';
+import { api, type Loan, type Member } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, differenceInDays, isPast, addDays } from 'date-fns';
-import { pt } from 'date-fns/locale';
+import { format, differenceInDays, isPast } from 'date-fns';
 import { BookMarked, Clock, AlertTriangle, CheckCircle, RefreshCw, History, ChevronRight, Calendar, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,37 +51,13 @@ export default function MyLoans() {
   const activeLoans = loans.filter(l => l.status === 'active' || l.status === 'overdue');
   const historyLoans = loans.filter(l => l.status === 'returned' || l.status === 'cancelled');
 
-  const checkReservationsMutation = useMutation<boolean, Error, string>({
-    mutationFn: async (bookId) => {
-      const reservations: Reservation[] = await api.entities.Reservation.filter({ book_id: bookId, status: 'active' });
-      return reservations.length > 0;
-    },
-  });
-
   const renewMutation = useMutation<void, Error, Loan>({
     mutationFn: async (loan) => {
-      if (!loan.book_id) throw new Error('Livro inválido');
       const renewalCount = loan.renewal_count ?? 0;
       const maxRenewals = loan.max_renewals ?? 0;
       if (renewalCount >= maxRenewals) throw new Error('Limite de renovações atingido');
 
-      const hasReservations = await checkReservationsMutation.mutateAsync(loan.book_id);
-      if (hasReservations) throw new Error('Este livro tem reservas pendentes');
-      const totalFines = Number(member?.total_fines ?? 0);
-      if (totalFines > 0) throw new Error('Regularize suas multas antes de renovar');
-
-      const memberType = member?.role;
-      const loanDays = memberType === 'teacher' ? 15 : 5;
-      const newDueDate = addDays(new Date(), loanDays);
-
-      await api.entities.Loan.update(loan.id, {
-        due_date: newDueDate.toISOString(),
-        renewal_count: renewalCount + 1,
-        status: 'active',
-      });
-      const userEmail = user?.email;
-      if (!userEmail) throw new Error('Utilizador não autenticado');
-      await api.entities.Notification.create({ user_id: userEmail, type: 'in_app', status: 'pending', title: 'Renovação realizada!', message: `O empréstimo de "${loan.book_title}" foi renovado até ${format(newDueDate, "dd 'de' MMMM", { locale: pt })}.`, loan_id: loan.id, action_type: 'view_loan' });
+      await api.loans.renew(loan.id);
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['my-loans', user?.email] }); setShowRenewDialog(false); setSelectedLoan(null); toast.success('Renovação realizada com sucesso!'); },
     onError: (caught: unknown) => {
