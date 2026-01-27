@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
-import { HelpCircle, BookOpen, Clock, Computer, MessageCircle, Phone, Mail, MapPin, AlertTriangle, Calendar, Users } from 'lucide-react';
+import { HelpCircle, Clock, MessageCircle, Phone, Mail, MapPin, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";

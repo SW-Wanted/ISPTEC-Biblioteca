@@ -127,12 +127,17 @@ Posso ajudar com:
       if (data.provider === 'fallback' && data.warning) {
         console.warn('⚠️ Usando modo fallback:', data.warning)
       }
-    } catch (error: any) {
-      console.error('Chat error:', error)
+    } catch (caught: unknown) {
+      console.error('Chat error:', caught)
       
       let errorMessage = 'Desculpe, ocorreu um erro. Por favor, tente novamente.'
       
-      const raw = String(error?.message ?? '')
+      const raw =
+        caught instanceof Error
+          ? caught.message
+          : typeof caught === 'string'
+            ? caught
+            : ''
 
       if (raw.includes('Limite de requisições') || raw.includes('rate') || raw.includes('429') || raw.includes('quota') || raw.includes('Muitas consultas')) {
         errorMessage = `😊 **Assistente Muito Solicitado!**

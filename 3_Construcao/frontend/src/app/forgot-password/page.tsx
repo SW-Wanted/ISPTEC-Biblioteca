@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
                       Reset your password
                     </h1>
                     <p className="text-slate-500 text-sm sm:text-base">
-                      Enter your email and we'll send you a link to reset your password
+                      Enter your email and we&apos;ll send you a link to reset your password
                     </p>
                   </div>
 
@@ -115,7 +115,7 @@ export default function ForgotPasswordPage() {
                         Check your email
                       </h2>
                       <p className="text-slate-500 text-sm">
-                        We've sent a password reset link to
+                        We&apos;ve sent a password reset link to
                       </p>
                       <p className="text-slate-700 font-medium">
                         {email}
@@ -139,7 +139,7 @@ export default function ForgotPasswordPage() {
                       }}
                       className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
                     >
-                      Didn't receive the email? Try again
+                      Didn&apos;t receive the email? Try again
                     </button>
                   </div>
                 </>

@@ -7,6 +7,10 @@ import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
+type CalendarChevronProps = Omit<React.SVGProps<SVGSVGElement>, "orientation"> & {
+  orientation?: "left" | "right" | "up" | "down"
+}
+
 function Calendar({
   className,
   classNames,
@@ -59,8 +63,7 @@ function Calendar({
       }}
       components={{
         // react-day-picker v9+: usa `Chevron` em vez de IconLeft/IconRight
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        Chevron: ({ className, orientation, ...iconProps }: any) => {
+        Chevron: ({ className, orientation, ...iconProps }: CalendarChevronProps) => {
           if (orientation === "left") return <ChevronLeft className={cn("h-4 w-4", className)} {...iconProps} />
           if (orientation === "right") return <ChevronRight className={cn("h-4 w-4", className)} {...iconProps} />
           if (orientation === "up") return <ChevronUp className={cn("h-4 w-4", className)} {...iconProps} />

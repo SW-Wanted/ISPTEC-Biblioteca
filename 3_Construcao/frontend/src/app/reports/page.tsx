@@ -4,15 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { createPageUrl } from '@/utils';
 import { api } from '@/api/apiClient';
 import { useQuery } from '@tanstack/react-query';
-import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
-import { BarChart3, Download, Calendar, BookOpen, Users, TrendingUp, DollarSign, Clock, Filter } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import { BarChart3, Download, Calendar, BookOpen, Users, DollarSign, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { useIsClient } from "@/lib/use-is-client";
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -44,14 +45,16 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: StatCardProps) 
 }
 
 export default function Reports() {
-  const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [dateRange, setDateRange] = useState('month');
-  const [isMounted, setIsMounted] = useState(false);
+  const isClient = useIsClient();
 
   useEffect(() => {
-    setIsMounted(true);
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        await api.auth.me();
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);
@@ -167,7 +170,7 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    {isMounted ? (
+                    {isClient ? (
                       <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={loansByDay}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -193,7 +196,7 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    {isMounted ? (
+                    {isClient ? (
                       <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={membersByType} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value" label={({ name, percent }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`} labelLine={false}>
@@ -289,7 +292,7 @@ export default function Reports() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-64">
-                    {isMounted ? (
+                    {isClient ? (
                       <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={booksByCategory} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -364,7 +367,7 @@ export default function Reports() {
               </CardHeader>
               <CardContent>
                 <div className="h-64">
-                  {isMounted ? (
+                  {isClient ? (
                     <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={finesByType} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>

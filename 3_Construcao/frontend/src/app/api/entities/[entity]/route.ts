@@ -11,13 +11,28 @@ import {
   LoanStatus,
   NotificationStatus,
   NotificationType,
+  Prisma,
   ReservationStatus,
+  RequestStatus,
   UserStatus,
   UserType,
 } from "@prisma/client"
 import { clampInt, FINE_PER_DAY_KZ, LOAN_LIMITS, normalizeEnum, toIso } from "@/lib/sgbu-rules"
 
 const filterSchema = z.record(z.string(), z.unknown()).optional()
+
+const jsonObjectSchema = z.record(z.string(), z.unknown())
+
+type BookRatingStats = {
+  bookId: string
+  averageRating: number
+  totalReviews: number
+}
+
+function isEnumValue<T extends Record<string, string>>(enumObj: T, value: unknown): value is T[keyof T] {
+  if (typeof value !== "string") return false
+  return Object.values(enumObj).includes(value as T[keyof T])
+}
 
 function lowerEnum(value: string): string {
   return value.toLowerCase()
@@ -233,13 +248,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "Book") {
-    if (!canManageBooks(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
-    }
-
     const where = filter?.id ? { id: String(filter.id) } : undefined
 
-    const orderBy = sort === "-created_date" ? { createdAt: "desc" as const } : { createdAt: "desc" as const }
+    // Default ordering (we may re-sort in-memory for derived fields)
+    const orderBy = sort === "created_date" ? { createdAt: "asc" as const } : { createdAt: "desc" as const }
 
     const books = await prisma.book.findMany({
       where,
@@ -253,8 +265,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
       take: limit,
     })
 
-    return NextResponse.json(
-      books.map((b) => ({
+    const ratingGroups = await prisma.bookReview.groupBy({
+      by: ["bookId"],
+      where: books.length > 0 ? { bookId: { in: books.map((b) => b.id) } } : undefined,
+      _avg: { rating: true },
+      _count: { _all: true },
+    })
+
+    const statsByBookId = new Map<string, BookRatingStats>()
+    for (const row of ratingGroups) {
+      statsByBookId.set(row.bookId, {
+        bookId: row.bookId,
+        averageRating: row._avg.rating ? Number(row._avg.rating) : 0,
+        totalReviews: row._count._all,
+      })
+    }
+
+    const mapped = books.map((b) => {
+      const stats = statsByBookId.get(b.id)
+      const totalReviews = stats ? stats.totalReviews : 0
+      const averageRating = stats ? stats.averageRating : null
+      return {
         id: b.id,
         created_date: toIso(b.createdAt),
         updated_date: toIso(b.updatedAt),
@@ -275,18 +306,78 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
         location: b.copies[0]?.location ?? null,
         extracted_by_ocr: b.extractedByOCR,
         ocr_confidence: b.ocrConfidence ? Number(b.ocrConfidence) : null,
-        average_rating: null,
+        average_rating: totalReviews > 0 ? averageRating : null,
+        total_reviews: totalReviews,
         total_loans: null,
+      }
+    })
+
+    if (sort === "-average_rating" || sort === "average_rating") {
+      const dir = sort === "-average_rating" ? -1 : 1
+      mapped.sort((a, b) => {
+        const av = typeof a.average_rating === "number" ? a.average_rating : 0
+        const bv = typeof b.average_rating === "number" ? b.average_rating : 0
+        if (av !== bv) return (av - bv) * dir
+        const at = typeof a.total_reviews === "number" ? a.total_reviews : 0
+        const bt = typeof b.total_reviews === "number" ? b.total_reviews : 0
+        if (at !== bt) return (at - bt) * dir
+        return (new Date(b.created_date ?? 0).getTime() - new Date(a.created_date ?? 0).getTime())
+      })
+    }
+
+    if (sort === "-total_reviews" || sort === "total_reviews") {
+      const dir = sort === "-total_reviews" ? -1 : 1
+      mapped.sort((a, b) => {
+        const av = typeof a.total_reviews === "number" ? a.total_reviews : 0
+        const bv = typeof b.total_reviews === "number" ? b.total_reviews : 0
+        if (av !== bv) return (av - bv) * dir
+        return (new Date(b.created_date ?? 0).getTime() - new Date(a.created_date ?? 0).getTime())
+      })
+    }
+
+    return NextResponse.json(mapped)
+  }
+
+  if (entity === "BookReview") {
+    // Any authenticated user can read book reviews
+    const where: Prisma.BookReviewWhereInput = {}
+    if (filter?.book_id) where.bookId = String(filter.book_id)
+    if (filter?.user_id) where.user = { email: String(filter.user_id) }
+
+    const reviews = await prisma.bookReview.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+      },
+    })
+
+    return NextResponse.json(
+      reviews.map((r) => ({
+        id: r.id,
+        book_id: r.bookId,
+        user_id: r.user.email,
+        user_name: r.user.name,
+        rating: r.rating,
+        review: r.review,
+        is_verified_read: r.isVerifiedRead,
+        created_at: toIso(r.createdAt) ?? null,
+        created_date: toIso(r.createdAt),
+        updated_date: toIso(r.updatedAt),
       }))
     )
   }
 
   if (entity === "Member") {
-    if (!canManageMembers(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
-    }
-
     const where = filter?.user_id ? { email: String(filter.user_id) } : undefined
+
+    // Non-staff users may only read their own profile
+    if (!canManageMembers(user.type)) {
+      if (!where || where.email !== user.email) {
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
+      }
+    }
 
     const members = await prisma.user.findMany({
       where,
@@ -321,15 +412,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "Loan") {
-    if (!canManageLoans(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
+    const where: Prisma.LoanWhereInput = {}
+    if (filter?.member_id) where.user = { email: String(filter.member_id) }
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(LoanStatus, s)) where.status = s
     }
 
-    await syncOverdueLoansAndFines()
-
-    const where: any = {}
-    if (filter?.member_id) where.user = { email: String(filter.member_id) }
-    if (filter?.status) where.status = normalizeEnum(filter.status) as any
+    // Non-librarian users may only read their own loans
+    if (!canManageLoans(user.type)) {
+      const memberEmail = filter?.member_id ? String(filter.member_id) : null
+      if (!memberEmail || memberEmail !== user.email) {
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
+      }
+      await syncOverdueLoansAndFines(user.id)
+    } else {
+      await syncOverdueLoansAndFines()
+    }
 
     const orderBy = sort === "-loan_date" ? { loanDate: "desc" as const } : { loanDate: "desc" as const }
 
@@ -368,10 +467,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   if (entity === "Reservation") {
     await expireReservationsIfNeeded()
 
-    const where: any = {}
+    const where: Prisma.ReservationWhereInput = {}
     if (filter?.member_id) where.user = { email: String(filter.member_id) }
     if (filter?.book_id) where.bookId = String(filter.book_id)
-    if (filter?.status) where.status = normalizeEnum(filter.status) as any
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(ReservationStatus, s)) where.status = s
+    }
 
     const reservations = await prisma.reservation.findMany({
       where,
@@ -400,14 +502,53 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
     )
   }
 
+  if (entity === "Copy") {
+    const where: Prisma.CopyWhereInput = {}
+    if (filter?.book_id) where.bookId = String(filter.book_id)
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(BookStatus, s)) where.status = s
+    }
+
+    const copies = await prisma.copy.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: limit,
+      select: {
+        id: true,
+        bookId: true,
+        barcode: true,
+        status: true,
+        location: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    return NextResponse.json(
+      copies.map((c) => ({
+        id: c.id,
+        book_id: c.bookId,
+        barcode: c.barcode,
+        status: lowerEnum(c.status),
+        location: c.location,
+        created_date: toIso(c.createdAt),
+        updated_date: toIso(c.updatedAt),
+      }))
+    )
+  }
+
   if (entity === "Fine") {
     if (!canManageMembers(user.type)) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
     }
 
-    const where: any = {}
+    const where: Prisma.FineWhereInput = {}
     if (filter?.member_id) where.user = { email: String(filter.member_id) }
-    if (filter?.status) where.status = normalizeEnum(filter.status) as any
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(FineStatus, s)) where.status = s
+    }
 
     const fines = await prisma.fine.findMany({
       where,
@@ -435,7 +576,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "Notification") {
-    const where: any = {}
+    const where: Prisma.NotificationWhereInput = {}
     if (filter?.user_id) where.user = { email: String(filter.user_id) }
 
     const notifications = await prisma.notification.findMany({
@@ -497,9 +638,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "SpecialRequest") {
-    const where: any = {}
+    const where: Prisma.SpecialRequestWhereInput = {}
     if (filter?.user_id) where.user = { email: String(filter.user_id) }
-    if (filter?.status) where.status = normalizeEnum(filter.status) as any
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(RequestStatus, s)) where.status = s
+    }
 
     const requests = await prisma.specialRequest.findMany({
       where,
@@ -535,30 +679,95 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
   const user = await requireUser()
   if (!user) return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
 
-  const body = await request.json().catch(() => null)
-  if (!body || typeof body !== "object") {
+  const bodyUnknown: unknown = await request.json().catch(() => null)
+  if (!bodyUnknown || typeof bodyUnknown !== "object" || Array.isArray(bodyUnknown)) {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 })
+  }
+  const body = jsonObjectSchema.parse(bodyUnknown)
+
+  if (entity === "BookReview") {
+    // Any authenticated user can review a book
+    const reviewCreateSchema = z.object({
+      book_id: z.string().min(1),
+      rating: z.number().int().min(1).max(5),
+      review: z.string().nullable().optional(),
+    })
+
+    const parsed = reviewCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const bookId = parsed.data.book_id
+    const reviewText = parsed.data.review ? parsed.data.review.trim() : null
+
+    const book = await prisma.book.findUnique({ where: { id: bookId }, select: { id: true } })
+    if (!book) return NextResponse.json({ error: "Livro não encontrado" }, { status: 404 })
+
+    const saved = await prisma.bookReview.upsert({
+      where: {
+        bookId_userId: {
+          bookId,
+          userId: user.id,
+        },
+      },
+      create: {
+        bookId,
+        userId: user.id,
+        rating: parsed.data.rating,
+        review: reviewText && reviewText.length > 0 ? reviewText : null,
+        isVerifiedRead: false,
+      },
+      update: {
+        rating: parsed.data.rating,
+        review: reviewText && reviewText.length > 0 ? reviewText : null,
+      },
+      select: { id: true },
+    })
+
+    return NextResponse.json({ id: saved.id })
   }
 
   if (entity === "Book") {
     if (!canManageBooks(user.type)) return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
 
-    const title = typeof (body as any).title === "string" ? (body as any).title.trim() : ""
+    const bookCreateSchema = z.object({
+      title: z.string().min(1),
+      subtitle: z.string().nullable().optional(),
+      isbn: z.string().nullable().optional(),
+      edition: z.string().nullable().optional(),
+      publication_year: z.number().int().nullable().optional(),
+      language: z.string().optional(),
+      pages: z.number().int().nullable().optional(),
+      description: z.string().nullable().optional(),
+      cover_url: z.string().nullable().optional(),
+      category: z.string().min(1),
+      publisher: z.string().nullable().optional(),
+      authors: z.array(z.string()).optional(),
+      total_copies: z.number().int().optional(),
+      available_copies: z.number().int().optional(),
+      location: z.string().optional(),
+    })
+
+    const parsed = bookCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const title = parsed.data.title.trim()
     if (!title) return NextResponse.json({ error: "Título é obrigatório" }, { status: 400 })
 
-    const isbn = typeof (body as any).isbn === "string" ? (body as any).isbn.trim() : null
-    const categoryName = typeof (body as any).category === "string" ? (body as any).category.trim() : ""
+    const isbn = parsed.data.isbn ? parsed.data.isbn.trim() : null
+    const categoryName = parsed.data.category.trim()
     if (!categoryName) return NextResponse.json({ error: "Categoria é obrigatória" }, { status: 400 })
 
-    const publisherName = typeof (body as any).publisher === "string" ? (body as any).publisher.trim() : null
+    const publisherName = parsed.data.publisher ? parsed.data.publisher.trim() : null
 
-    const authors = Array.isArray((body as any).authors)
-      ? (body as any).authors.map((a: any) => String(a).trim()).filter(Boolean)
-      : []
+    const authors = (parsed.data.authors ?? []).map((a) => a.trim()).filter(Boolean)
 
-    const totalCopies = clampInt((body as any).total_copies ?? 1, 1, 500)
-    const availableCopies = clampInt((body as any).available_copies ?? totalCopies, 0, totalCopies)
-    const location = typeof (body as any).location === "string" ? (body as any).location.trim() : ""
+    const totalCopies = clampInt(parsed.data.total_copies ?? 1, 1, 500)
+    const availableCopies = clampInt(parsed.data.available_copies ?? totalCopies, 0, totalCopies)
+    const location = typeof parsed.data.location === "string" ? parsed.data.location.trim() : ""
 
     const created = await prisma.$transaction(async (tx) => {
       const category = await tx.category.upsert({
@@ -574,14 +783,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
       const book = await tx.book.create({
         data: {
           title,
-          subtitle: (body as any).subtitle ?? null,
+          subtitle: parsed.data.subtitle ?? null,
           isbn,
-          edition: (body as any).edition ?? null,
-          publicationYear: (body as any).publication_year ?? null,
-          language: (body as any).language ?? "pt",
-          pages: (body as any).pages ?? null,
-          description: (body as any).description ?? null,
-          coverUrl: (body as any).cover_url ?? null,
+          edition: parsed.data.edition ?? null,
+          publicationYear: parsed.data.publication_year ?? null,
+          language: parsed.data.language ?? "pt",
+          pages: parsed.data.pages ?? null,
+          description: parsed.data.description ?? null,
+          coverUrl: parsed.data.cover_url ?? null,
           categoryId: category.id,
           publisherId: publisher?.id ?? null,
           keywords: [],
@@ -622,8 +831,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
 
   if (entity === "Reservation") {
     // Any authenticated user can reserve
-    const bookId = typeof (body as any).book_id === "string" ? (body as any).book_id : null
-    if (!bookId) return NextResponse.json({ error: "book_id é obrigatório" }, { status: 400 })
+    const reservationCreateSchema = z.object({ book_id: z.string().min(1) })
+    const parsed = reservationCreateSchema.safeParse(body)
+    if (!parsed.success) return NextResponse.json({ error: "book_id é obrigatório" }, { status: 400 })
+    const bookId = parsed.data.book_id
 
     await expireReservationsIfNeeded(bookId)
 
@@ -659,7 +870,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
   }
 
   if (entity === "Notification") {
-    const targetEmail = typeof (body as any).user_id === "string" ? (body as any).user_id.trim() : user.email
+    const notificationCreateSchema = z.object({
+      user_id: z.string().optional(),
+      title: z.string().min(1),
+      message: z.string().min(1),
+    })
+    const parsed = notificationCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "title e message são obrigatórios" }, { status: 400 })
+    }
+
+    const targetEmail = parsed.data.user_id ? parsed.data.user_id.trim() : user.email
 
     // Only admins can create notification for other users
     if (targetEmail !== user.email && !canManageMembers(user.type)) {
@@ -669,8 +890,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
     const target = await prisma.user.findUnique({ where: { email: targetEmail }, select: { id: true } })
     if (!target) return NextResponse.json({ error: "Utilizador não encontrado" }, { status: 404 })
 
-    const title = typeof (body as any).title === "string" ? (body as any).title.trim() : ""
-    const message = typeof (body as any).message === "string" ? (body as any).message : ""
+    const title = parsed.data.title.trim()
+    const message = parsed.data.message
     if (!title || !message) return NextResponse.json({ error: "title e message são obrigatórios" }, { status: 400 })
 
     const created = await prisma.notification.create({
@@ -688,15 +909,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
   }
 
   if (entity === "SpecialRequest") {
-    const type = typeof (body as any).type === "string" ? (body as any).type.trim().toUpperCase() : ""
-    const title = typeof (body as any).title === "string" ? (body as any).title.trim() : ""
-    const description = typeof (body as any).description === "string" ? (body as any).description : ""
+    const specialRequestCreateSchema = z.object({
+      type: z.string().min(1),
+      title: z.string().min(1),
+      description: z.string().min(1),
+      scheduled_date: z.string().optional().nullable(),
+    })
+    const parsed = specialRequestCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "type, title e description são obrigatórios" }, { status: 400 })
+    }
+
+    const type = parsed.data.type.trim().toUpperCase()
+    const title = parsed.data.title.trim()
+    const description = parsed.data.description
     if (!type || !title || !description) {
       return NextResponse.json({ error: "type, title e description são obrigatórios" }, { status: 400 })
     }
 
-    const scheduledDateRaw = (body as any).scheduled_date
-    const scheduledDate = scheduledDateRaw ? new Date(String(scheduledDateRaw)) : null
+    const scheduledDate = parsed.data.scheduled_date ? new Date(String(parsed.data.scheduled_date)) : null
 
     const created = await prisma.specialRequest.create({
       data: {
@@ -725,12 +956,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
   if (entity === "Loan") {
     if (!canManageLoans(user.type)) return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
 
-    const memberId = typeof (body as any).member_id === "string" ? (body as any).member_id.trim() : ""
-    const bookId = typeof (body as any).book_id === "string" ? (body as any).book_id.trim() : ""
-
-    if (!memberId || !bookId) {
+    const loanCreateSchema = z.object({
+      member_id: z.string().min(1),
+      book_id: z.string().min(1),
+    })
+    const parsed = loanCreateSchema.safeParse(body)
+    if (!parsed.success) {
       return NextResponse.json({ error: "member_id e book_id são obrigatórios" }, { status: 400 })
     }
+
+    const memberId = parsed.data.member_id.trim()
+    const bookId = parsed.data.book_id.trim()
 
     const result = await prisma.$transaction(async (tx) => {
       const member = await tx.user.findUnique({

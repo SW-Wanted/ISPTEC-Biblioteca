@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 type FineRow = FineBase & {
   member_id?: string;
@@ -49,7 +48,12 @@ export default function ManageFines() {
 
   useEffect(() => {
     const loadUser = async () => {
-      try { const userData = await api.auth.me(); setUser(userData); } catch (e) { window.location.href = createPageUrl('Home'); }
+      try {
+        const userData = await api.auth.me();
+        setUser(userData);
+      } catch {
+        window.location.href = createPageUrl('Home');
+      }
     };
     loadUser();
   }, []);

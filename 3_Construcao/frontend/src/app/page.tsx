@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
 import { api } from '@/api/apiClient';
@@ -40,7 +41,7 @@ export default function Home() {
       try {
         const userData = await api.auth.me();
         setUser(userData);
-      } catch (e) {
+      } catch {
         // Not logged in
       }
     };
@@ -77,10 +78,10 @@ export default function Home() {
     initialData: []
   });
 
-  const { data: newBooks = [] } = useQuery({
+  useQuery({
     queryKey: ['new-books'],
     queryFn: () => api.entities.Book.list('-created_date', 4),
-    initialData: []
+    initialData: [],
   });
 
   const handleSearch = (e: React.FormEvent) => {
@@ -304,10 +305,14 @@ export default function Home() {
                   <Card className="group hover:shadow-md transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden">
                     <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden">
                       {book.cover_url ? (
-                        <img 
-                          src={book.cover_url} 
+                        <Image
+                          src={book.cover_url}
                           alt={book.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                          unoptimized
+                          loader={({ src }) => src}
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">

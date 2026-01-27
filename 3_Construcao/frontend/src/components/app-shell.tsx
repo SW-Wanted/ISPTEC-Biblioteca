@@ -15,7 +15,6 @@ import {
   Clock,
   Bell,
   User,
-  Settings,
   LogOut,
   MessageCircle,
   ChevronDown,

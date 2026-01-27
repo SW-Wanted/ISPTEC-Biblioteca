@@ -53,8 +53,7 @@ const Carousel = React.forwardRef<HTMLDivElement, CarouselProps>((
   },
   ref
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const resolvedPlugins = plugins as any
+  const resolvedPlugins: NonNullable<CarouselPlugin> = plugins ?? []
   const [carouselRef, api] = useEmblaCarousel({
     ...opts,
     axis: orientation === "horizontal" ? "x" : "y",

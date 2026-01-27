@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react"
+import Image from "next/image"
 import { Link } from "@/lib/router"
 import { createPageUrl } from "@/utils"
 import { api } from "@/api/apiClient"
@@ -156,17 +157,10 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
       if (!bookId || !user || !book) return
       await api.entities.BookReview.create({
         book_id: bookId,
-        user_id: user.email,
-        user_name: user.full_name,
         rating: reviewRating,
         review: reviewText,
         is_verified_read: false,
       })
-      const currentTotal = typeof book.total_reviews === "number" ? book.total_reviews : 0
-      const currentAvg = typeof book.average_rating === "number" ? book.average_rating : 0
-      const newTotalReviews = currentTotal + 1
-      const newAverage = (currentAvg * currentTotal + reviewRating) / newTotalReviews
-      await api.entities.Book.update(bookId, { average_rating: newAverage, total_reviews: newTotalReviews })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", bookId] })
@@ -263,7 +257,15 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
             <div className="sticky top-8">
               <div className="aspect-2/3 bg-linear-to-br from-slate-100 to-slate-200 rounded-2xl overflow-hidden shadow-xl relative">
                 {book.cover_url ? (
-                  <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+                  <Image
+                    src={book.cover_url}
+                    alt={book.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    unoptimized
+                    loader={({ src }) => src}
+                  />
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <BookOpen className="w-24 h-24 text-slate-300" />
@@ -502,7 +504,17 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
           <div className="py-4">
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
               <div className="w-16 h-20 bg-slate-200 rounded shrink-0 overflow-hidden">
-                {book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}
+                {book?.cover_url && (
+                  <Image
+                    src={book.cover_url}
+                    alt=""
+                    width={64}
+                    height={80}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                    loader={({ src }) => src}
+                  />
+                )}
               </div>
               <div>
                 <p className="font-medium text-slate-800">{book?.title}</p>

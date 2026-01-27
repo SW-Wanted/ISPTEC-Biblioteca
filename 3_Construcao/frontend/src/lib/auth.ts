@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from "next-auth"
+import type { JWT } from "next-auth/jwt"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { z } from "zod"
@@ -71,7 +72,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           type: user.type,
-        } as any
+        }
       },
     }),
   ],
@@ -135,8 +136,9 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        ;(session.user as any).id = (token as any).id
-        ;(session.user as any).type = (token as any).type
+        const typedToken = token as JWT
+        session.user.id = typedToken.id
+        session.user.type = typedToken.type
       }
       return session
     },

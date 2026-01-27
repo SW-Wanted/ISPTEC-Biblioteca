@@ -1,15 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Link } from '@/lib/router';
 import { createPageUrl } from '@/utils';
-import { api } from '@/api/apiClient';
+import { api, type Notification } from '@/api/apiClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { Bell, BookOpen, Clock, RefreshCw, CreditCard, Trash2, CheckCheck, Filter, Settings, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,7 +29,7 @@ export default function Notifications() {
       try { 
         const userData = await api.auth.me(); 
         setUser(userData); 
-      } catch (e) { 
+      } catch { 
         window.location.href = createPageUrl('Home'); 
       }
     };
@@ -139,7 +138,7 @@ export default function Notifications() {
     if (filter === 'unread') return n.status !== 'read';
     if (filter === 'read') return n.status === 'read';
     return true;
-  }).sort((a: any, b: any) => {
+  }).sort((a: Notification, b: Notification) => {
     const bTime = b.created_date ? new Date(b.created_date).getTime() : 0;
     const aTime = a.created_date ? new Date(a.created_date).getTime() : 0;
     return bTime - aTime;
@@ -147,7 +146,7 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter(n => n.status !== 'read').length;
 
-  const getNotificationIcon = (notification: any) => {
+  const getNotificationIcon = (notification: Notification) => {
     switch (notification.action_type) {
       case 'renew': return <RefreshCw className="w-5 h-5 text-indigo-600" />;
       case 'pay_fine': return <CreditCard className="w-5 h-5 text-red-600" />;
@@ -157,7 +156,7 @@ export default function Notifications() {
     }
   };
 
-  const getActionUrl = (notification: any) => {
+  const getActionUrl = (notification: Notification) => {
     switch (notification.action_type) {
       case 'renew':
       case 'view_loan': return createPageUrl('MyLoans');
@@ -167,7 +166,7 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: Notification) => {
     if (notification.status !== 'read') {
       await markAsReadMutation.mutateAsync([notification.id]);
     }
