@@ -157,17 +157,10 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
       if (!bookId || !user || !book) return
       await api.entities.BookReview.create({
         book_id: bookId,
-        user_id: user.email,
-        user_name: user.full_name,
         rating: reviewRating,
         review: reviewText,
         is_verified_read: false,
       })
-      const currentTotal = typeof book.total_reviews === "number" ? book.total_reviews : 0
-      const currentAvg = typeof book.average_rating === "number" ? book.average_rating : 0
-      const newTotalReviews = currentTotal + 1
-      const newAverage = (currentAvg * currentTotal + reviewRating) / newTotalReviews
-      await api.entities.Book.update(bookId, { average_rating: newAverage, total_reviews: newTotalReviews })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", bookId] })

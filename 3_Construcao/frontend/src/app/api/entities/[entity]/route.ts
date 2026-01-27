@@ -23,6 +23,12 @@ const filterSchema = z.record(z.string(), z.unknown()).optional()
 
 const jsonObjectSchema = z.record(z.string(), z.unknown())
 
+type BookRatingStats = {
+  bookId: string
+  averageRating: number
+  totalReviews: number
+}
+
 function isEnumValue<T extends Record<string, string>>(enumObj: T, value: unknown): value is T[keyof T] {
   if (typeof value !== "string") return false
   return Object.values(enumObj).includes(value as T[keyof T])
@@ -242,13 +248,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "Book") {
-    if (!canManageBooks(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
-    }
-
     const where = filter?.id ? { id: String(filter.id) } : undefined
 
-    const orderBy = sort === "-created_date" ? { createdAt: "desc" as const } : { createdAt: "desc" as const }
+    // Default ordering (we may re-sort in-memory for derived fields)
+    const orderBy = sort === "created_date" ? { createdAt: "asc" as const } : { createdAt: "desc" as const }
 
     const books = await prisma.book.findMany({
       where,
@@ -262,8 +265,27 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
       take: limit,
     })
 
-    return NextResponse.json(
-      books.map((b) => ({
+    const ratingGroups = await prisma.bookReview.groupBy({
+      by: ["bookId"],
+      where: books.length > 0 ? { bookId: { in: books.map((b) => b.id) } } : undefined,
+      _avg: { rating: true },
+      _count: { _all: true },
+    })
+
+    const statsByBookId = new Map<string, BookRatingStats>()
+    for (const row of ratingGroups) {
+      statsByBookId.set(row.bookId, {
+        bookId: row.bookId,
+        averageRating: row._avg.rating ? Number(row._avg.rating) : 0,
+        totalReviews: row._count._all,
+      })
+    }
+
+    const mapped = books.map((b) => {
+      const stats = statsByBookId.get(b.id)
+      const totalReviews = stats ? stats.totalReviews : 0
+      const averageRating = stats ? stats.averageRating : null
+      return {
         id: b.id,
         created_date: toIso(b.createdAt),
         updated_date: toIso(b.updatedAt),
@@ -284,18 +306,78 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
         location: b.copies[0]?.location ?? null,
         extracted_by_ocr: b.extractedByOCR,
         ocr_confidence: b.ocrConfidence ? Number(b.ocrConfidence) : null,
-        average_rating: null,
+        average_rating: totalReviews > 0 ? averageRating : null,
+        total_reviews: totalReviews,
         total_loans: null,
+      }
+    })
+
+    if (sort === "-average_rating" || sort === "average_rating") {
+      const dir = sort === "-average_rating" ? -1 : 1
+      mapped.sort((a, b) => {
+        const av = typeof a.average_rating === "number" ? a.average_rating : 0
+        const bv = typeof b.average_rating === "number" ? b.average_rating : 0
+        if (av !== bv) return (av - bv) * dir
+        const at = typeof a.total_reviews === "number" ? a.total_reviews : 0
+        const bt = typeof b.total_reviews === "number" ? b.total_reviews : 0
+        if (at !== bt) return (at - bt) * dir
+        return (new Date(b.created_date ?? 0).getTime() - new Date(a.created_date ?? 0).getTime())
+      })
+    }
+
+    if (sort === "-total_reviews" || sort === "total_reviews") {
+      const dir = sort === "-total_reviews" ? -1 : 1
+      mapped.sort((a, b) => {
+        const av = typeof a.total_reviews === "number" ? a.total_reviews : 0
+        const bv = typeof b.total_reviews === "number" ? b.total_reviews : 0
+        if (av !== bv) return (av - bv) * dir
+        return (new Date(b.created_date ?? 0).getTime() - new Date(a.created_date ?? 0).getTime())
+      })
+    }
+
+    return NextResponse.json(mapped)
+  }
+
+  if (entity === "BookReview") {
+    // Any authenticated user can read book reviews
+    const where: Prisma.BookReviewWhereInput = {}
+    if (filter?.book_id) where.bookId = String(filter.book_id)
+    if (filter?.user_id) where.user = { email: String(filter.user_id) }
+
+    const reviews = await prisma.bookReview.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+      },
+    })
+
+    return NextResponse.json(
+      reviews.map((r) => ({
+        id: r.id,
+        book_id: r.bookId,
+        user_id: r.user.email,
+        user_name: r.user.name,
+        rating: r.rating,
+        review: r.review,
+        is_verified_read: r.isVerifiedRead,
+        created_at: toIso(r.createdAt) ?? null,
+        created_date: toIso(r.createdAt),
+        updated_date: toIso(r.updatedAt),
       }))
     )
   }
 
   if (entity === "Member") {
-    if (!canManageMembers(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
-    }
-
     const where = filter?.user_id ? { email: String(filter.user_id) } : undefined
+
+    // Non-staff users may only read their own profile
+    if (!canManageMembers(user.type)) {
+      if (!where || where.email !== user.email) {
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
+      }
+    }
 
     const members = await prisma.user.findMany({
       where,
@@ -330,17 +412,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   }
 
   if (entity === "Loan") {
-    if (!canManageLoans(user.type)) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
-    }
-
-    await syncOverdueLoansAndFines()
-
     const where: Prisma.LoanWhereInput = {}
     if (filter?.member_id) where.user = { email: String(filter.member_id) }
     if (typeof filter?.status === "string") {
       const s = normalizeEnum(filter.status)
       if (isEnumValue(LoanStatus, s)) where.status = s
+    }
+
+    // Non-librarian users may only read their own loans
+    if (!canManageLoans(user.type)) {
+      const memberEmail = filter?.member_id ? String(filter.member_id) : null
+      if (!memberEmail || memberEmail !== user.email) {
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
+      }
+      await syncOverdueLoansAndFines(user.id)
+    } else {
+      await syncOverdueLoansAndFines()
     }
 
     const orderBy = sort === "-loan_date" ? { loanDate: "desc" as const } : { loanDate: "desc" as const }
@@ -411,6 +498,42 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
         expiry_date: toIso(r.expiryDate) ?? null,
         created_date: toIso(r.createdAt),
         updated_date: toIso(r.updatedAt),
+      }))
+    )
+  }
+
+  if (entity === "Copy") {
+    const where: Prisma.CopyWhereInput = {}
+    if (filter?.book_id) where.bookId = String(filter.book_id)
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status)
+      if (isEnumValue(BookStatus, s)) where.status = s
+    }
+
+    const copies = await prisma.copy.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: limit,
+      select: {
+        id: true,
+        bookId: true,
+        barcode: true,
+        status: true,
+        location: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    })
+
+    return NextResponse.json(
+      copies.map((c) => ({
+        id: c.id,
+        book_id: c.bookId,
+        barcode: c.barcode,
+        status: lowerEnum(c.status),
+        location: c.location,
+        created_date: toIso(c.createdAt),
+        updated_date: toIso(c.updatedAt),
       }))
     )
   }
@@ -561,6 +684,49 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
     return NextResponse.json({ error: "Body inválido" }, { status: 400 })
   }
   const body = jsonObjectSchema.parse(bodyUnknown)
+
+  if (entity === "BookReview") {
+    // Any authenticated user can review a book
+    const reviewCreateSchema = z.object({
+      book_id: z.string().min(1),
+      rating: z.number().int().min(1).max(5),
+      review: z.string().nullable().optional(),
+    })
+
+    const parsed = reviewCreateSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Dados inválidos", details: parsed.error.flatten() }, { status: 400 })
+    }
+
+    const bookId = parsed.data.book_id
+    const reviewText = parsed.data.review ? parsed.data.review.trim() : null
+
+    const book = await prisma.book.findUnique({ where: { id: bookId }, select: { id: true } })
+    if (!book) return NextResponse.json({ error: "Livro não encontrado" }, { status: 404 })
+
+    const saved = await prisma.bookReview.upsert({
+      where: {
+        bookId_userId: {
+          bookId,
+          userId: user.id,
+        },
+      },
+      create: {
+        bookId,
+        userId: user.id,
+        rating: parsed.data.rating,
+        review: reviewText && reviewText.length > 0 ? reviewText : null,
+        isVerifiedRead: false,
+      },
+      update: {
+        rating: parsed.data.rating,
+        review: reviewText && reviewText.length > 0 ? reviewText : null,
+      },
+      select: { id: true },
+    })
+
+    return NextResponse.json({ id: saved.id })
+  }
 
   if (entity === "Book") {
     if (!canManageBooks(user.type)) return NextResponse.json({ error: "Sem permissão" }, { status: 403 })
