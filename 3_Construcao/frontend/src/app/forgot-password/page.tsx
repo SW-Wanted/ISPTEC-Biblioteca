@@ -17,11 +17,11 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     
     try {
-      // TODO: Implementar reset de password
-      console.log('Reset password for:', email);
-      
-      // Simular envio de email
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await fetch('/api/auth/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
       setIsSuccess(true);
     } catch (error) {
       console.error('Erro ao enviar email:', error);
