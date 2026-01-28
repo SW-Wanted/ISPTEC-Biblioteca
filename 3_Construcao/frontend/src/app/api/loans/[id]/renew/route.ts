@@ -13,6 +13,7 @@ import {
   UserType,
 } from "@prisma/client"
 import { LOAN_LIMITS, toIso } from "@/lib/sgbu-rules"
+import { logActivity, getRequestMetadata } from "@/lib/activity-log"
 
 function lowerEnum(value: string): string {
   return value.toLowerCase()
@@ -203,6 +204,24 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         created_date: toIso(updated.createdAt),
         updated_date: toIso(updated.updatedAt),
       }
+    })
+
+    // Log da atividade
+    const { ipAddress, userAgent } = getRequestMetadata(_request)
+    await logActivity({
+      userId: requester.id,
+      action: "LOAN_RENEWED",
+      entity: "LOAN",
+      entityId: id,
+      description: `Empréstimo renovado`,
+      ipAddress,
+      userAgent,
+      metadata: {
+        bookId: result.book_id,
+        bookTitle: result.book_title,
+        renewalCount: result.renewal_count,
+        newDueDate: result.due_date,
+      },
     })
 
     return NextResponse.json({ ok: true, loan: result })

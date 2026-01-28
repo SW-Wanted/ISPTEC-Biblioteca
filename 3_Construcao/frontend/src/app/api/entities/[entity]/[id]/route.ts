@@ -19,6 +19,7 @@ import {
   UserType,
 } from "@prisma/client"
 import { FINE_PER_DAY_KZ, normalizeEnum } from "@/lib/sgbu-rules"
+import { logActivity, getRequestMetadata } from "@/lib/activity-log"
 
 const jsonObjectSchema = z.record(z.string(), z.unknown())
 const statusSchema = z.object({ status: z.string() })
@@ -203,7 +204,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     if (nextStatus === "RETURNED") {
       const now = new Date()
 
-      await prisma.$transaction(async (tx) => {
+      const loanData = await prisma.$transaction(async (tx) => {
         const loan = await tx.loan.findUnique({
           where: { id },
           include: { copy: { select: { id: true, bookId: true } }, user: { select: { id: true, type: true } } },
@@ -264,6 +265,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
         const availableCopies = await tx.copy.count({ where: { bookId: loan.copy.bookId, status: BookStatus.AVAILABLE } })
         const totalCopies = await tx.copy.count({ where: { bookId: loan.copy.bookId } })
         await tx.book.update({ where: { id: loan.copy.bookId }, data: { availableCopies, totalCopies } })
+
+        return { loan, daysOverdue, fineAmount }
+      })
+
+      // Log da atividade
+      const { ipAddress, userAgent } = getRequestMetadata(request)
+      await logActivity({
+        userId: user.id,
+        action: "LOAN_RETURNED",
+        entity: "LOAN",
+        entityId: id,
+        description: `Devolução de empréstimo realizada`,
+        ipAddress,
+        userAgent,
+        metadata: {
+          userId: loanData.loan.userId,
+          bookId: loanData.loan.copy.bookId,
+          daysOverdue: loanData.daysOverdue,
+          fineAmount: Number(loanData.fineAmount),
+        },
       })
 
       return NextResponse.json({ ok: true })
@@ -278,8 +299,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     const status = normalizeEnum(statusParsed.data.status)
 
     if (status === ReservationStatus.CANCELLED) {
-      await prisma.$transaction(async (tx) => {
-        const res = await tx.reservation.findUnique({ where: { id }, select: { id: true, bookId: true, queuePosition: true, status: true } })
+      const resData = await prisma.$transaction(async (tx) => {
+        const res = await tx.reservation.findUnique({ where: { id }, select: { id: true, bookId: true, queuePosition: true, status: true, userId: true } })
         if (!res) throw new Error("NOT_FOUND")
 
         await tx.reservation.update({ where: { id }, data: { status: ReservationStatus.CANCELLED } })
@@ -294,6 +315,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
           await tx.reservation.update({ where: { id: a.id }, data: { queuePosition: pos } })
           pos++
         }
+
+        return res
+      })
+
+      // Log da atividade
+      const { ipAddress, userAgent } = getRequestMetadata(request)
+      await logActivity({
+        userId: user.id,
+        action: "RESERVATION_CANCELLED",
+        entity: "RESERVATION",
+        entityId: id,
+        description: `Reserva cancelada`,
+        ipAddress,
+        userAgent,
+        metadata: {
+          bookId: resData.bookId,
+          userId: resData.userId,
+        },
       })
 
       return NextResponse.json({ ok: true })
@@ -422,8 +461,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
     const parsed = finePatchSchema.parse(body)
     const status = typeof parsed.status === "string" ? normalizeEnum(parsed.status) : ""
     if (status === FineStatus.PAID) {
-      await prisma.$transaction(async (tx) => {
-        const fine = await tx.fine.findUnique({ where: { id }, select: { id: true, userId: true, status: true } })
+      const fineData = await prisma.$transaction(async (tx) => {
+        const fine = await tx.fine.findUnique({ where: { id }, select: { id: true, userId: true, status: true, amount: true } })
         if (!fine) throw new Error("NOT_FOUND")
 
         await tx.fine.update({
@@ -438,14 +477,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
 
         const sum = await tx.fine.aggregate({ where: { userId: fine.userId, status: FineStatus.PENDING }, _sum: { amount: true } })
         await tx.user.update({ where: { id: fine.userId }, data: { totalFines: sum._sum.amount ?? 0 } })
+
+        return fine
+      })
+
+      // Log da atividade
+      const { ipAddress, userAgent } = getRequestMetadata(request)
+      await logActivity({
+        userId: user.id,
+        action: "FINE_PAID",
+        entity: "FINE",
+        entityId: id,
+        description: `Multa paga`,
+        ipAddress,
+        userAgent,
+        metadata: {
+          userId: fineData.userId,
+          amount: Number(fineData.amount),
+          paymentMethod: parsed.payment_method,
+          paymentReference: parsed.payment_reference,
+        },
       })
 
       return NextResponse.json({ ok: true })
     }
 
     if (status === FineStatus.WAIVED) {
-      await prisma.$transaction(async (tx) => {
-        const fine = await tx.fine.findUnique({ where: { id }, select: { id: true, userId: true } })
+      const fineData = await prisma.$transaction(async (tx) => {
+        const fine = await tx.fine.findUnique({ where: { id }, select: { id: true, userId: true, amount: true } })
         if (!fine) throw new Error("NOT_FOUND")
 
         await tx.fine.update({
@@ -460,6 +519,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ en
 
         const sum = await tx.fine.aggregate({ where: { userId: fine.userId, status: FineStatus.PENDING }, _sum: { amount: true } })
         await tx.user.update({ where: { id: fine.userId }, data: { totalFines: sum._sum.amount ?? 0 } })
+
+        return fine
+      })
+
+      // Log da atividade
+      const { ipAddress, userAgent } = getRequestMetadata(request)
+      await logActivity({
+        userId: user.id,
+        action: "FINE_WAIVED",
+        entity: "FINE",
+        entityId: id,
+        description: `Multa isenta`,
+        ipAddress,
+        userAgent,
+        metadata: {
+          userId: fineData.userId,
+          amount: Number(fineData.amount),
+          waivedBy: parsed.waived_by,
+          waiverReason: parsed.waiver_reason,
+        },
       })
 
       return NextResponse.json({ ok: true })

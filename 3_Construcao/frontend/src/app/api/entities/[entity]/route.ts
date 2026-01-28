@@ -18,6 +18,7 @@ import {
   UserType,
 } from "@prisma/client"
 import { clampInt, FINE_PER_DAY_KZ, LOAN_LIMITS, normalizeEnum, toIso } from "@/lib/sgbu-rules"
+import { logActivity, getRequestMetadata } from "@/lib/activity-log"
 
 const filterSchema = z.record(z.string(), z.unknown()).optional()
 
@@ -866,6 +867,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
       return res
     })
 
+    // Log da atividade
+    const { ipAddress, userAgent } = getRequestMetadata(request)
+    await logActivity({
+      userId: user.id,
+      action: "RESERVATION_CREATED",
+      entity: "RESERVATION",
+      entityId: created.id,
+      description: `Reserva criada para o livro ID ${bookId}`,
+      ipAddress,
+      userAgent,
+      metadata: {
+        bookId,
+        queuePosition: created.queuePosition,
+      },
+    })
+
     return NextResponse.json({ id: created.id })
   }
 
@@ -1040,6 +1057,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ ent
       })
 
       return loan
+    })
+
+    // Log da atividade
+    const { ipAddress, userAgent } = getRequestMetadata(request)
+    await logActivity({
+      userId: user.id,
+      action: "LOAN_CREATED",
+      entity: "LOAN",
+      entityId: result.id,
+      description: `Empréstimo criado para o livro ID ${bookId}`,
+      ipAddress,
+      userAgent,
+      metadata: {
+        bookId,
+        memberId: result.userId,
+        dueDate: result.dueDate.toISOString(),
+      },
     })
 
     return NextResponse.json({ id: result.id })
