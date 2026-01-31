@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
-import { useQuery } from "@tanstack/react-query"
+import * as React from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
   Menu,
@@ -26,26 +26,26 @@ import {
   KeyRound,
   HelpCircle,
   Sparkles,
-} from "lucide-react"
+} from "lucide-react";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import NotificationCenter from "@/components/notifications/NotificationCenter"
+} from "@/components/ui/dropdown-menu";
+import NotificationCenter from "@/components/notifications/NotificationCenter";
 
 type NavItem = {
-  name: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-}
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
 
 const USER_NAV_ITEMS: NavItem[] = [
   { name: "Início", href: "/", icon: LayoutDashboard },
@@ -55,7 +55,7 @@ const USER_NAV_ITEMS: NavItem[] = [
   { name: "Recomendações", href: "/recommendations", icon: Sparkles },
   { name: "Serviços", href: "/services", icon: Computer },
   { name: "Assistente", href: "/chatbot", icon: MessageCircle },
-]
+];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Dashboard Admin", href: "/admin-dashboard", icon: BarChart3 },
@@ -65,62 +65,79 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
-]
+];
 
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/"
-  return pathname === href || pathname.startsWith(`${href}/`)
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const [sidebarOpen, setSidebarOpen] = React.useState(false)
-  
+  const pathname = usePathname();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
+
   // Check if current page is an auth page (no layout)
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/forgot-password'
-  
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/forgot-password";
+
   // Carregar utilizador autenticado com React Query
   const { data: user, isLoading: isUserLoading } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: ["current-user"],
     queryFn: async () => {
-      const response = await fetch('/api/auth/me')
-      if (!response.ok) return null
-      return response.json()
+      const response = await fetch("/api/auth/me");
+      if (!response.ok) return null;
+      return response.json();
     },
     enabled: !isAuthPage,
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutos
-  })
+  });
 
   // Verificar se é admin baseado no UserType
-  const isAdmin = user?.type === 'LIBRARIAN' || 
-                  user?.type === 'CATALOGER' || 
-                  user?.type === 'SUPERVISOR'
-  
+  const isAdmin =
+    user?.type === "LIBRARIAN" ||
+    user?.type === "CATALOGER" ||
+    user?.type === "SUPERVISOR";
+
   // Log para debug
   React.useEffect(() => {
-    console.log('🔍 Debug AppShell:', { 
+    console.log("🔍 Debug AppShell:", {
       email: user?.email,
       name: user?.name,
       type: user?.type,
-      isAdmin 
-    })
-  }, [user, isAdmin])
-  
-  const unreadCount = 0 // TODO: Integrar com notificações reais
+      isAdmin,
+    });
+  }, [user, isAdmin]);
+
+  const { data: unreadData } = useQuery({
+    queryKey: ["notifications-unread-count", user?.email],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/unread-count", {
+        credentials: "include",
+      });
+      if (!res.ok) return { unreadCount: 0 };
+      return (await res.json()) as { unreadCount: number };
+    },
+    enabled: !isAuthPage && !!user?.email,
+    refetchInterval: 30_000,
+  });
+
+  const unreadCount = unreadData?.unreadCount ?? 0;
 
   const handleLogout = async () => {
     try {
-      await signOut({ callbackUrl: '/login', redirect: true })
+      await signOut({ callbackUrl: "/login", redirect: true });
     } catch (error) {
-      console.error('Erro ao fazer logout:', error)
-      window.location.href = '/login'
+      console.error("Erro ao fazer logout:", error);
+      window.location.href = "/login";
     }
-  }
+  };
 
   // Render without layout for auth pages
   if (isAuthPage) {
-    return <>{children}</>
+    return <>{children}</>;
   }
 
   return (
@@ -145,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {isUserLoading ? (
             <Skeleton className="h-9 w-9 rounded-lg" />
           ) : user ? (
-            <NotificationCenter />
+            <NotificationCenter user={user} />
           ) : (
             <Link
               href="/login"
@@ -171,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className={cn(
           "fixed top-0 left-0 h-full bg-white border-r border-slate-200 z-50 transition-transform duration-300",
           "w-72 lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          sidebarOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* Logo */}
@@ -203,8 +220,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Principal
           </p>
           {USER_NAV_ITEMS.map((item) => {
-            const active = isActive(pathname, item.href)
-            const Icon = item.icon
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
 
             return (
               <Link
@@ -215,18 +232,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                   active
                     ? "bg-indigo-50 text-indigo-700"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
               >
                 <Icon
                   className={cn(
                     "w-5 h-5",
-                    active ? "text-indigo-600" : "text-slate-400"
+                    active ? "text-indigo-600" : "text-slate-400",
                   )}
                 />
                 {item.name}
               </Link>
-            )
+            );
           })}
 
           {isUserLoading && (
@@ -251,8 +268,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </p>
               </div>
               {ADMIN_NAV_ITEMS.map((item) => {
-                const active = isActive(pathname, item.href)
-                const Icon = item.icon
+                const active = isActive(pathname, item.href);
+                const Icon = item.icon;
 
                 return (
                   <Link
@@ -263,18 +280,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                       active
                         ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-5 h-5",
-                        active ? "text-indigo-600" : "text-slate-400"
+                        active ? "text-indigo-600" : "text-slate-400",
                       )}
                     />
                     {item.name}
                   </Link>
-                )
+                );
               })}
             </>
           )}
@@ -294,32 +311,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
+                >
                   <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
-                    {user.full_name?.charAt(0) || user.email?.charAt(0)?.toUpperCase()}
+                    {user.full_name?.charAt(0) ||
+                      user.email?.charAt(0)?.toUpperCase()}
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-slate-800 truncate">
-                      {user.full_name || 'Utilizador'}
+                      {user.full_name || "Utilizador"}
                     </p>
-                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {user.email}
+                    </p>
                   </div>
                   <ChevronDown className="w-4 h-4 text-slate-400" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem>
-                  <Link href="/profile" className="flex items-center gap-2 w-full">
+                  <Link
+                    href="/profile"
+                    className="flex items-center gap-2 w-full"
+                  >
                     <User className="w-4 h-4" />
                     Meu Perfil
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Link href="/notifications" className="flex items-center gap-2 w-full">
+                  <Link
+                    href="/notifications"
+                    className="flex items-center gap-2 w-full"
+                  >
                     <Bell className="w-4 h-4" />
                     Notificações
                     {unreadCount > 0 && (
-                      <Badge variant="destructive" className="ml-auto text-[10px] h-5">
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto text-[10px] h-5"
+                      >
                         {unreadCount}
                       </Badge>
                     )}
@@ -333,7 +365,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-600 cursor-pointer"
+                >
                   <LogOut className="w-4 h-4 mr-2" />
                   Sair
                 </DropdownMenuItem>
@@ -348,9 +383,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className={cn("transition-all duration-300 pt-16 lg:pt-0", "lg:ml-72")}>
+      <main
+        className={cn("transition-all duration-300 pt-16 lg:pt-0", "lg:ml-72")}
+      >
         <div className="min-h-screen">{children}</div>
       </main>
     </div>
-  )
+  );
 }
