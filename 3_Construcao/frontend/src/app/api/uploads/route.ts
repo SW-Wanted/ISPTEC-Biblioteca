@@ -83,7 +83,6 @@ async function uploadToCloudinary(
   const publicId = `${folder}/${Date.now()}_${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
   const paramsToSign: Record<string, string | number> = {
-    folder,
     public_id: publicId,
     timestamp,
   };
@@ -99,7 +98,6 @@ async function uploadToCloudinary(
   formData.append("api_key", CLOUDINARY_API_KEY!);
   formData.append("timestamp", String(timestamp));
   formData.append("signature", signature);
-  formData.append("folder", folder);
   formData.append("public_id", publicId);
 
   const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
