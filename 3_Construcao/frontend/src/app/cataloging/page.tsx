@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 export default function Cataloging() {
   const [step, setStep] = useState<number>(1);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedBookData | null>(
     null,
   );
@@ -129,6 +130,7 @@ export default function Cataloging() {
         file,
         folder: "ocr",
       });
+      setUploadedImageUrl(file_url); // Save the Cloudinary URL
       const extracted =
         await api.integrations.Core.InvokeLLM<ExtractedBookData>({
           prompt: `Você é um especialista em catalogação de livros. Analise cuidadosamente esta imagem de um livro (pode ser a capa, folha de rosto, ou contracapa) e extraia as seguintes informações bibliográficas:
@@ -208,6 +210,7 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
   const createBookMutation = useMutation({
     mutationFn: async () => {
       const bookData = {
+        cover_url: uploadedImageUrl, // Include the uploaded image URL
         ...formData,
         authors: formData.authors
           .split(",")
@@ -237,6 +240,7 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
 
   const resetCataloging = () => {
     setStep(1);
+    setUploadedImageUrl(null);
     setUploadedImage(null);
     setExtractedData(null);
     setFormData({
