@@ -200,6 +200,17 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
       }));
       setStep(2);
       toast.success("Dados extraídos com sucesso!");
+
+      // Auto-enriquecer se houver ISBN ou título+autor
+      if (extracted.isbn || (extracted.title && extracted.authors)) {
+        setTimeout(() => {
+          enrichMutation.mutate({
+            isbn: extracted.isbn,
+            title: extracted.title,
+            author: extracted.authors,
+          });
+        }, 500);
+      }
     } catch {
       toast.error("Erro ao processar imagem. Tente novamente.");
     } finally {
@@ -207,34 +218,107 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
     }
   };
 
+  const enrichMutation = useMutation({
+    mutationFn: async (params?: {
+      isbn?: string;
+      title?: string;
+      author?: string;
+    }) => {
+      // Tentar enriquecer via Google Books
+      const enrichParams = params || {
+        isbn: formData.isbn,
+        title: formData.title,
+        author: formData.authors,
+      };
+
+      if (!enrichParams.isbn && !enrichParams.title) {
+        throw new Error("ISBN ou título necessário");
+      }
+
+      const result = await api.cataloging.enrichData(enrichParams);
+      return result.enrichedData;
+    },
+    onSuccess: (enrichedData) => {
+      if (enrichedData) {
+        // Aplicar dados enriquecidos ao formulário (sem sobrescrever campos já preenchidos)
+        setFormData((prev) => ({
+          ...prev,
+          title: enrichedData.title || prev.title,
+          subtitle: enrichedData.subtitle || prev.subtitle,
+          authors: enrichedData.authors || prev.authors,
+          publisher: enrichedData.publisher || prev.publisher,
+          publication_year: enrichedData.publicationYear
+            ? String(enrichedData.publicationYear)
+            : prev.publication_year,
+          description: enrichedData.description || prev.description,
+          pages: enrichedData.pages ? String(enrichedData.pages) : prev.pages,
+          language: enrichedData.language || prev.language,
+          isbn: enrichedData.isbn || prev.isbn,
+        }));
+
+        // Atualizar capa se não houver
+        if (enrichedData.coverUrl && !uploadedImageUrl) {
+          setUploadedImageUrl(enrichedData.coverUrl);
+          setUploadedImage(enrichedData.coverUrl);
+        }
+
+        toast.success("✨ Dados enriquecidos via Google Books!");
+      } else {
+        toast.info("Sem dados adicionais encontrados");
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao enriquecer:", error);
+      toast.error(`Erro ao enriquecer dados: ${error.message}`);
+    },
+  });
+
   const createBookMutation = useMutation({
     mutationFn: async () => {
-      const bookData = {
-        cover_url: uploadedImageUrl, // Include the uploaded image URL
-        ...formData,
-        authors: formData.authors
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean),
-        publication_year: formData.publication_year
+      // 1. Criar CatalogEntry
+      const entry = await api.cataloging.createEntry({
+        imageUrl: uploadedImageUrl || "",
+        extractedTitle: formData.title,
+        extractedAuthor: formData.authors,
+        extractedISBN: formData.isbn,
+        extractedPublisher: formData.publisher,
+        extractedYear: formData.publication_year
           ? parseInt(formData.publication_year, 10)
-          : null,
-        pages: formData.pages ? parseInt(formData.pages, 10) : null,
-        total_copies: parseInt(formData.total_copies, 10) || 1,
-        available_copies: parseInt(formData.available_copies, 10) || 1,
-        extracted_by_ocr: true,
-        ocr_confidence: extractedData?.confidence ?? null,
-        catalog_status: "pending_review",
-      };
-      await api.entities.Book.create(bookData);
+          : undefined,
+        enrichedData: extractedData as Record<string, unknown>,
+      });
+
+      // 2. Auto-aprovar (modo simplificado - em produção seria workflow com supervisor)
+      const categoryId =
+        formData.category || (await api.entities.Category.list())[0]?.id || "";
+
+      await api.cataloging.approveEntry(entry.id, {
+        title: formData.title,
+        subtitle: formData.subtitle,
+        isbn: formData.isbn,
+        authors: formData.authors,
+        publisher: formData.publisher,
+        publicationYear: formData.publication_year
+          ? parseInt(formData.publication_year, 10)
+          : undefined,
+        edition: formData.edition,
+        language: formData.language,
+        pages: formData.pages ? parseInt(formData.pages, 10) : undefined,
+        categoryId,
+        description: formData.description,
+        coverUrl: uploadedImageUrl || undefined,
+        location: formData.location || "Acervo Geral",
+        totalCopies: parseInt(formData.total_copies, 10) || 1,
+        reviewNotes: "Auto-aprovado via catalogação inteligente",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manage-books"] });
       setStep(3);
-      toast.success("Livro cadastrado com sucesso!");
+      toast.success("Livro catalogado com sucesso!");
     },
-    onError: () => {
-      toast.error("Erro ao cadastrar livro");
+    onError: (error: Error) => {
+      toast.error(`Erro ao cadastrar livro: ${error.message}`);
     },
   });
 
@@ -516,6 +600,26 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
                     <Button variant="outline" onClick={resetCataloging}>
                       <X className="w-4 h-4 mr-2" />
                       Cancelar
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => enrichMutation.mutate()}
+                      disabled={
+                        enrichMutation.isPending ||
+                        (!formData.isbn && !formData.title)
+                      }
+                      title={
+                        formData.isbn
+                          ? "Enriquecer via ISBN"
+                          : "Enriquecer via título"
+                      }
+                    >
+                      {enrichMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 mr-2" />
+                      )}
+                      Enriquecer
                     </Button>
                     <Button
                       className="flex-1"
