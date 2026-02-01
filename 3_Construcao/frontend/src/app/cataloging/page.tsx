@@ -76,16 +76,23 @@ function parseBookDataFromText(text: string) {
   const authorMatch = text.match(authorPattern);
   const authors = authorMatch ? authorMatch[2].trim() : null;
 
-  // Título (primeira linha significativa)
+  // Título melhorado: pegar a MAIOR linha significativa (títulos costumam ser maiores)
   let title = null;
-  for (const line of lines) {
+  let maxLength = 0;
+
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i];
     if (
-      line.length > 3 &&
+      line.length > 10 &&
+      line.length > maxLength &&
       !/^[\d\s-]+$/.test(line) &&
-      !line.toLowerCase().startsWith("isbn")
+      !line.toLowerCase().startsWith("isbn") &&
+      !line.toLowerCase().startsWith("this book") &&
+      !line.toLowerCase().includes("helps to") &&
+      !/^(the|a|an|this|that|helps|master)\s/i.test(line)
     ) {
       title = line;
-      break;
+      maxLength = line.length;
     }
   }
 
@@ -97,6 +104,8 @@ function parseBookDataFromText(text: string) {
     lines[titleIndex + 1].length < 100
       ? lines[titleIndex + 1]
       : null;
+
+  console.log("📖 Dados extraídos:", { title, subtitle, isbn, authors });
 
   // Editora
   const publisherKeywords = [
@@ -145,6 +154,7 @@ export default function Cataloging() {
   const [step, setStep] = useState<number>(1);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null); // Guardar arquivo original
   const [extractedData, setExtractedData] = useState<ExtractedBookData | null>(
     null,
   );
@@ -222,6 +232,9 @@ export default function Cataloging() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Guardar arquivo original
+    setUploadedFile(file);
+
     const reader = new FileReader();
     reader.onload = () => {
       setUploadedImage(
@@ -233,18 +246,11 @@ export default function Cataloging() {
     setIsExtracting(true);
 
     try {
-      // 1. Upload da imagem
-      const { file_url } = await api.integrations.Core.UploadFile({
-        file,
-        folder: "ocr",
-      });
-      setUploadedImageUrl(file_url);
-
-      // 2. OCR no cliente usando Tesseract.js
+      // OCR no cliente - NÃO fazer upload ainda (só ao cadastrar)
       console.log("🔍 Iniciando OCR no navegador...");
 
       const Tesseract = await import("tesseract.js");
-      const worker = await Tesseract.createWorker("por", 1, {
+      const worker = await Tesseract.createWorker("eng", 1, {
         logger: (m: { status: string; progress: number }) => {
           if (m.status === "recognizing text") {
             console.log(`📖 OCR Progress: ${Math.round(m.progress * 100)}%`);
@@ -252,7 +258,19 @@ export default function Cataloging() {
         },
       });
 
-      const { data } = await worker.recognize(file);
+      // Timeout de 30 segundos
+      const ocrPromise = worker.recognize(file);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error("OCR timeout - processo demorou mais de 30 segundos"),
+            ),
+          30000,
+        ),
+      );
+
+      const { data } = await Promise.race([ocrPromise, timeoutPromise]);
       await worker.terminate();
 
       console.log("✅ OCR Completo!");
@@ -354,9 +372,22 @@ export default function Cataloging() {
 
   const createBookMutation = useMutation({
     mutationFn: async () => {
-      // 1. Criar CatalogEntry
+      // 1. Upload da imagem AGORA (só quando realmente cadastrar)
+      let coverUrl = uploadedImageUrl;
+
+      if (uploadedFile && !coverUrl) {
+        console.log("📤 Fazendo upload da imagem para Cloudinary...");
+        const { file_url } = await api.integrations.Core.UploadFile({
+          file: uploadedFile,
+          folder: "covers",
+        });
+        coverUrl = file_url;
+        setUploadedImageUrl(file_url);
+      }
+
+      // 2. Criar CatalogEntry
       const entry = await api.cataloging.createEntry({
-        imageUrl: uploadedImageUrl || "",
+        imageUrl: coverUrl || "",
         extractedTitle: formData.title,
         extractedAuthor: formData.authors,
         extractedISBN: formData.isbn,
@@ -367,8 +398,7 @@ export default function Cataloging() {
         enrichedData: extractedData as Record<string, unknown>,
       });
 
-      // 2. Auto-aprovar (modo simplificado - em produção seria workflow com supervisor)
-      // Procurar categoria por nome ou usar primeira disponível
+      // 3. Auto-aprovar
       let categoryId = formData.category;
       if (!categoryId) {
         const cats = await api.entities.Category.list();
@@ -389,7 +419,7 @@ export default function Cataloging() {
         pages: formData.pages ? parseInt(formData.pages, 10) : undefined,
         categoryId,
         description: formData.description,
-        coverUrl: uploadedImageUrl || undefined,
+        coverUrl: coverUrl || undefined,
         location: formData.location,
         totalCopies: parseInt(formData.total_copies, 10) || 1,
         reviewNotes: "Auto-aprovado via catalogação inteligente",
@@ -409,6 +439,7 @@ export default function Cataloging() {
     setStep(1);
     setUploadedImageUrl(null);
     setUploadedImage(null);
+    setUploadedFile(null);
     setExtractedData(null);
     setFormData({
       title: "",
