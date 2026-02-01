@@ -346,6 +346,27 @@ export const api = {
     },
 
     /**
+     * Extrai dados de uma imagem usando OCR
+     */
+    extractOCR: async (imageUrl: string) => {
+      const res = await fetch("/api/cataloging/extract-ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao extrair dados OCR (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
      * Enriquece dados via Google Books API
      */
     enrichData: async (params: {

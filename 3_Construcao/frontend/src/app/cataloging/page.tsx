@@ -131,59 +131,25 @@ export default function Cataloging() {
         folder: "ocr",
       });
       setUploadedImageUrl(file_url); // Save the Cloudinary URL
-      const extracted =
-        await api.integrations.Core.InvokeLLM<ExtractedBookData>({
-          prompt: `Você é um especialista em catalogação de livros. Analise cuidadosamente esta imagem de um livro (pode ser a capa, folha de rosto, ou contracapa) e extraia as seguintes informações bibliográficas:
 
-1. TÍTULO: O título principal do livro (obrigatório)
-2. SUBTÍTULO: Se houver subtítulo
-3. ISBN: Número ISBN (10 ou 13 dígitos, geralmente na contracapa ou página de créditos)
-4. AUTORES: Lista de autores separados por vírgula
-5. EDITORA: Nome da editora/publisher
-6. ANO DE PUBLICAÇÃO: Ano em formato AAAA
-7. EDIÇÃO: Número da edição (ex: "2ª edição", "3rd edition")
-8. CATEGORIA SUGERIDA: Baseado no conteúdo, sugira uma categoria (Ciências, Engenharia, Medicina, Direito, Economia, Informática, Literatura, História, etc.)
-9. IDIOMA: pt (português), en (inglês), es (espanhol), fr (francês)
-10. DESCRIÇÃO: Se visível, uma breve sinopse ou descrição do livro
+      // Extrair dados via OCR
+      const ocrResult = await api.cataloging.extractOCR(file_url);
 
-Seja preciso e extraia apenas informações claramente visíveis. Se algum dado não estiver visível ou legível, deixe o campo vazio.
-Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da imagem e clareza das informações.`,
-          file_urls: [file_url],
-          response_json_schema: {
-            type: "object",
-            properties: {
-              title: { type: "string", description: "Título do livro" },
-              subtitle: { type: "string", description: "Subtítulo se houver" },
-              isbn: { type: "string", description: "ISBN do livro" },
-              authors: {
-                type: "string",
-                description: "Autores separados por vírgula",
-              },
-              publisher: { type: "string", description: "Editora" },
-              publication_year: {
-                type: "string",
-                description: "Ano de publicação",
-              },
-              edition: { type: "string", description: "Edição" },
-              suggested_category: {
-                type: "string",
-                description: "Categoria sugerida",
-              },
-              language: {
-                type: "string",
-                description: "Código do idioma: pt, en, es, fr",
-              },
-              description: {
-                type: "string",
-                description: "Sinopse ou descrição breve",
-              },
-              confidence: {
-                type: "number",
-                description: "Nível de confiança 0.0 a 1.0",
-              },
-            },
-          },
-        });
+      const extracted: ExtractedBookData = {
+        title: ocrResult.extractedData?.title || null,
+        subtitle: ocrResult.extractedData?.subtitle || null,
+        isbn: ocrResult.extractedData?.isbn || null,
+        authors: ocrResult.extractedData?.authors || null,
+        publisher: ocrResult.extractedData?.publisher || null,
+        publication_year:
+          ocrResult.extractedData?.publishedYear?.toString() || null,
+        edition: ocrResult.extractedData?.edition || null,
+        suggested_category: null, // Será preenchido depois
+        language: ocrResult.extractedData?.language || "pt",
+        description: ocrResult.extractedData?.description || null,
+        confidence: ocrResult.ocrConfidence || 0,
+      };
+
       setExtractedData(extracted);
       setFormData((prev) => ({
         ...prev,
