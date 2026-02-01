@@ -39,7 +39,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * Extrai informações estruturadas do texto OCR
+ * @deprecated - Usar Gemini Vision API (analyzeImage) para maior precisão
+ * Mantido como fallback caso Gemini não esteja disponível
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function parseBookDataFromText(text: string) {
   const lines = text
     .split("\n")
@@ -246,51 +249,53 @@ export default function Cataloging() {
     setIsExtracting(true);
 
     try {
-      // OCR no cliente - NÃO fazer upload ainda (só ao cadastrar)
-      console.log("🔍 Iniciando OCR no navegador...");
+      console.log("🤖 Analisando imagem com Gemini Vision AI...");
 
-      const Tesseract = await import("tesseract.js");
-      const worker = await Tesseract.createWorker("eng", 1, {
-        logger: (m: { status: string; progress: number }) => {
-          if (m.status === "recognizing text") {
-            console.log(`📖 OCR Progress: ${Math.round(m.progress * 100)}%`);
-          }
-        },
+      // Converter imagem para base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remover prefixo data:image/...;base64,
+          const base64Data = result.split(",")[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
 
       // Timeout de 30 segundos
-      const ocrPromise = worker.recognize(file);
+      const analyzePromise = api.cataloging.analyzeImage(base64, file.type);
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(
           () =>
-            reject(
-              new Error("OCR timeout - processo demorou mais de 30 segundos"),
-            ),
+            reject(new Error("Análise demorou muito (timeout de 30 segundos)")),
           30000,
         ),
       );
 
-      const { data } = await Promise.race([ocrPromise, timeoutPromise]);
-      await worker.terminate();
+      const result = await Promise.race([analyzePromise, timeoutPromise]);
 
-      console.log("✅ OCR Completo!");
-      console.log("Texto extraído:", data.text);
+      console.log("✅ Análise completa:", result);
 
-      // 3. Parsear dados do texto OCR
-      const parsedData = parseBookDataFromText(data.text);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      const data = result.extractedData;
 
       const extracted: ExtractedBookData = {
-        title: parsedData.title || null,
-        subtitle: parsedData.subtitle || null,
-        isbn: parsedData.isbn || null,
-        authors: parsedData.authors || null,
-        publisher: parsedData.publisher || null,
-        publication_year: parsedData.publishedYear?.toString() || null,
-        edition: parsedData.edition || null,
+        title: data.title || null,
+        subtitle: data.subtitle || null,
+        isbn: data.isbn || null,
+        authors: data.authors || null,
+        publisher: data.publisher || null,
+        publication_year: data.publishedYear?.toString() || null,
+        edition: data.edition || null,
         suggested_category: null,
-        language: parsedData.language || "pt",
+        language: data.language || "pt",
         description: null,
-        confidence: data.confidence / 100,
+        confidence: result.confidence,
       };
 
       setExtractedData(extracted);
@@ -306,7 +311,9 @@ export default function Cataloging() {
         language: extracted.language || "pt",
       }));
 
-      toast.success("Dados extraídos com sucesso!");
+      toast.success(
+        `Dados extraídos com ${Math.round(result.confidence * 100)}% de confiança!`,
+      );
 
       // 4. Auto-enriquecimento se tiver ISBN
       if (extracted.isbn) {
@@ -318,8 +325,10 @@ export default function Cataloging() {
 
       setStep(2);
     } catch (error) {
-      console.error("Erro no OCR:", error);
-      toast.error("Erro ao processar imagem. Tente novamente.");
+      console.error("❌ Erro ao processar imagem:", error);
+      toast.error(
+        `Erro ao analisar imagem: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+      );
     } finally {
       setIsExtracting(false);
     }

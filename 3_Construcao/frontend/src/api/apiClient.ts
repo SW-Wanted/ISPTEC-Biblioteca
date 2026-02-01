@@ -346,7 +346,7 @@ export const api = {
     },
 
     /**
-     * Extrai dados de uma imagem usando OCR
+     * Extrai dados de uma imagem usando OCR (deprecated - use analyzeImage)
      */
     extractOCR: async (imageUrl: string) => {
       const res = await fetch("/api/cataloging/extract-ocr", {
@@ -360,6 +360,28 @@ export const api = {
         const body = await res.json().catch(() => null);
         throw new Error(
           body?.error || `Erro ao extrair dados OCR (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Analisa imagem de livro usando Gemini Vision (AI)
+     * Muito mais preciso que OCR puro
+     */
+    analyzeImage: async (imageBase64: string, mimeType: string) => {
+      const res = await fetch("/api/cataloging/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, mimeType }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao analisar imagem (HTTP ${res.status})`,
         );
       }
 
