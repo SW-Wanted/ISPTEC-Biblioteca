@@ -108,8 +108,6 @@ function parseBookDataFromText(text: string) {
       ? lines[titleIndex + 1]
       : null;
 
-  console.log("📖 Dados extraídos:", { title, subtitle, isbn, authors });
-
   // Editora
   const publisherKeywords = [
     "editora",
@@ -249,8 +247,6 @@ export default function Cataloging() {
     setIsExtracting(true);
 
     try {
-      console.log("🤖 Analisando imagem com Gemini Vision AI...");
-
       // Converter imagem para base64
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -275,8 +271,6 @@ export default function Cataloging() {
       );
 
       const result = await Promise.race([analyzePromise, timeoutPromise]);
-
-      console.log("✅ Análise completa:", result);
 
       if (result.error) {
         throw new Error(result.error);
@@ -317,7 +311,6 @@ export default function Cataloging() {
 
       // 4. Auto-enriquecimento se tiver ISBN
       if (extracted.isbn) {
-        console.log("📚 ISBN encontrado, enriquecendo via Google Books...");
         setTimeout(() => {
           enrichMutation.mutate();
         }, 500);
@@ -385,7 +378,6 @@ export default function Cataloging() {
       let coverUrl = uploadedImageUrl;
 
       if (uploadedFile && !coverUrl) {
-        console.log("📤 Fazendo upload da imagem para Cloudinary...");
         const { file_url } = await api.integrations.Core.UploadFile({
           file: uploadedFile,
           folder: "covers",

@@ -18,10 +18,10 @@ const rejectSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const entryId = params.id;
+    const { id: entryId } = await params;
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);
@@ -98,7 +98,7 @@ export async function POST(
         await tx.notification.create({
           data: {
             userId: entry.catalogerId,
-            type: "SYSTEM",
+            type: "IN_APP",
             title: "Catalogação rejeitada",
             message: `Sua catalogação "${entry.extractedTitle || "Sem título"}" foi rejeitada.`,
             metadata: {
@@ -111,11 +111,12 @@ export async function POST(
         // 5c. Log de atividade
         await tx.activityLog.create({
           data: {
-            userId: session.user.id,
+            user: { connect: { id: session.user.id } },
             action: "CATALOG_ENTRY_REJECTED",
             entity: "CatalogEntry",
             entityId: entryId,
-            details: {
+            description: `Catalogação rejeitada: "${entry.extractedTitle || "Sem título"}" - Motivo: ${rejectionReason}`,
+            metadata: {
               title: entry.extractedTitle,
               reason: rejectionReason,
             },

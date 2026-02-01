@@ -70,8 +70,6 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.GOOGLE_BOOKS_API_KEY || "";
     const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}${apiKey ? `&key=${apiKey}` : ""}`;
 
-    console.log("📚 Consultando Google Books:", query);
-
     const response = await fetch(url, {
       headers: {
         Accept: "application/json",
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest) {
     const result = await response.json();
 
     if (!result.items || result.items.length === 0) {
-      console.log("❌ Nenhum resultado encontrado");
       return NextResponse.json({
         enrichedData: null,
         message: "Nenhum resultado encontrado",
@@ -133,8 +130,6 @@ export async function POST(request: NextRequest) {
       suggestedCategory,
       source: "google_books",
     };
-
-    console.log("✅ Dados enriquecidos:", enrichedData.title);
 
     return NextResponse.json({
       enrichedData,

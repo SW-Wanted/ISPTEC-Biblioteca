@@ -48,11 +48,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🤖 Analisando imagem com Gemini Vision...");
-
     // 3. Usar Gemini Vision para analisar imagem
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash-lite",
     });
 
     const prompt = `Você é um especialista em catalogação bibliográfica. Analise esta imagem de um livro (capa, contracapa ou folha de rosto) e extraia APENAS as informações que estão CLARAMENTE VISÍVEIS.
@@ -60,7 +58,12 @@ export async function POST(request: NextRequest) {
 **Regras CRÍTICAS:**
 1. **TÍTULO**: Extraia o título EXATO como aparece na capa/folha de rosto. NÃO invente, NÃO resuma, NÃO traduza.
 2. **SUBTÍTULO**: Se houver subtítulo separado visível, extraia-o.
-3. **ISBN**: Procure por "ISBN" seguido de 10 ou 13 dígitos (pode ter hífens). Geralmente na contracapa ou página de créditos.
+3. **ISBN**: MUITO IMPORTANTE! Procure atentamente por:
+   - Código de barras com números abaixo
+   - Texto "ISBN" seguido de números (978-XX-XXX-XXXX-X ou 978XXXXXXXXXX)
+   - Geralmente está na contracapa, capa traseira, ou página de créditos
+   - Pode ter 10 ou 13 dígitos (com ou sem hífens)
+   - Remova todos os hífens ao retornar
 4. **AUTORES**: Nomes dos autores como aparecem no livro. Se múltiplos, separe por vírgula.
 5. **EDITORA**: Nome da editora/publisher.
 6. **ANO**: Ano de publicação (4 dígitos).
@@ -72,12 +75,13 @@ export async function POST(request: NextRequest) {
 - Não invente ou deduza informações
 - Seja preciso e fiel ao que está escrito
 - Prefira extração literal a interpretação
+- **ISBN é PRIORITÁRIO** - procure em toda a imagem, especialmente em códigos de barras
 
 Retorne APENAS um objeto JSON válido com esta estrutura:
 {
   "title": "título exato do livro",
   "subtitle": "subtítulo se houver",
-  "isbn": "ISBN sem hífens",
+  "isbn": "ISBN sem hífens (apenas dígitos)",
   "authors": "Nome dos autores",
   "publisher": "Nome da editora",
   "publishedYear": 2024,
@@ -102,8 +106,6 @@ Se a imagem não for de um livro ou estiver ilegível, retorne:
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     const text = response.text();
-
-    console.log("🤖 Resposta Gemini:", text);
 
     // 4. Parsear resposta JSON
     // Remover markdown code blocks se houver

@@ -38,10 +38,10 @@ const approveSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const entryId = params.id;
+    const { id: entryId } = await params;
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);
@@ -86,19 +86,32 @@ export async function POST(
       );
     }
 
-    if (entry.status !== "REVIEW" && entry.status !== "DRAFT") {
+    if (entry.status !== "PENDING_REVIEW" && entry.status !== "DRAFT") {
       return NextResponse.json(
         { error: `Entrada já foi processada (status: ${entry.status})` },
         { status: 400 },
       );
     }
 
-    // 5. Verificar se livro já existe (por ISBN)
-    let book: Prisma.BookGetPayload<{ select: { id: true } }> | null = null;
+    // 5. Verificar se livro já existe (por ISBN ou título exato)
+    let book: Prisma.BookGetPayload<{
+      select: { id: true; isbn: true };
+    }> | null = null;
+
     if (data.isbn) {
       book = await prisma.book.findUnique({
         where: { isbn: data.isbn },
-        select: { id: true },
+        select: { id: true, isbn: true },
+      });
+    }
+
+    // Se não encontrou por ISBN, buscar por título exato
+    if (!book) {
+      book = await prisma.book.findFirst({
+        where: {
+          title: { equals: data.title, mode: "insensitive" },
+        },
+        select: { id: true, isbn: true },
       });
     }
 
@@ -114,16 +127,34 @@ export async function POST(
               totalCopies: { increment: data.totalCopies },
               availableCopies: { increment: data.totalCopies },
             },
+            select: { id: true, isbn: true },
           });
         } else {
-          // Criar novo livro
+          // Criar novo livro + autores
+          // Parsear autores (separados por vírgula)
+          const authorNames = data.authors
+            .split(",")
+            .map((name) => name.trim())
+            .filter(Boolean);
+
+          // Criar publisher se necessário
+          let publisherId: string | undefined;
+          if (data.publisher) {
+            const publisher = await tx.publisher.upsert({
+              where: { name: data.publisher },
+              create: { name: data.publisher },
+              update: {},
+            });
+            publisherId = publisher.id;
+          }
+
+          // Criar livro
           book = await tx.book.create({
             data: {
               title: data.title,
               subtitle: data.subtitle,
               isbn: data.isbn,
-              authors: data.authors,
-              publisher: data.publisher,
+              publisherId: publisherId,
               publicationYear: data.publicationYear,
               edition: data.edition,
               language: data.language,
@@ -133,18 +164,38 @@ export async function POST(
               coverUrl: data.coverUrl || entry.imageUrl,
               totalCopies: data.totalCopies,
               availableCopies: data.totalCopies,
-              status: "AVAILABLE",
             },
+            select: { id: true, isbn: true },
           });
+
+          // Criar autores e relações
+          for (const authorName of authorNames) {
+            let author = await tx.author.findFirst({
+              where: { name: authorName },
+            });
+
+            if (!author) {
+              author = await tx.author.create({
+                data: { name: authorName },
+              });
+            }
+
+            await tx.bookAuthor.create({
+              data: {
+                bookId: book.id,
+                authorId: author.id,
+              },
+            });
+          }
         }
 
         // 6b. Criar cópias físicas
         const copies = [];
         for (let i = 0; i < data.totalCopies; i++) {
-          const copy = await tx.bookCopy.create({
+          const copy = await tx.copy.create({
             data: {
               bookId: book.id,
-              copyNumber: `${book.isbn || book.id}-${i + 1}`,
+              barcode: `${book.isbn || book.id}-${String(i + 1).padStart(3, "0")}`,
               status: "AVAILABLE",
               location: data.location || "Acervo Geral",
               condition: "GOOD",
@@ -177,7 +228,7 @@ export async function POST(
         await tx.notification.create({
           data: {
             userId: entry.catalogerId,
-            type: "SYSTEM",
+            type: "IN_APP",
             title: "Catalogação aprovada",
             message: `Sua catalogação "${data.title}" foi aprovada por ${user.type === "SUPERVISOR" ? "supervisor" : "bibliotecário"}.`,
             metadata: {
@@ -191,11 +242,12 @@ export async function POST(
         // 6e. Log de atividade
         await tx.activityLog.create({
           data: {
-            userId: session.user.id,
+            user: { connect: { id: session.user.id } },
             action: "CATALOG_ENTRY_APPROVED",
             entity: "CatalogEntry",
             entityId: entryId,
-            details: {
+            description: `Catalogação aprovada: "${data.title}" (${data.totalCopies} cópia${data.totalCopies > 1 ? "s" : ""})`,
+            metadata: {
               bookId: book.id,
               title: data.title,
               copies: data.totalCopies,

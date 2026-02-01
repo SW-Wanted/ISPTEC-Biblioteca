@@ -5,6 +5,7 @@
 A extração de dados com **Tesseract.js + regex parsing** estava produzindo resultados imprecisos:
 
 ❌ **Antes:**
+
 - Livro: "Data Structures and Algorithms"
 - Extraído: "This books helps to master..."
 - Causa: OCR puro não entende contexto visual, pegava texto descritivo
@@ -137,7 +138,7 @@ const base64 = await new Promise<string>((resolve, reject) => {
 // Chamada API com timeout
 const analyzePromise = api.cataloging.analyzeImage(base64, file.type);
 const timeoutPromise = new Promise<never>((_, reject) =>
-  setTimeout(() => reject(new Error("Timeout de 30s")), 30000)
+  setTimeout(() => reject(new Error("Timeout de 30s")), 30000),
 );
 
 const result = await Promise.race([analyzePromise, timeoutPromise]);
@@ -159,7 +160,7 @@ cataloging: {
       credentials: "include",
     });
     // ...
-  }
+  };
 }
 ```
 
@@ -179,7 +180,7 @@ GOOGLE_GEMINI_API_KEY=AIza...
 
 ```json
 {
-  "@google/generative-ai": "^0.21.0"  // Já instalado
+  "@google/generative-ai": "^0.21.0" // Já instalado
 }
 ```
 
@@ -187,23 +188,25 @@ Nenhuma nova dependência necessária! ✅
 
 ## 📊 Comparação de Performance
 
-| Métrica | Tesseract OCR | Gemini Vision | Melhoria |
-|---------|---------------|---------------|----------|
-| **Precisão do título** | ~40% | ~95% | **+137%** |
-| **Detecção de ISBN** | ~70% | ~98% | **+40%** |
-| **Tempo de resposta** | 5-8s | 2-4s | **-50%** |
-| **Falsos positivos** | Comum | Raro | **-80%** |
-| **Contexto visual** | ❌ | ✅ | N/A |
+| Métrica                | Tesseract OCR | Gemini Vision | Melhoria  |
+| ---------------------- | ------------- | ------------- | --------- |
+| **Precisão do título** | ~40%          | ~95%          | **+137%** |
+| **Detecção de ISBN**   | ~70%          | ~98%          | **+40%**  |
+| **Tempo de resposta**  | 5-8s          | 2-4s          | **-50%**  |
+| **Falsos positivos**   | Comum         | Raro          | **-80%**  |
+| **Contexto visual**    | ❌            | ✅            | N/A       |
 
 ## 🧪 Como Testar
 
 1. **Inicie o servidor de desenvolvimento:**
+
    ```bash
    cd 3_Construcao/frontend
    npm run dev
    ```
 
 2. **Acesse a página de catalogação:**
+
    ```
    http://localhost:3000/cataloging
    ```
@@ -214,6 +217,7 @@ Nenhuma nova dependência necessária! ✅
    - Upload de folha de rosto
 
 4. **Verifique o console:**
+
    ```
    🤖 Analisando imagem com Gemini Vision AI...
    ✅ Análise completa: { extractedData: {...}, confidence: 0.95 }
@@ -229,12 +233,15 @@ Nenhuma nova dependência necessária! ✅
 ## 📝 Exemplos de Prompt Engineering
 
 ### Prompt Original (v1)
+
 ```
 Extract book data from this image: title, ISBN, authors, publisher, year.
 ```
+
 ❌ **Resultado:** Genérico, baixa precisão
 
 ### Prompt Melhorado (v2 - Atual)
+
 ```
 Você é um especialista em catalogação bibliográfica.
 
@@ -246,6 +253,7 @@ Você é um especialista em catalogação bibliográfica.
 Retorne APENAS JSON válido com esta estrutura:
 { "title": "...", "isbn": "...", ... }
 ```
+
 ✅ **Resultado:** Alta precisão, extração fiel
 
 ## 🚀 Próximos Passos
@@ -278,7 +286,7 @@ Retorne APENAS JSON válido com esta estrutura:
 
 ✅ **Autenticação:** NextAuth session verificada
 ✅ **Tamanho de imagem:** Limitado por Next.js body parser
-✅ **Tipos MIME:** Validação de image/*
+✅ **Tipos MIME:** Validação de image/\*
 ✅ **Rate limiting:** Implementar (TODO)
 ✅ **Logs sensíveis:** Não expõem dados pessoais
 
