@@ -309,37 +309,89 @@ export default function Cataloging() {
         `Dados extraídos com ${Math.round(result.confidence * 100)}% de confiança!`,
       );
 
-      // 4. Auto-enriquecimento se tiver ISBN
-      if (extracted.isbn) {
+      // 4. Auto-enriquecimento: preferir ISBN; se não houver, tentar por título/autor
+      if (extracted.isbn || extracted.title) {
+        const maybeYear = extracted.publication_year
+          ? Number.parseInt(extracted.publication_year, 10)
+          : undefined;
+
         setTimeout(() => {
-          enrichMutation.mutate();
+          enrichMutation.mutate({
+            isbn: extracted.isbn ?? undefined,
+            title: extracted.title ?? undefined,
+            author: extracted.authors ?? undefined,
+            publisher: extracted.publisher ?? undefined,
+            publishedYear: Number.isFinite(maybeYear as number)
+              ? maybeYear
+              : undefined,
+          });
         }, 500);
       }
 
       setStep(2);
     } catch (error) {
-      console.error("❌ Erro ao processar imagem:", error);
-      toast.error(
-        `Erro ao analisar imagem: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+
+      // Mensagens específicas para erros comuns
+      if (
+        errorMessage.includes("429") ||
+        errorMessage.includes("quota") ||
+        errorMessage.includes("Too Many Requests")
+      ) {
+        toast.error(
+          "⏱️ Limite de análises atingido. Aguarde alguns minutos e tente novamente.",
+          { duration: 5000 },
+        );
+      } else if (
+        errorMessage.includes("503") ||
+        errorMessage.includes("overloaded")
+      ) {
+        toast.error(
+          "🔄 Serviço temporariamente sobrecarregado. Tente novamente em alguns segundos.",
+          { duration: 4000 },
+        );
+      } else if (errorMessage.includes("Configure GOOGLE_GEMINI_API_KEY")) {
+        toast.error(
+          "⚙️ Análise inteligente não configurada. Contacte o administrador.",
+          { duration: 5000 },
+        );
+      } else {
+        toast.error(`Erro ao analisar imagem: ${errorMessage}`, {
+          duration: 4000,
+        });
+      }
     } finally {
       setIsExtracting(false);
     }
   };
 
   const enrichMutation = useMutation({
-    mutationFn: async () => {
-      // Tentar enriquecer via Google Books se houver ISBN
-      if (formData.isbn) {
-        const result = await api.cataloging.enrichData({
-          isbn: formData.isbn,
-        });
+    mutationFn: async (params?: {
+      isbn?: string;
+      title?: string;
+      author?: string;
+      publisher?: string;
+      publishedYear?: number;
+    }) => {
+      const fallbackParams = {
+        isbn: formData.isbn || undefined,
+        title: formData.title || undefined,
+        author: formData.authors || undefined,
+        publisher: formData.publisher || undefined,
+        publishedYear: formData.publication_year
+          ? Number.parseInt(formData.publication_year, 10)
+          : undefined,
+      };
 
-        if (result.enrichedData) {
-          return result.enrichedData;
-        }
-      }
-      return null;
+      const queryParams =
+        params && Object.keys(params).length ? params : fallbackParams;
+
+      // Evitar chamada inútil
+      if (!queryParams.isbn && !queryParams.title) return null;
+
+      const result = await api.cataloging.enrichData(queryParams);
+      return result.enrichedData ?? null;
     },
     onSuccess: (enrichedData) => {
       if (enrichedData) {
@@ -350,6 +402,7 @@ export default function Cataloging() {
           subtitle: enrichedData.subtitle || prev.subtitle,
           authors: enrichedData.authors || prev.authors,
           publisher: enrichedData.publisher || prev.publisher,
+          isbn: enrichedData.isbn || prev.isbn,
           publication_year: enrichedData.publicationYear
             ? String(enrichedData.publicationYear)
             : prev.publication_year,
@@ -364,11 +417,11 @@ export default function Cataloging() {
 
         toast.success("Dados enriquecidos via Google Books!");
       } else {
-        toast.info("Sem dados adicionais encontrados");
+        toast.info("Sem informações adicionais encontradas");
       }
     },
     onError: () => {
-      toast.error("Erro ao enriquecer dados");
+      toast.info("Sem informações adicionais encontradas");
     },
   });
 
@@ -718,8 +771,21 @@ export default function Cataloging() {
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={() => enrichMutation.mutate()}
-                      disabled={enrichMutation.isPending || !formData.isbn}
+                      onClick={() =>
+                        enrichMutation.mutate({
+                          isbn: formData.isbn || undefined,
+                          title: formData.title || undefined,
+                          author: formData.authors || undefined,
+                          publisher: formData.publisher || undefined,
+                          publishedYear: formData.publication_year
+                            ? Number.parseInt(formData.publication_year, 10)
+                            : undefined,
+                        })
+                      }
+                      disabled={
+                        enrichMutation.isPending ||
+                        (!formData.isbn && !formData.title)
+                      }
                     >
                       {enrichMutation.isPending ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />

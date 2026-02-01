@@ -395,6 +395,8 @@ export const api = {
       isbn?: string;
       title?: string;
       author?: string;
+      publisher?: string;
+      publishedYear?: number;
     }) => {
       const res = await fetch("/api/cataloging/enrich", {
         method: "POST",

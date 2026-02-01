@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { extractIsbnFromText } from "@/lib/isbn";
 
 /**
  * POST /api/cataloging/extract-ocr
@@ -140,21 +141,13 @@ function parseBookDataFromText(text: string) {
     .filter(Boolean);
 
   // Regex patterns melhorados
-  const isbnPattern = /ISBN[:\s-]*(\d[\d\s-]{8,17})/i;
   const yearPattern = /\b(19|20)\d{2}\b/g;
   const editionPattern = /(\d+)[ªº°]?\s*(ed|edição|edition|edicao)/i;
 
   // Patterns para autor (procurar por linhas com "por", "by", "autor")
   const authorPattern = /(por|by|autor|author)[:\s]+([^\n]+)/i;
 
-  // Extrair ISBN (limpar espaços e hífens)
-  const isbnMatch = text.match(isbnPattern);
-  let isbn = isbnMatch ? isbnMatch[1].replace(/[\s-]/g, "") : null;
-
-  // Validar ISBN (deve ter 10 ou 13 dígitos)
-  if (isbn && !/^\d{10}$|^\d{13}$/.test(isbn)) {
-    isbn = null;
-  }
+  const isbn = extractIsbnFromText(text)?.normalized ?? null;
 
   // Extrair todos os anos e pegar o mais recente (provavelmente publicação)
   const yearMatches = Array.from(text.matchAll(yearPattern));

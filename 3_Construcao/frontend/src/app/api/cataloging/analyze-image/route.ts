@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { extractIsbnFromText, normalizeIsbn } from "@/lib/isbn";
 
 /**
  * POST /api/cataloging/analyze-image
@@ -129,6 +130,11 @@ Se a imagem não for de um livro ou estiver ilegível, retorne:
         { status: 500 },
       );
     }
+
+    // 5. Normalizar/validar ISBN (Gemini pode retornar com hífens/espaços ou omitir do JSON)
+    const normalizedFromJson = normalizeIsbn(extractedData?.isbn);
+    const extractedFromText = extractIsbnFromText(text)?.normalized ?? null;
+    extractedData.isbn = normalizedFromJson ?? extractedFromText;
 
     // 5. Verificar se houve erro na análise
     if (extractedData.error) {
