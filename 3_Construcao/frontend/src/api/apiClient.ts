@@ -286,4 +286,149 @@ export const api = {
       },
     },
   },
+  cataloging: {
+    /**
+     * Cria uma entrada de catalogação com dados extraídos
+     */
+    createEntry: async (data: {
+      imageUrl: string;
+      extractedTitle?: string;
+      extractedAuthor?: string;
+      extractedISBN?: string;
+      extractedPublisher?: string;
+      extractedYear?: number;
+      enrichedData?: Record<string, unknown>;
+    }) => {
+      const res = await fetch("/api/cataloging/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao criar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Lista entradas de catalogação
+     */
+    listEntries: async (params?: {
+      status?: string;
+      catalogerId?: string;
+      page?: number;
+      limit?: number;
+    }) => {
+      const query = new URLSearchParams();
+      if (params?.status) query.set("status", params.status);
+      if (params?.catalogerId) query.set("catalogerId", params.catalogerId);
+      if (params?.page) query.set("page", String(params.page));
+      if (params?.limit) query.set("limit", String(params.limit));
+
+      const res = await fetch(`/api/cataloging/entries?${query}`, {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao listar entradas (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Enriquece dados via Google Books API
+     */
+    enrichData: async (params: {
+      isbn?: string;
+      title?: string;
+      author?: string;
+    }) => {
+      const res = await fetch("/api/cataloging/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao enriquecer dados (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Aprova uma entrada de catalogação (cria Book + Copies)
+     */
+    approveEntry: async (
+      entryId: string,
+      data: {
+        title: string;
+        subtitle?: string;
+        isbn?: string;
+        authors: string;
+        publisher?: string;
+        publicationYear?: number;
+        edition?: string;
+        language?: string;
+        pages?: number;
+        categoryId: string;
+        description?: string;
+        coverUrl?: string;
+        location?: string;
+        totalCopies?: number;
+        reviewNotes?: string;
+      },
+    ) => {
+      const res = await fetch(`/api/cataloging/entries/${entryId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao aprovar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Rejeita uma entrada de catalogação
+     */
+    rejectEntry: async (entryId: string, rejectionReason: string) => {
+      const res = await fetch(`/api/cataloging/entries/${entryId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao rejeitar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+  },
 };

@@ -207,34 +207,101 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
     }
   };
 
+  const enrichMutation = useMutation({
+    mutationFn: async () => {
+      // Tentar enriquecer via Google Books se houver ISBN
+      if (formData.isbn) {
+        const result = await api.cataloging.enrichData({
+          isbn: formData.isbn,
+        });
+
+        if (result.enrichedData) {
+          return result.enrichedData;
+        }
+      }
+      return null;
+    },
+    onSuccess: (enrichedData) => {
+      if (enrichedData) {
+        // Aplicar dados enriquecidos ao formulário
+        setFormData((prev) => ({
+          ...prev,
+          title: enrichedData.title || prev.title,
+          subtitle: enrichedData.subtitle || prev.subtitle,
+          authors: enrichedData.authors || prev.authors,
+          publisher: enrichedData.publisher || prev.publisher,
+          publication_year: enrichedData.publicationYear
+            ? String(enrichedData.publicationYear)
+            : prev.publication_year,
+          description: enrichedData.description || prev.description,
+          pages: enrichedData.pages ? String(enrichedData.pages) : prev.pages,
+          language: enrichedData.language || prev.language,
+        }));
+
+        if (enrichedData.coverUrl && !uploadedImageUrl) {
+          setUploadedImageUrl(enrichedData.coverUrl);
+        }
+
+        toast.success("Dados enriquecidos via Google Books!");
+      } else {
+        toast.info("Sem dados adicionais encontrados");
+      }
+    },
+    onError: () => {
+      toast.error("Erro ao enriquecer dados");
+    },
+  });
+
   const createBookMutation = useMutation({
     mutationFn: async () => {
-      const bookData = {
-        cover_url: uploadedImageUrl, // Include the uploaded image URL
-        ...formData,
-        authors: formData.authors
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean),
-        publication_year: formData.publication_year
+      // 1. Criar CatalogEntry
+      const entry = await api.cataloging.createEntry({
+        imageUrl: uploadedImageUrl || "",
+        extractedTitle: formData.title,
+        extractedAuthor: formData.authors,
+        extractedISBN: formData.isbn,
+        extractedPublisher: formData.publisher,
+        extractedYear: formData.publication_year
           ? parseInt(formData.publication_year, 10)
-          : null,
-        pages: formData.pages ? parseInt(formData.pages, 10) : null,
-        total_copies: parseInt(formData.total_copies, 10) || 1,
-        available_copies: parseInt(formData.available_copies, 10) || 1,
-        extracted_by_ocr: true,
-        ocr_confidence: extractedData?.confidence ?? null,
-        catalog_status: "pending_review",
-      };
-      await api.entities.Book.create(bookData);
+          : undefined,
+        enrichedData: extractedData as Record<string, unknown>,
+      });
+
+      // 2. Auto-aprovar (modo simplificado - em produção seria workflow com supervisor)
+      // Procurar categoria por nome ou usar primeira disponível
+      let categoryId = formData.category;
+      if (!categoryId) {
+        const cats = await api.entities.Category.list();
+        categoryId = cats[0]?.id || "";
+      }
+
+      await api.cataloging.approveEntry(entry.id, {
+        title: formData.title,
+        subtitle: formData.subtitle,
+        isbn: formData.isbn,
+        authors: formData.authors,
+        publisher: formData.publisher,
+        publicationYear: formData.publication_year
+          ? parseInt(formData.publication_year, 10)
+          : undefined,
+        edition: formData.edition,
+        language: formData.language,
+        pages: formData.pages ? parseInt(formData.pages, 10) : undefined,
+        categoryId,
+        description: formData.description,
+        coverUrl: uploadedImageUrl || undefined,
+        location: formData.location,
+        totalCopies: parseInt(formData.total_copies, 10) || 1,
+        reviewNotes: "Auto-aprovado via catalogação inteligente",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manage-books"] });
       setStep(3);
       toast.success("Livro cadastrado com sucesso!");
     },
-    onError: () => {
-      toast.error("Erro ao cadastrar livro");
+    onError: (error: Error) => {
+      toast.error(`Erro ao cadastrar livro: ${error.message}`);
     },
   });
 
@@ -494,7 +561,7 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
                           {categories
                             .filter((cat) => Boolean(cat.name))
                             .map((cat) => (
-                              <SelectItem key={cat.id} value={cat.name!}>
+                              <SelectItem key={cat.id} value={cat.id}>
                                 {cat.name}
                               </SelectItem>
                             ))}
@@ -516,6 +583,18 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
                     <Button variant="outline" onClick={resetCataloging}>
                       <X className="w-4 h-4 mr-2" />
                       Cancelar
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => enrichMutation.mutate()}
+                      disabled={enrichMutation.isPending || !formData.isbn}
+                    >
+                      {enrichMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 className="w-4 h-4 mr-2" />
+                      )}
+                      Enriquecer Dados
                     </Button>
                     <Button
                       className="flex-1"
