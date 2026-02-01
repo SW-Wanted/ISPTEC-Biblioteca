@@ -37,6 +37,110 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+/**
+ * Extrai informações estruturadas do texto OCR
+ */
+function parseBookDataFromText(text: string) {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // Regex patterns
+  const isbnPattern = /ISBN[:\s-]*(\d[\d\s-]{8,17})/i;
+  const yearPattern = /\b(19|20)\d{2}\b/g;
+  const editionPattern = /(\d+)[ªº°]?\s*(ed|edição|edition|edicao)/i;
+  const authorPattern = /(por|by|autor|author)[:\s]+([^\n]+)/i;
+
+  // Extrair ISBN (limpar espaços e hífens)
+  const isbnMatch = text.match(isbnPattern);
+  let isbn = isbnMatch ? isbnMatch[1].replace(/[\s-]/g, "") : null;
+
+  // Validar ISBN (deve ter 10 ou 13 dígitos)
+  if (isbn && !/^\d{10}$|^\d{13}$/.test(isbn)) {
+    isbn = null;
+  }
+
+  // Extrair anos e pegar o mais recente
+  const yearMatches = Array.from(text.matchAll(yearPattern));
+  const years = yearMatches
+    .map((m) => parseInt(m[0]))
+    .filter((y) => y >= 1900 && y <= new Date().getFullYear());
+  const publishedYear = years.length > 0 ? Math.max(...years) : null;
+
+  // Extrair edição
+  const editionMatch = text.match(editionPattern);
+  const edition = editionMatch ? editionMatch[0] : null;
+
+  // Extrair autor
+  const authorMatch = text.match(authorPattern);
+  const authors = authorMatch ? authorMatch[2].trim() : null;
+
+  // Título (primeira linha significativa)
+  let title = null;
+  for (const line of lines) {
+    if (
+      line.length > 3 &&
+      !/^[\d\s-]+$/.test(line) &&
+      !line.toLowerCase().startsWith("isbn")
+    ) {
+      title = line;
+      break;
+    }
+  }
+
+  // Subtítulo (linha após título)
+  const titleIndex = title ? lines.indexOf(title) : -1;
+  const subtitle =
+    titleIndex >= 0 &&
+    titleIndex + 1 < lines.length &&
+    lines[titleIndex + 1].length < 100
+      ? lines[titleIndex + 1]
+      : null;
+
+  // Editora
+  const publisherKeywords = [
+    "editora",
+    "publisher",
+    "edições",
+    "edicoes",
+    "books",
+    "press",
+  ];
+  const publisher =
+    lines.find((line) =>
+      publisherKeywords.some((kw) => line.toLowerCase().includes(kw)),
+    ) || null;
+
+  // Detectar idioma
+  const language = detectLanguage(text);
+
+  return {
+    title,
+    subtitle,
+    isbn,
+    authors,
+    publisher,
+    publishedYear,
+    edition,
+    language,
+  };
+}
+
+/**
+ * Detecção simples de idioma
+ */
+function detectLanguage(text: string): string {
+  const lowerText = text.toLowerCase();
+  const portugueseWords = ["de", "da", "do", "para", "com", "uma"];
+  const englishWords = ["the", "of", "and", "to", "in", "for"];
+
+  const ptCount = portugueseWords.filter((w) => lowerText.includes(w)).length;
+  const enCount = englishWords.filter((w) => lowerText.includes(w)).length;
+
+  return ptCount >= enCount ? "pt" : "en";
+}
+
 export default function Cataloging() {
   const [step, setStep] = useState<number>(1);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -117,6 +221,7 @@ export default function Cataloging() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       setUploadedImage(
@@ -124,30 +229,50 @@ export default function Cataloging() {
       );
     };
     reader.readAsDataURL(file);
+
     setIsExtracting(true);
+
     try {
+      // 1. Upload da imagem
       const { file_url } = await api.integrations.Core.UploadFile({
         file,
         folder: "ocr",
       });
-      setUploadedImageUrl(file_url); // Save the Cloudinary URL
+      setUploadedImageUrl(file_url);
 
-      // Extrair dados via OCR
-      const ocrResult = await api.cataloging.extractOCR(file_url);
+      // 2. OCR no cliente usando Tesseract.js
+      console.log("🔍 Iniciando OCR no navegador...");
+
+      const Tesseract = await import("tesseract.js");
+      const worker = await Tesseract.createWorker("por", 1, {
+        logger: (m: { status: string; progress: number }) => {
+          if (m.status === "recognizing text") {
+            console.log(`📖 OCR Progress: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+      });
+
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+
+      console.log("✅ OCR Completo!");
+      console.log("Texto extraído:", data.text);
+
+      // 3. Parsear dados do texto OCR
+      const parsedData = parseBookDataFromText(data.text);
 
       const extracted: ExtractedBookData = {
-        title: ocrResult.extractedData?.title || null,
-        subtitle: ocrResult.extractedData?.subtitle || null,
-        isbn: ocrResult.extractedData?.isbn || null,
-        authors: ocrResult.extractedData?.authors || null,
-        publisher: ocrResult.extractedData?.publisher || null,
-        publication_year:
-          ocrResult.extractedData?.publishedYear?.toString() || null,
-        edition: ocrResult.extractedData?.edition || null,
-        suggested_category: null, // Será preenchido depois
-        language: ocrResult.extractedData?.language || "pt",
-        description: ocrResult.extractedData?.description || null,
-        confidence: ocrResult.ocrConfidence || 0,
+        title: parsedData.title || null,
+        subtitle: parsedData.subtitle || null,
+        isbn: parsedData.isbn || null,
+        authors: parsedData.authors || null,
+        publisher: parsedData.publisher || null,
+        publication_year: parsedData.publishedYear?.toString() || null,
+        edition: parsedData.edition || null,
+        suggested_category: null,
+        language: parsedData.language || "pt",
+        description: null,
+        confidence: data.confidence / 100,
       };
 
       setExtractedData(extracted);
@@ -160,13 +285,22 @@ export default function Cataloging() {
         publisher: extracted.publisher || "",
         publication_year: extracted.publication_year || "",
         edition: extracted.edition || "",
-        category: extracted.suggested_category || "",
         language: extracted.language || "pt",
-        description: extracted.description || "",
       }));
-      setStep(2);
+
       toast.success("Dados extraídos com sucesso!");
-    } catch {
+
+      // 4. Auto-enriquecimento se tiver ISBN
+      if (extracted.isbn) {
+        console.log("📚 ISBN encontrado, enriquecendo via Google Books...");
+        setTimeout(() => {
+          enrichMutation.mutate();
+        }, 500);
+      }
+
+      setStep(2);
+    } catch (error) {
+      console.error("Erro no OCR:", error);
       toast.error("Erro ao processar imagem. Tente novamente.");
     } finally {
       setIsExtracting(false);
