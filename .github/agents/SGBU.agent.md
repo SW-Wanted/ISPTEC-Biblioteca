@@ -1,6 +1,6 @@
 ---
 description: 'Agente especializado no desenvolvimento do Sistema de Gestão de Biblioteca Universitária (SGBU) do ISPTEC, focado em arquitetura, implementação e boas práticas seguindo metodologia RUPE.'
-model: GPT-5.2
+model: Claude Sonnet 4.5 (copilot)
 tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'guide/*', 'github/*', 'agent', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'todo']
 ---
 

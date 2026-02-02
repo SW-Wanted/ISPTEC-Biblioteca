@@ -38,10 +38,17 @@ const approveSchema = z.object({
 
 export async function POST(
   request: NextRequest,
+<<<<<<< HEAD
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: entryId } = await params;
+=======
+  { params }: { params: { id: string } },
+) {
+  try {
+    const entryId = params.id;
+>>>>>>> main
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);
@@ -93,6 +100,7 @@ export async function POST(
       );
     }
 
+<<<<<<< HEAD
     // 5. Verificar se livro já existe (por ISBN ou título exato)
     let book: Prisma.BookGetPayload<{
       select: { id: true; isbn: true };
@@ -196,6 +204,76 @@ export async function POST(
             data: {
               bookId: book.id,
               barcode: `${book.isbn || book.id}-${String(i + 1).padStart(3, "0")}`,
+=======
+    // 5. Transaction: criar Book + Authors + Publisher + Copies
+    const result = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // 5a. Criar/conectar Publisher (se fornecido)
+        let publisherId: string | undefined;
+        if (data.publisher) {
+          const publisher = await tx.publisher.upsert({
+            where: { name: data.publisher },
+            create: { name: data.publisher },
+            update: {},
+          });
+          publisherId = publisher.id;
+        }
+
+        // 5b. Processar autores (split por vírgula)
+        const authorNames = data.authors
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean);
+
+        // 5c. Criar livro com relações corretas
+        const book = await tx.book.create({
+          data: {
+            title: data.title,
+            subtitle: data.subtitle,
+            isbn: data.isbn,
+            publicationYear: data.publicationYear,
+            edition: data.edition,
+            language: data.language,
+            pages: data.pages,
+            categoryId: data.categoryId,
+            description: data.description,
+            coverUrl: data.coverUrl || entry.imageUrl,
+            totalCopies: data.totalCopies,
+            availableCopies: data.totalCopies,
+            publisherId,
+            extractedByOCR: true,
+            ocrConfidence: entry.enrichedData
+              ? (entry.enrichedData as any).confidence
+              : null,
+            // Criar relações BookAuthor (criar novos autores sempre)
+            authors: {
+              create: authorNames.map((name, index) => ({
+                order: index + 1,
+                author: {
+                  create: { name },
+                },
+              })),
+            },
+          },
+          include: {
+            authors: {
+              include: {
+                author: true,
+              },
+            },
+            publisher: true,
+          },
+        });
+
+        // 5d. Criar cópias físicas com barcode único
+        const copies = [];
+        for (let i = 0; i < data.totalCopies; i++) {
+          const barcode = `${book.isbn || book.id}-${String(i + 1).padStart(3, "0")}`;
+          const copy = await tx.copy.create({
+            data: {
+              bookId: book.id,
+              barcode,
+>>>>>>> main
               status: "AVAILABLE",
               location: data.location || "Acervo Geral",
               condition: "GOOD",
@@ -204,7 +282,11 @@ export async function POST(
           copies.push(copy);
         }
 
+<<<<<<< HEAD
         // 6c. Atualizar entry para APPROVED
+=======
+        // 5e. Atualizar entry para APPROVED
+>>>>>>> main
         const updatedEntry = await tx.catalogEntry.update({
           where: { id: entryId },
           data: {
@@ -224,17 +306,26 @@ export async function POST(
           },
         });
 
+<<<<<<< HEAD
         // 6d. Notificar catalogador
+=======
+        // 5f. Notificar catalogador
+>>>>>>> main
         await tx.notification.create({
           data: {
             userId: entry.catalogerId,
             type: "IN_APP",
             title: "Catalogação aprovada",
             message: `Sua catalogação "${data.title}" foi aprovada por ${user.type === "SUPERVISOR" ? "supervisor" : "bibliotecário"}.`,
+<<<<<<< HEAD
+=======
+            status: "PENDING",
+>>>>>>> main
             metadata: {
               entryId,
               bookId: book.id,
               reviewNotes: data.reviewNotes,
+<<<<<<< HEAD
             },
           },
         });
@@ -247,11 +338,29 @@ export async function POST(
             entity: "CatalogEntry",
             entityId: entryId,
             description: `Catalogação aprovada: "${data.title}" (${data.totalCopies} cópia${data.totalCopies > 1 ? "s" : ""})`,
+=======
+            } as unknown as Prisma.InputJsonValue,
+          },
+        });
+
+        // 5g. Log de atividade
+        await tx.activityLog.create({
+          data: {
+            userId: session.user.id,
+            action: "CATALOG_ENTRY_APPROVED",
+            entity: "CatalogEntry",
+            entityId: entryId,
+            description: `Catalogação aprovada: ${data.title}`,
+>>>>>>> main
             metadata: {
               bookId: book.id,
               title: data.title,
               copies: data.totalCopies,
+<<<<<<< HEAD
             },
+=======
+            } as unknown as Prisma.InputJsonValue,
+>>>>>>> main
           },
         });
 

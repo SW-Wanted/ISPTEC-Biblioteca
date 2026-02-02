@@ -18,10 +18,17 @@ const rejectSchema = z.object({
 
 export async function POST(
   request: NextRequest,
+<<<<<<< HEAD
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id: entryId } = await params;
+=======
+  { params }: { params: { id: string } },
+) {
+  try {
+    const entryId = params.id;
+>>>>>>> main
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);
@@ -101,16 +108,25 @@ export async function POST(
             type: "IN_APP",
             title: "Catalogação rejeitada",
             message: `Sua catalogação "${entry.extractedTitle || "Sem título"}" foi rejeitada.`,
+<<<<<<< HEAD
             metadata: {
               entryId,
               rejectionReason,
             },
+=======
+            status: "PENDING",
+            metadata: {
+              entryId,
+              rejectionReason,
+            } as unknown as Prisma.InputJsonValue,
+>>>>>>> main
           },
         });
 
         // 5c. Log de atividade
         await tx.activityLog.create({
           data: {
+<<<<<<< HEAD
             user: { connect: { id: session.user.id } },
             action: "CATALOG_ENTRY_REJECTED",
             entity: "CatalogEntry",
@@ -120,6 +136,17 @@ export async function POST(
               title: entry.extractedTitle,
               reason: rejectionReason,
             },
+=======
+            userId: session.user.id,
+            action: "CATALOG_ENTRY_REJECTED",
+            entity: "CatalogEntry",
+            entityId: entryId,
+            description: `Catalogação rejeitada: ${entry.extractedTitle || "Sem título"}`,
+            metadata: {
+              title: entry.extractedTitle,
+              reason: rejectionReason,
+            } as unknown as Prisma.InputJsonValue,
+>>>>>>> main
           },
         });
 

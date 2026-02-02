@@ -329,6 +329,7 @@ export default function Cataloging() {
       }
 
       setStep(2);
+<<<<<<< HEAD
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Erro desconhecido";
@@ -361,6 +362,22 @@ export default function Cataloging() {
           duration: 4000,
         });
       }
+=======
+      toast.success("Dados extraídos com sucesso!");
+
+      // Auto-enriquecer se houver ISBN ou título+autor
+      if (extracted.isbn || (extracted.title && extracted.authors)) {
+        setTimeout(() => {
+          enrichMutation.mutate({
+            isbn: extracted.isbn,
+            title: extracted.title,
+            author: extracted.authors,
+          });
+        }, 500);
+      }
+    } catch {
+      toast.error("Erro ao processar imagem. Tente novamente.");
+>>>>>>> main
     } finally {
       setIsExtracting(false);
     }
@@ -371,6 +388,7 @@ export default function Cataloging() {
       isbn?: string;
       title?: string;
       author?: string;
+<<<<<<< HEAD
       publisher?: string;
       publishedYear?: number;
     }) => {
@@ -396,19 +414,43 @@ export default function Cataloging() {
     onSuccess: (enrichedData) => {
       if (enrichedData) {
         // Aplicar dados enriquecidos ao formulário
+=======
+    }) => {
+      // Tentar enriquecer via Google Books
+      const enrichParams = params || {
+        isbn: formData.isbn,
+        title: formData.title,
+        author: formData.authors,
+      };
+
+      if (!enrichParams.isbn && !enrichParams.title) {
+        throw new Error("ISBN ou título necessário");
+      }
+
+      const result = await api.cataloging.enrichData(enrichParams);
+      return result.enrichedData;
+    },
+    onSuccess: (enrichedData) => {
+      if (enrichedData) {
+        // Aplicar dados enriquecidos ao formulário (sem sobrescrever campos já preenchidos)
+>>>>>>> main
         setFormData((prev) => ({
           ...prev,
           title: enrichedData.title || prev.title,
           subtitle: enrichedData.subtitle || prev.subtitle,
           authors: enrichedData.authors || prev.authors,
           publisher: enrichedData.publisher || prev.publisher,
+<<<<<<< HEAD
           isbn: enrichedData.isbn || prev.isbn,
+=======
+>>>>>>> main
           publication_year: enrichedData.publicationYear
             ? String(enrichedData.publicationYear)
             : prev.publication_year,
           description: enrichedData.description || prev.description,
           pages: enrichedData.pages ? String(enrichedData.pages) : prev.pages,
           language: enrichedData.language || prev.language,
+<<<<<<< HEAD
         }));
 
         if (enrichedData.coverUrl && !uploadedImageUrl) {
@@ -422,11 +464,31 @@ export default function Cataloging() {
     },
     onError: () => {
       toast.info("Sem informações adicionais encontradas");
+=======
+          isbn: enrichedData.isbn || prev.isbn,
+        }));
+
+        // Atualizar capa se não houver
+        if (enrichedData.coverUrl && !uploadedImageUrl) {
+          setUploadedImageUrl(enrichedData.coverUrl);
+          setUploadedImage(enrichedData.coverUrl);
+        }
+
+        toast.success("✨ Dados enriquecidos via Google Books!");
+      } else {
+        toast.info("Sem dados adicionais encontrados");
+      }
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao enriquecer:", error);
+      toast.error(`Erro ao enriquecer dados: ${error.message}`);
+>>>>>>> main
     },
   });
 
   const createBookMutation = useMutation({
     mutationFn: async () => {
+<<<<<<< HEAD
       // 1. Upload da imagem AGORA (só quando realmente cadastrar)
       let coverUrl = uploadedImageUrl;
 
@@ -442,6 +504,11 @@ export default function Cataloging() {
       // 2. Criar CatalogEntry
       const entry = await api.cataloging.createEntry({
         imageUrl: coverUrl || "",
+=======
+      // 1. Criar CatalogEntry
+      const entry = await api.cataloging.createEntry({
+        imageUrl: uploadedImageUrl || "",
+>>>>>>> main
         extractedTitle: formData.title,
         extractedAuthor: formData.authors,
         extractedISBN: formData.isbn,
@@ -452,12 +519,18 @@ export default function Cataloging() {
         enrichedData: extractedData as Record<string, unknown>,
       });
 
+<<<<<<< HEAD
       // 3. Auto-aprovar
       let categoryId = formData.category;
       if (!categoryId) {
         const cats = await api.entities.Category.list();
         categoryId = cats[0]?.id || "";
       }
+=======
+      // 2. Auto-aprovar (modo simplificado - em produção seria workflow com supervisor)
+      const categoryId =
+        formData.category || (await api.entities.Category.list())[0]?.id || "";
+>>>>>>> main
 
       await api.cataloging.approveEntry(entry.id, {
         title: formData.title,
@@ -473,8 +546,13 @@ export default function Cataloging() {
         pages: formData.pages ? parseInt(formData.pages, 10) : undefined,
         categoryId,
         description: formData.description,
+<<<<<<< HEAD
         coverUrl: coverUrl || undefined,
         location: formData.location,
+=======
+        coverUrl: uploadedImageUrl || undefined,
+        location: formData.location || "Acervo Geral",
+>>>>>>> main
         totalCopies: parseInt(formData.total_copies, 10) || 1,
         reviewNotes: "Auto-aprovado via catalogação inteligente",
       });
@@ -482,7 +560,7 @@ export default function Cataloging() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["manage-books"] });
       setStep(3);
-      toast.success("Livro cadastrado com sucesso!");
+      toast.success("Livro catalogado com sucesso!");
     },
     onError: (error: Error) => {
       toast.error(`Erro ao cadastrar livro: ${error.message}`);
@@ -771,6 +849,7 @@ export default function Cataloging() {
                     </Button>
                     <Button
                       variant="secondary"
+<<<<<<< HEAD
                       onClick={() =>
                         enrichMutation.mutate({
                           isbn: formData.isbn || undefined,
@@ -782,17 +861,32 @@ export default function Cataloging() {
                             : undefined,
                         })
                       }
+=======
+                      onClick={() => enrichMutation.mutate()}
+>>>>>>> main
                       disabled={
                         enrichMutation.isPending ||
                         (!formData.isbn && !formData.title)
                       }
+<<<<<<< HEAD
+=======
+                      title={
+                        formData.isbn
+                          ? "Enriquecer via ISBN"
+                          : "Enriquecer via título"
+                      }
+>>>>>>> main
                     >
                       {enrichMutation.isPending ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
                         <Wand2 className="w-4 h-4 mr-2" />
                       )}
+<<<<<<< HEAD
                       Enriquecer Dados
+=======
+                      Enriquecer
+>>>>>>> main
                     </Button>
                     <Button
                       className="flex-1"
