@@ -7,7 +7,13 @@
 - Ratings: removidos ratings “fake” de seed; estrelas só aparecem com reviews reais.
 - Permissões: utilizadores autenticados (não-admin) conseguem listar livros; leituras de Member/Loan limitadas ao próprio (self-service).
 - BookReview: `upsert` para evitar erro Prisma `P2002` (bookId,userId).
-- Copy: endpoint de leitura implementado (acabou 404 em detalhes do livro).
+- Copy: endpoint de leitura implementado (acabou 404 em detalhes do livro).- **SGBU-006 (02/02/2026)**: Sistema de reservas FIFO completo implementado e testado
+  - ✅ Restrição de leitura (utilizador só vê suas próprias reservas)
+  - ✅ Prevenção de reservas duplicadas
+  - ✅ Operação de levantamento (COLLECTED)
+  - ✅ Notificações automáticas
+  - ✅ UI atualizada com botão "Levantar agora"
+  - [Ver documentação completa](./SGBU-006-IMPLEMENTATION.md)
 
 ## In Progress
 

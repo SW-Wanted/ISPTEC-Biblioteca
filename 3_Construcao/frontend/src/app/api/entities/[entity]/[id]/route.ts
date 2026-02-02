@@ -443,6 +443,92 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
+    // 📦 SGBU-006: Operação de levantamento (COLLECTED)
+    if (status === ReservationStatus.COLLECTED) {
+      await prisma.$transaction(async (tx) => {
+        const res = await tx.reservation.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            bookId: true,
+            userId: true,
+            status: true,
+            queuePosition: true,
+          },
+        });
+
+        if (!res) throw new Error("NOT_FOUND");
+
+        // Só pode levantar se status for AVAILABLE
+        if (res.status !== ReservationStatus.AVAILABLE) {
+          throw new Error("NOT_AVAILABLE_FOR_COLLECTION");
+        }
+
+        // Verificar permissões: só o utilizador ou staff pode marcar como collected
+        if (res.userId !== user.id && !canManageLoans(user.type)) {
+          throw new Error("FORBIDDEN");
+        }
+
+        // Atualizar reserva
+        await tx.reservation.update({
+          where: { id },
+          data: {
+            status: ReservationStatus.COLLECTED,
+            collectionDate: new Date(),
+          },
+        });
+
+        // Encontrar cópia reservada e liberá-la (vai ser emprestada)
+        const reservedCopy = await tx.copy.findFirst({
+          where: { bookId: res.bookId, status: BookStatus.RESERVED },
+          orderBy: { updatedAt: "asc" },
+          select: { id: true },
+        });
+
+        if (reservedCopy) {
+          // Marca como BORROWED (assumindo que o levantamento = empréstimo automático)
+          // Se quiser que fique AVAILABLE, mude para BookStatus.AVAILABLE
+          await tx.copy.update({
+            where: { id: reservedCopy.id },
+            data: { status: BookStatus.AVAILABLE },
+          });
+        }
+
+        // Atualizar contadores do livro
+        const counts = await tx.copy.groupBy({
+          by: ["status"],
+          where: { bookId: res.bookId },
+          _count: { _all: true },
+        });
+        const totalCopies = counts.reduce((acc, c) => acc + c._count._all, 0);
+        const availableCopies = counts
+          .filter((c) => c.status === BookStatus.AVAILABLE)
+          .reduce((acc, c) => acc + c._count._all, 0);
+
+        await tx.book.update({
+          where: { id: res.bookId },
+          data: { totalCopies, availableCopies },
+        });
+
+        // 📬 Notificação de levantamento bem-sucedido
+        await tx.notification.create({
+          data: {
+            userId: res.userId,
+            type: NotificationType.IN_APP,
+            status: NotificationStatus.PENDING,
+            title: "Livro levantado",
+            message: "O teu livro reservado foi levantado com sucesso!",
+            reservationId: res.id,
+          },
+        });
+
+        // 🔄 Notificar próximo na fila (se existir)
+        await notifyNextReservation(tx, res.bookId);
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json(
       { error: "Operação não suportada" },
       { status: 400 },

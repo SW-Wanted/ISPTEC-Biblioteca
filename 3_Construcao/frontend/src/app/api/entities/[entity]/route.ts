@@ -580,6 +580,15 @@ export async function GET(
       if (isEnumValue(ReservationStatus, s)) where.status = s;
     }
 
+    // 🔒 SGBU-006: Utilizador não-staff só vê suas próprias reservas
+    if (!canManageMembers(user.type)) {
+      const memberEmail = filter?.member_id ? String(filter.member_id) : null;
+      if (!memberEmail || memberEmail !== user.email) {
+        return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+      }
+      where.userId = user.id;
+    }
+
     const reservations = await prisma.reservation.findMany({
       where,
       orderBy: [{ reservationDate: "desc" }, { queuePosition: "asc" }],
@@ -1038,6 +1047,29 @@ export async function POST(
     const bookId = parsed.data.book_id;
 
     await expireReservationsIfNeeded(bookId);
+
+    // 🔒 SGBU-006: Impedir reservas duplicadas (mesmo usuário não pode reservar o mesmo livro mais de uma vez)
+    const existingReservation = await prisma.reservation.findFirst({
+      where: {
+        bookId,
+        userId: user.id,
+        status: { in: [ReservationStatus.ACTIVE, ReservationStatus.AVAILABLE] },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (existingReservation) {
+      const statusMsg =
+        existingReservation.status === ReservationStatus.AVAILABLE
+          ? "já está disponível para levantamento"
+          : "já está na fila de espera";
+      return NextResponse.json(
+        {
+          error: `Já tens uma reserva ativa para este livro que ${statusMsg}.`,
+        },
+        { status: 400 },
+      );
+    }
 
     const created = await prisma.$transaction(async (tx) => {
       const activeCount = await tx.reservation.count({
