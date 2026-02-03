@@ -7,6 +7,8 @@ import { Link } from "@/lib/router";
 import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { DocumentsManager } from "@/components/documents-manager";
+import { QRCodeDisplay } from "@/components/qrcode-display";
 import {
   Mail,
   Phone,
@@ -133,7 +135,8 @@ function toDate(value: unknown): Date | null {
 export default function Profile() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const defaultTab = tabParam === "fines" ? "fines" : "info";
+  const validTabs = ["info", "fines", "stats", "documents", "qrcode"];
+  const defaultTab = validTabs.includes(tabParam || "") ? tabParam! : "info";
 
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -200,6 +203,18 @@ export default function Profile() {
     queryFn: async () => {
       const url = `/api/loans?email=${encodeURIComponent(user!.email)}`;
       return (await safeJsonFetch<Loan[]>(url)) ?? [];
+    },
+    initialData: [],
+  });
+
+  const { data: documents = [], refetch: refetchDocuments } = useQuery<any[]>({
+    queryKey: ["user-documents"],
+    enabled: authState === "auth",
+    queryFn: async () => {
+      const response = await fetch("/api/members/documents");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.documents || [];
     },
     initialData: [],
   });
@@ -355,6 +370,8 @@ export default function Profile() {
                 <TabsTrigger value="fines">
                   Multas ({pendingFines.length})
                 </TabsTrigger>
+                <TabsTrigger value="documents">Documentos</TabsTrigger>
+                <TabsTrigger value="qrcode">QR Code</TabsTrigger>
                 <TabsTrigger value="stats">Estatísticas</TabsTrigger>
               </TabsList>
               <TabsContent value="info" className="mt-6">
@@ -622,6 +639,22 @@ export default function Profile() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+              <TabsContent value="documents" className="mt-6">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle>Meus Documentos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DocumentsManager
+                      documents={documents}
+                      onDocumentsChange={() => refetchDocuments()}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="qrcode" className="mt-6">
+                <QRCodeDisplay />
               </TabsContent>
               <TabsContent value="stats" className="mt-6">
                 <Card className="border-0 shadow-sm">
