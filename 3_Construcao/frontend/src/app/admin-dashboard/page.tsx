@@ -46,9 +46,20 @@ type StatCardProps = {
   tab?: string; // Tab específica para navegar
 };
 
-function StatCard({ title, value, icon: Icon, color, link, tab }: StatCardProps) {
-  const linkUrl = link ? (tab ? `${createPageUrl(link)}#${tab}` : createPageUrl(link)) : null;
-  
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  link,
+  tab,
+}: StatCardProps) {
+  const linkUrl = link
+    ? tab
+      ? `${createPageUrl(link)}#${tab}`
+      : createPageUrl(link)
+    : null;
+
   return (
     <Card className="border-0 shadow-sm overflow-hidden">
       <CardContent className="p-5">
@@ -305,7 +316,7 @@ export default function AdminDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
+              <div className="h-64" style={{ minHeight: "256px" }}>
                 {isClient ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={loanChartData}>

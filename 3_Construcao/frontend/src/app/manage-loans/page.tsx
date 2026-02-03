@@ -72,17 +72,6 @@ import {
 } from "@/components/ui/tooltip";
 
 export default function ManageLoans() {
-  // Detectar hash da URL para definir tab inicial
-  const initialTab = (() => {
-    if (typeof window !== "undefined") {
-      const hash = window.location.hash.slice(1);
-      if (hash === "loans" || hash === "process") {
-        return hash;
-      }
-    }
-    return "loans";
-  })();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [showReturnDialog, setShowReturnDialog] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
@@ -90,7 +79,14 @@ export default function ManageLoans() {
     useState<Reservation | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<"loans" | "process">(initialTab);
+  // Lazy initialization para evitar erro de hidratação
+  const [activeTab, setActiveTab] = useState<"loans" | "process">(() => {
+    // Durante SSR, sempre retorna "loans"
+    // No cliente, lê o hash da URL
+    if (typeof window === "undefined") return "loans";
+    const hash = window.location.hash.slice(1);
+    return hash === "loans" || hash === "process" ? hash : "loans";
+  });
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
@@ -479,7 +475,11 @@ export default function ManageLoans() {
         </Card>
 
         {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "loans" | "process")} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "loans" | "process")}
+          className="space-y-6"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="loans">
               <BookMarked className="w-4 h-4 mr-2" />
