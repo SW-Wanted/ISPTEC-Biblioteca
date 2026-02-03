@@ -203,6 +203,7 @@ export default function AdminDashboard() {
             value={activeReservations.length}
             icon={Clock}
             color="bg-gradient-to-br from-amber-500 to-orange-500"
+            link="ManageLoans"
           />
           <StatCard
             title="Multas Pendentes"
@@ -214,45 +215,6 @@ export default function AdminDashboard() {
             color="bg-gradient-to-br from-purple-500 to-pink-500"
           />
         </div>
-
-        {/* 🎯 Card de Ação Rápida: Processar Empréstimos */}
-        {reservations.filter((r) => r.status === "available").length > 0 && (
-          <Card className="border-0 shadow-lg bg-linear-to-br from-emerald-50 to-teal-50 mb-8 overflow-hidden">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-emerald-900">
-                        {
-                          reservations.filter((r) => r.status === "available")
-                            .length
-                        }{" "}
-                        {reservations.filter((r) => r.status === "available")
-                          .length === 1
-                          ? "Reserva Pronta"
-                          : "Reservas Prontas"}
-                      </h3>
-                      <p className="text-sm text-emerald-700">
-                        Aguardando aprovação para conversão em empréstimo
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <Link to={createPageUrl("ProcessLoans")}>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Processar Agora
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card className="border-0 shadow-sm">

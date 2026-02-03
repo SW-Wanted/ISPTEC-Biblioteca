@@ -59,7 +59,11 @@ function canManageBooks(type: UserType) {
 }
 
 function canManageLoans(type: UserType) {
-  return type === UserType.SUPERVISOR || type === UserType.LIBRARIAN;
+  return (
+    type === UserType.SUPERVISOR ||
+    type === UserType.LIBRARIAN ||
+    type === UserType.STAFF
+  );
 }
 
 function canManageMembers(type: UserType) {
