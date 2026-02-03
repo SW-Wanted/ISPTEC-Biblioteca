@@ -43,9 +43,12 @@ type StatCardProps = {
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   link?: string;
+  tab?: string; // Tab específica para navegar
 };
 
-function StatCard({ title, value, icon: Icon, color, link }: StatCardProps) {
+function StatCard({ title, value, icon: Icon, color, link, tab }: StatCardProps) {
+  const linkUrl = link ? (tab ? `${createPageUrl(link)}#${tab}` : createPageUrl(link)) : null;
+  
   return (
     <Card className="border-0 shadow-sm overflow-hidden">
       <CardContent className="p-5">
@@ -63,12 +66,12 @@ function StatCard({ title, value, icon: Icon, color, link }: StatCardProps) {
             <Icon className="w-6 h-6 text-white" />
           </div>
         </div>
-        {link && (
-          <Link to={createPageUrl(link)} className="block mt-3">
+        {linkUrl && (
+          <a href={linkUrl} className="block mt-3">
             <Button variant="link" className="p-0 h-auto text-indigo-600">
               Ver detalhes <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
-          </Link>
+          </a>
         )}
       </CardContent>
     </Card>
@@ -169,7 +172,7 @@ export default function AdminDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
               <BarChart3 className="w-7 h-7 text-indigo-600" />
-              Dashboard Administrativo
+              Dashboard
             </h1>
             <p className="text-slate-500 mt-1">
               Visão geral do sistema • {DASHBOARD_TODAY_LABEL}
@@ -190,6 +193,7 @@ export default function AdminDashboard() {
             icon={BookMarked}
             color="bg-gradient-to-br from-indigo-500 to-indigo-600"
             link="ManageLoans"
+            tab="loans"
           />
           <StatCard
             title="Em Atraso"
@@ -197,13 +201,15 @@ export default function AdminDashboard() {
             icon={AlertTriangle}
             color="bg-gradient-to-br from-red-500 to-red-600"
             link="ManageLoans"
+            tab="loans"
           />
           <StatCard
-            title="Reservas Ativas"
+            title="Reservas"
             value={activeReservations.length}
             icon={Clock}
             color="bg-gradient-to-br from-amber-500 to-orange-500"
             link="ManageLoans"
+            tab="process"
           />
           <StatCard
             title="Multas Pendentes"
