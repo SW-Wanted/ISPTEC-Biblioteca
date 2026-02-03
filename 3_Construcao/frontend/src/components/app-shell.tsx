@@ -26,6 +26,7 @@ import {
   KeyRound,
   HelpCircle,
   Sparkles,
+  CheckCircle,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Gestão de Livros", href: "/manage-books", icon: Library },
   { name: "Gestão de Membros", href: "/manage-members", icon: Users },
   { name: "Empréstimos", href: "/manage-loans", icon: BookMarked },
+  { name: "Processar Empréstimos", href: "/process-loans", icon: CheckCircle },
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
   { name: "Relatórios", href: "/reports", icon: BarChart3 },

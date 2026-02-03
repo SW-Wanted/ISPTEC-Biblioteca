@@ -1214,8 +1214,17 @@ export async function POST(
   }
 
   if (entity === "Loan") {
-    if (!canManageLoans(user.type))
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    // 🔒 FASE 2: Apenas funcionários da biblioteca (LIBRARIAN/STAFF) podem criar empréstimos
+    // Estudantes/Docentes não podem criar empréstimos diretamente - devem fazer reserva primeiro
+    if (!canManageLoans(user.type)) {
+      return NextResponse.json(
+        {
+          error:
+            "Apenas funcionários da biblioteca podem criar empréstimos. Estudantes e docentes devem fazer reserva primeiro.",
+        },
+        { status: 403 },
+      );
+    }
 
     const loanCreateSchema = z.object({
       member_id: z.string().min(1),
