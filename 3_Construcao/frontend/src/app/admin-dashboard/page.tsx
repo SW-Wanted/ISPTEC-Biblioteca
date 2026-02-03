@@ -44,6 +44,7 @@ type StatCardProps = {
   color: string;
   link?: string;
   tab?: string; // Tab específica para navegar
+  subtab?: string; // Sub-tab dentro da tab principal
 };
 
 function StatCard({
@@ -53,10 +54,11 @@ function StatCard({
   color,
   link,
   tab,
+  subtab,
 }: StatCardProps) {
   const linkUrl = link
     ? tab
-      ? `${createPageUrl(link)}#${tab}`
+      ? `${createPageUrl(link)}#${tab}${subtab ? `?subtab=${subtab}` : ''}`
       : createPageUrl(link)
     : null;
 
@@ -213,6 +215,7 @@ export default function AdminDashboard() {
             color="bg-gradient-to-br from-red-500 to-red-600"
             link="ManageLoans"
             tab="loans"
+            subtab="overdue"
           />
           <StatCard
             title="Reservas"

@@ -81,17 +81,28 @@ export default function ManageLoans() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   // Sempre inicializar com "loans" para SSR
   const [activeTab, setActiveTab] = useState<"loans" | "process">("loans");
+  const [loanSubTab, setLoanSubTab] = useState<"active" | "overdue" | "returned">("active");
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
   const queryClient = useQueryClient();
 
-  // Detectar hash da URL após montagem
+  // Detectar hash da URL e query params após montagem
   useEffect(() => {
     const hash = window.location.hash.slice(1);
-    if (hash === "loans" || hash === "process") {
-      // Usar setTimeout para evitar warning de cascading
-      setTimeout(() => setActiveTab(hash), 0);
+    const [tab, query] = hash.split('?');
+    
+    if (tab === "loans" || tab === "process") {
+      setTimeout(() => setActiveTab(tab), 0);
+    }
+    
+    // Detectar subtab do query param
+    if (query) {
+      const params = new URLSearchParams(query);
+      const subtab = params.get('subtab');
+      if (subtab === "active" || subtab === "overdue" || subtab === "returned") {
+        setTimeout(() => setLoanSubTab(subtab), 10);
+      }
     }
   }, []);
 
@@ -549,7 +560,7 @@ export default function ManageLoans() {
             </div>
 
             {/* Nested Tabs */}
-            <Tabs defaultValue="active">
+            <Tabs value={loanSubTab} onValueChange={(v) => setLoanSubTab(v as "active" | "overdue" | "returned")}>
               <TabsList className="mb-6">
                 <TabsTrigger value="active">
                   <Clock className="w-4 h-4 mr-2" />
