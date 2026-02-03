@@ -81,7 +81,9 @@ export default function ManageLoans() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   // Sempre inicializar com "loans" para SSR
   const [activeTab, setActiveTab] = useState<"loans" | "process">("loans");
-  const [loanSubTab, setLoanSubTab] = useState<"active" | "overdue" | "returned">("active");
+  const [loanSubTab, setLoanSubTab] = useState<
+    "active" | "overdue" | "returned"
+  >("active");
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
@@ -90,17 +92,21 @@ export default function ManageLoans() {
   // Detectar hash da URL e query params após montagem
   useEffect(() => {
     const hash = window.location.hash.slice(1);
-    const [tab, query] = hash.split('?');
-    
+    const [tab, query] = hash.split("?");
+
     if (tab === "loans" || tab === "process") {
       setTimeout(() => setActiveTab(tab), 0);
     }
-    
+
     // Detectar subtab do query param
     if (query) {
       const params = new URLSearchParams(query);
-      const subtab = params.get('subtab');
-      if (subtab === "active" || subtab === "overdue" || subtab === "returned") {
+      const subtab = params.get("subtab");
+      if (
+        subtab === "active" ||
+        subtab === "overdue" ||
+        subtab === "returned"
+      ) {
         setTimeout(() => setLoanSubTab(subtab), 10);
       }
     }
@@ -125,14 +131,24 @@ export default function ManageLoans() {
     initialData: [],
   });
 
-  const { data: availableReservations = [], isLoading: isLoadingReservations } =
+  const { data: allReservations = [], isLoading: isLoadingReservations } =
     useQuery({
-      queryKey: ["available-reservations"],
-      queryFn: () => api.entities.Reservation.filter({ status: "available" }),
+      queryKey: ["all-reservations"],
+      queryFn: () => api.entities.Reservation.list("-reservation_date", 100),
       enabled: !!user,
       refetchInterval: 30000,
       initialData: [],
     });
+
+  // Filtrar reservas pendentes (AVAILABLE ou ACTIVE)
+  const pendingReservations = allReservations.filter(
+    (r) => r.status === "available" || r.status === "active",
+  );
+
+  // Separar por disponibilidade
+  const availableReservations = pendingReservations.filter(
+    (r) => r.status === "available",
+  );
 
   const activeLoans = loans.filter(
     (l) => l.status === "active" || l.status === "overdue",
@@ -400,9 +416,12 @@ export default function ManageLoans() {
                       setSelectedReservation(reservation);
                       setShowConfirmDialog(true);
                     }}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
                     disabled={
-                      approveMutation.isPending || rejectMutation.isPending
+                      approveMutation.isPending ||
+                      rejectMutation.isPending ||
+                      reservation.status !== "available"
                     }
                   >
                     {approveMutation.isPending &&
@@ -414,7 +433,9 @@ export default function ManageLoans() {
                     ) : (
                       <>
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        Confirmar Empréstimo
+                        {reservation.status === "available"
+                          ? "Aprovar"
+                          : "Aguardando Livro"}
                       </>
                     )}
                   </Button>
@@ -502,7 +523,7 @@ export default function ManageLoans() {
             </TabsTrigger>
             <TabsTrigger value="process">
               <ClipboardCheck className="w-4 h-4 mr-2" />
-              Processar Reservas ({availableReservations.length})
+              Processar Reservas ({pendingReservations.length})
             </TabsTrigger>
           </TabsList>
 
@@ -560,7 +581,12 @@ export default function ManageLoans() {
             </div>
 
             {/* Nested Tabs */}
-            <Tabs value={loanSubTab} onValueChange={(v) => setLoanSubTab(v as "active" | "overdue" | "returned")}>
+            <Tabs
+              value={loanSubTab}
+              onValueChange={(v) =>
+                setLoanSubTab(v as "active" | "overdue" | "returned")
+              }
+            >
               <TabsList className="mb-6">
                 <TabsTrigger value="active">
                   <Clock className="w-4 h-4 mr-2" />
@@ -685,7 +711,7 @@ export default function ManageLoans() {
                         Aguardando Aprovação
                       </p>
                       <p className="text-2xl font-bold text-slate-800">
-                        {availableReservations.length}
+                        {pendingReservations.length}
                       </p>
                     </div>
                     <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -740,7 +766,7 @@ export default function ManageLoans() {
                 <Skeleton className="h-32" />
                 <Skeleton className="h-32" />
               </div>
-            ) : availableReservations.length === 0 ? (
+            ) : pendingReservations.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -754,12 +780,27 @@ export default function ManageLoans() {
               </Card>
             ) : (
               <div className="space-y-4">
-                {availableReservations.map((reservation) => (
-                  <ReservationCard
-                    key={reservation.id}
-                    reservation={reservation}
-                  />
-                ))}
+                {pendingReservations
+                  .sort((a, b) => {
+                    // Prioridade: AVAILABLE primeiro, depois por data de expiração
+                    if (a.status === "available" && b.status !== "available")
+                      return -1;
+                    if (a.status !== "available" && b.status === "available")
+                      return 1;
+
+                    if (!a.expiry_date) return 1;
+                    if (!b.expiry_date) return -1;
+                    return (
+                      new Date(a.expiry_date).getTime() -
+                      new Date(b.expiry_date).getTime()
+                    );
+                  })
+                  .map((reservation) => (
+                    <ReservationCard
+                      key={reservation.id}
+                      reservation={reservation}
+                    />
+                  ))}
               </div>
             )}
           </TabsContent>

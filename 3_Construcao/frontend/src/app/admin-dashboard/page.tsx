@@ -58,7 +58,7 @@ function StatCard({
 }: StatCardProps) {
   const linkUrl = link
     ? tab
-      ? `${createPageUrl(link)}#${tab}${subtab ? `?subtab=${subtab}` : ''}`
+      ? `${createPageUrl(link)}#${tab}${subtab ? `?subtab=${subtab}` : ""}`
       : createPageUrl(link)
     : null;
 
