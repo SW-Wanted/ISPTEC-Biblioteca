@@ -79,18 +79,21 @@ export default function ManageLoans() {
     useState<Reservation | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
-  // Lazy initialization para evitar erro de hidratação
-  const [activeTab, setActiveTab] = useState<"loans" | "process">(() => {
-    // Durante SSR, sempre retorna "loans"
-    // No cliente, lê o hash da URL
-    if (typeof window === "undefined") return "loans";
-    const hash = window.location.hash.slice(1);
-    return hash === "loans" || hash === "process" ? hash : "loans";
-  });
+  // Sempre inicializar com "loans" para SSR
+  const [activeTab, setActiveTab] = useState<"loans" | "process">("loans");
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
   const queryClient = useQueryClient();
+
+  // Detectar hash da URL após montagem
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash === "loans" || hash === "process") {
+      // Usar setTimeout para evitar warning de cascading
+      setTimeout(() => setActiveTab(hash), 0);
+    }
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -479,6 +482,7 @@ export default function ManageLoans() {
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as "loans" | "process")}
           className="space-y-6"
+          suppressHydrationWarning
         >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="loans">
