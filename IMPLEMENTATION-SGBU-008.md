@@ -5,6 +5,7 @@
 ### 1. Backend - API Routes
 
 #### `/api/members/documents` (GET/POST)
+
 - **GET**: Obter documentos do utilizador autenticado
 - **POST**: Adicionar ou atualizar documento do utilizador
 - Suporta tipos: ID_CARD, STUDENT_CARD, ENROLLMENT, STAFF_CARD
@@ -12,16 +13,19 @@
 - Upload através do sistema existente `/api/uploads`
 
 #### `/api/members/documents/[id]` (PATCH/DELETE)
+
 - **PATCH**: Verificar ou rejeitar documentos (apenas staff)
 - **DELETE**: Remover documento (apenas staff)
 - Controle de permissões por UserType
 
 #### `/api/members/documents/pending` (GET)
+
 - Listar documentos por status (pending/verified/all)
 - Apenas acessível por staff/bibliotecários
 - Inclui informações do utilizador
 
 #### `/api/members/qrcode` (GET/POST/DELETE)
+
 - **GET**: Obter QR Code existente + imagem gerada
 - **POST**: Gerar novo QR Code (apenas utilizadores ativos)
 - **DELETE**: Invalidar QR Code
@@ -31,6 +35,7 @@
 ### 2. Frontend - Componentes
 
 #### `DocumentsManager` (`@/components/documents-manager.tsx`)
+
 - Upload de documentos por tipo
 - Visualização de status (Verificado/Pendente)
 - Substituição de documentos existentes
@@ -38,6 +43,7 @@
 - Suporte para imagens e PDFs
 
 #### `QRCodeDisplay` (`@/components/qrcode-display.tsx`)
+
 - Exibição do QR Code da credencial
 - Geração de novo QR Code
 - Download do QR Code como PNG
@@ -45,6 +51,7 @@
 - Alertas informativos
 
 #### `DocumentsVerification` (`@/components/documents-verification.tsx`)
+
 - Listagem de documentos com filtros (pending/verified/all)
 - Tabela responsiva com informações do utilizador
 - Verificar/Rejeitar documentos
@@ -54,12 +61,14 @@
 ### 3. Integração com Páginas
 
 #### Página de Perfil (`/profile`)
+
 - Nova tab "Documentos"
 - Nova tab "QR Code"
 - Query para buscar documentos do utilizador
 - Refetch automático após upload
 
 #### Página de Verificação (`/verify-documents`)
+
 - Dashboard para staff verificar documentos
 - Acessível por staff, bibliotecários, catalogadores e supervisores
 
@@ -92,16 +101,19 @@
 ## 🎯 Critérios de Aceitação (SGBU-008)
 
 ✅ **Utilizador consegue anexar documentos e ver estado**
+
 - Upload funcional através de DocumentsManager
 - Estados visíveis: Pendente/Verificado
 - Substituição de documentos permitida
 
 ✅ **Staff consegue verificar e marcar `isVerified`**
+
 - Rota PATCH `/api/members/documents/[id]`
 - Componente DocumentsVerification
 - Controle de permissões implementado
 
 ✅ **QR Code é gerado para utilizador activo**
+
 - Geração de QR Code único
 - Verificação de status ACTIVE
 - Exibição e download funcionais
@@ -117,6 +129,7 @@
 ## 📁 Arquivos Criados/Modificados
 
 ### Novos Arquivos:
+
 - `src/app/api/members/documents/route.ts`
 - `src/app/api/members/documents/[id]/route.ts`
 - `src/app/api/members/documents/pending/route.ts`
@@ -127,18 +140,21 @@
 - `src/app/verify-documents/page.tsx`
 
 ### Modificados:
+
 - `src/app/profile/page.tsx` (adicionadas tabs Documentos e QR Code)
 - `package.json` (adicionada biblioteca qrcode)
 
 ## 🧪 Como Testar
 
 ### 1. Upload de Documentos
+
 1. Fazer login como utilizador
 2. Ir para `/profile?tab=documents`
 3. Enviar documentos para cada tipo
 4. Verificar status "Pendente"
 
 ### 2. Verificação de Documentos (Staff)
+
 1. Fazer login como bibliotecário/staff
 2. Ir para `/verify-documents`
 3. Ver documentos pendentes
@@ -146,6 +162,7 @@
 5. Verificar mudança de status
 
 ### 3. QR Code
+
 1. Fazer login como utilizador ativo
 2. Ir para `/profile?tab=qrcode`
 3. Gerar QR Code

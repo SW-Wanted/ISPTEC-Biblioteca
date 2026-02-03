@@ -56,17 +56,17 @@ const verifyDocumentSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const staff = await requireStaffUser();
   if (!staff) {
     return NextResponse.json(
       { error: "Sem permissões para esta operação" },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
-  const documentId = params.id;
+  const { id: documentId } = await params;
 
   let body: unknown;
   try {
@@ -123,8 +123,31 @@ export async function PATCH(
       },
     });
 
-    // TODO: Enviar notificação ao utilizador
-    // Pode ser implementado com o sistema de notificações existente
+    // Enviar notificação ao utilizador
+    try {
+      const documentTypeLabels: Record<string, string> = {
+        ID_CARD: "Cartão de Identidade",
+        STUDENT_CARD: "Cartão de Estudante",
+        ENROLLMENT: "Ficha de Matrícula",
+        STAFF_CARD: "Cartão de Colaborador",
+      };
+
+      await prisma.notification.create({
+        data: {
+          userId: document.user.id,
+          type: "IN_APP",
+          title: isVerified
+            ? "Documento Verificado"
+            : "Documento Rejeitado",
+          message: isVerified
+            ? `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi verificado com sucesso!`
+            : `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi rejeitado. Por favor, envia um novo documento.`,
+          status: "PENDING",
+        },
+      });
+    } catch (notificationError) {
+      console.error("Erro ao enviar notificação:", notificationError);
+    }
 
     return NextResponse.json(
       {
@@ -150,17 +173,17 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const staff = await requireStaffUser();
   if (!staff) {
     return NextResponse.json(
       { error: "Sem permissões para esta operação" },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
-  const documentId = params.id;
+  const { id: documentId } = await params;
 
   try {
     const document = await prisma.userDocument.findUnique({
