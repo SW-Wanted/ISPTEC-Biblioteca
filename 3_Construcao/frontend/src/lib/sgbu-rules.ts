@@ -1,10 +1,10 @@
-import { UserType } from "@prisma/client"
+import { UserType, LoanPolicy, MaterialType } from "@prisma/client";
 
 export const LOAN_LIMITS: Record<
   UserType,
   {
-    maxBooks: number
-    loanDays: number
+    maxBooks: number;
+    loanDays: number;
   }
 > = {
   STUDENT: { maxBooks: 2, loanDays: 5 },
@@ -13,22 +13,108 @@ export const LOAN_LIMITS: Record<
   LIBRARIAN: { maxBooks: 4, loanDays: 15 },
   CATALOGER: { maxBooks: 4, loanDays: 15 },
   SUPERVISOR: { maxBooks: 4, loanDays: 15 },
+};
+
+// 📚 SGBU-007: Políticas de Empréstimo por Tipo de Material (Artigo 10º)
+export const LOAN_POLICY_DAYS: Record<LoanPolicy, number | null> = {
+  STANDARD: null, // Usa LOAN_LIMITS por UserType
+  DAILY: 1, // 1 dia útil (cedência diária)
+  SHORT_TERM: 2, // 2 dias úteis (CD/DVD)
+  NO_LOAN: 0, // Não empresta (livros de referência)
+  EXTENDED: 30, // 30 dias (teses/dissertações)
+};
+
+// 🎯 SGBU-007: Mapear MaterialType para LoanPolicy padrão
+export const MATERIAL_TYPE_DEFAULT_POLICY: Record<MaterialType, LoanPolicy> = {
+  BOOK: LoanPolicy.STANDARD,
+  DAILY_LOAN: LoanPolicy.DAILY,
+  REFERENCE: LoanPolicy.NO_LOAN,
+  CD_DVD: LoanPolicy.SHORT_TERM,
+  MAGAZINE: LoanPolicy.DAILY,
+  THESIS: LoanPolicy.EXTENDED,
+};
+
+export const FINE_PER_DAY_KZ = 50;
+
+/**
+ * 📅 SGBU-007: Calcula data de vencimento baseado em LoanPolicy e UserType
+ *
+ * Regras do Artigo 10º:
+ * - STANDARD: Depende do tipo de utilizador (5 dias estudante, 15 dias docente)
+ * - DAILY: 1 dia útil (livros de cedência diária)
+ * - SHORT_TERM: 2 dias úteis (CD/DVD)
+ * - NO_LOAN: Não permite empréstimo
+ * - EXTENDED: 30 dias (teses/dissertações)
+ *
+ * @param userType - Tipo de utilizador
+ * @param loanPolicy - Política de empréstimo do livro
+ * @param fromDate - Data inicial (padrão: agora)
+ * @returns Data de vencimento calculada
+ */
+export function calculateDueDate(
+  userType: UserType,
+  loanPolicy: LoanPolicy,
+  fromDate: Date = new Date(),
+): Date {
+  let days: number;
+
+  if (loanPolicy === LoanPolicy.NO_LOAN) {
+    throw new Error("Material de referência não pode ser emprestado");
+  }
+
+  if (loanPolicy === LoanPolicy.STANDARD) {
+    // Usa os limites padrão por tipo de utilizador
+    days = LOAN_LIMITS[userType].loanDays;
+  } else {
+    // Usa política específica do material
+    const policyDays = LOAN_POLICY_DAYS[loanPolicy];
+    if (policyDays === null || policyDays === 0) {
+      throw new Error(
+        `Política de empréstimo ${loanPolicy} não permite empréstimo`,
+      );
+    }
+    days = policyDays;
+  }
+
+  // Adiciona dias à data inicial
+  const dueDate = new Date(fromDate);
+  dueDate.setDate(dueDate.getDate() + days);
+
+  return dueDate;
 }
 
-export const FINE_PER_DAY_KZ = 50
+/**
+ * 🔢 SGBU-007: Calcula próximo dia útil (pula fins de semana)
+ * Usado para políticas DAILY e SHORT_TERM
+ */
+export function addBusinessDays(startDate: Date, daysToAdd: number): Date {
+  const result = new Date(startDate);
+  let addedDays = 0;
+
+  while (addedDays < daysToAdd) {
+    result.setDate(result.getDate() + 1);
+    // Pula sábado (6) e domingo (0)
+    if (result.getDay() !== 0 && result.getDay() !== 6) {
+      addedDays++;
+    }
+  }
+
+  return result;
+}
 
 export function normalizeEnum(value: unknown): string | null {
-  if (typeof value !== "string") return null
-  return value.trim().toUpperCase()
+  if (typeof value !== "string") return null;
+  return value.trim().toUpperCase();
 }
 
 export function toIso(value: Date | null | undefined): string | undefined {
-  if (!value) return undefined
-  return value.toISOString()
+  if (!value) return undefined;
+  return value.toISOString();
 }
 
 export function clampInt(value: unknown, min: number, max: number): number {
-  const n = typeof value === "number" ? value : Number.parseInt(String(value), 10)
-  if (!Number.isFinite(n)) return min
-  return Math.min(max, Math.max(min, Math.trunc(n)))
+  const n =
+    typeof value === "number" ? value : Number.parseInt(String(value), 10);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
 }

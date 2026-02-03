@@ -111,6 +111,25 @@ enum RequestStatus {
   CANCELLED
 }
 
+// 📚 SGBU-007: Tipos de Material (Artigo 10º)
+enum MaterialType {
+  BOOK              // Livro normal
+  DAILY_LOAN        // Livro de cedência diária
+  REFERENCE         // Livro de consulta (não empresta)
+  CD_DVD            // CD/DVD
+  MAGAZINE          // Revista
+  THESIS            // Tese/Dissertação
+}
+
+// 📅 SGBU-007: Políticas de Empréstimo
+enum LoanPolicy {
+  STANDARD          // Estudante: 5 dias, Docente: 15 dias
+  DAILY             // 1 dia útil (cedência diária)
+  SHORT_TERM        // 2 dias úteis (CD/DVD)
+  NO_LOAN           // Não empresta (referência)
+  EXTENDED          // 30 dias (teses/dissertações)
+}
+
 // ============================================
 // MÓDULO DE USUÁRIOS
 // ============================================
@@ -267,6 +286,10 @@ model Book {
   categoryId      String
   keywords        String[] // Array de palavras-chave
   deweyDecimal    String?  // Classificação Dewey
+  
+  // 📚 SGBU-007: Tipo de Material e Política de Empréstimo
+  materialType    MaterialType @default(BOOK)
+  loanPolicy      LoanPolicy   @default(STANDARD)
   
   // Contadores
   totalCopies     Int      @default(0)

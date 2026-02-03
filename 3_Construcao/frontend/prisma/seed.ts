@@ -1,29 +1,38 @@
-import { PrismaClient, UserStatus, UserType, BookStatus } from "@prisma/client"
-import bcrypt from "bcryptjs"
+import {
+  PrismaClient,
+  UserStatus,
+  UserType,
+  BookStatus,
+  MaterialType,
+  LoanPolicy,
+} from "@prisma/client";
+import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 type SeedBook = {
-  title: string
-  authors: string[]
-  publicationYear: number | null
-  availableCopies: number
-  totalCopies: number
-  category: string
-  publisher?: string | null
-  language?: "pt" | "en"
-  description?: string | null
-  coverUrl?: string | null
-  keywords?: string[]
-}
+  title: string;
+  authors: string[];
+  publicationYear: number | null;
+  availableCopies: number;
+  totalCopies: number;
+  category: string;
+  publisher?: string | null;
+  language?: "pt" | "en";
+  description?: string | null;
+  coverUrl?: string | null;
+  keywords?: string[];
+  materialType?: MaterialType; // 📚 SGBU-007
+  loanPolicy?: LoanPolicy; // 📅 SGBU-007
+};
 
 function makeCoverUrl(title: string): string {
-  const safe = encodeURIComponent(title.trim()).slice(0, 80)
-  return `https://placehold.co/600x900/png?text=${safe}`
+  const safe = encodeURIComponent(title.trim()).slice(0, 80);
+  return `https://placehold.co/600x900/png?text=${safe}`;
 }
 
 function makeBarcode(prefix: string, index: number) {
-  return `${prefix}${String(index).padStart(3, "0")}`
+  return `${prefix}${String(index).padStart(3, "0")}`;
 }
 
 async function upsertCategory(name: string, description?: string) {
@@ -31,13 +40,19 @@ async function upsertCategory(name: string, description?: string) {
     where: { name },
     update: { description: description ?? undefined },
     create: { name, description: description ?? null },
-  })
+  });
 }
 
 async function upsertAuthor(name: string) {
-  const existing = await prisma.author.findFirst({ where: { name }, select: { id: true, name: true } })
-  if (existing) return existing
-  return prisma.author.create({ data: { name }, select: { id: true, name: true } })
+  const existing = await prisma.author.findFirst({
+    where: { name },
+    select: { id: true, name: true },
+  });
+  if (existing) return existing;
+  return prisma.author.create({
+    data: { name },
+    select: { id: true, name: true },
+  });
 }
 
 async function upsertPublisher(name: string) {
@@ -45,11 +60,11 @@ async function upsertPublisher(name: string) {
     where: { name },
     update: {},
     create: { name },
-  })
+  });
 }
 
 async function main() {
-  const hashedPassword = await bcrypt.hash("password123", 10)
+  const hashedPassword = await bcrypt.hash("password123", 10);
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@isptec.co.ao" },
@@ -70,7 +85,7 @@ async function main() {
       registrationNumber: "STAFF001",
       department: "Biblioteca",
     },
-  })
+  });
 
   const student = await prisma.user.upsert({
     where: { email: "estudante@isptec.co.ao" },
@@ -91,7 +106,7 @@ async function main() {
       registrationNumber: "EIN5M3001",
       course: "Engenharia Informática",
     },
-  })
+  });
 
   const teacher = await prisma.user.upsert({
     where: { email: "docente@isptec.co.ao" },
@@ -112,7 +127,7 @@ async function main() {
       registrationNumber: "DOC001",
       department: "Engenharia Informática",
     },
-  })
+  });
 
   const student2 = await prisma.user.upsert({
     where: { email: "estudante2@isptec.co.ao" },
@@ -133,34 +148,61 @@ async function main() {
       registrationNumber: "EIN5M3002",
       course: "Engenharia Informática",
     },
-  })
+  });
 
   // Limpar reviews dos utilizadores de teste para evitar ratings "fake" no ambiente dev.
   await prisma.bookReview.deleteMany({
     where: {
       userId: { in: [admin.id, student.id, teacher.id, student2.id] },
     },
-  })
+  });
 
   const programmingCategory = await upsertCategory(
     "Programação",
-    "Livros sobre linguagens de programação e desenvolvimento de software"
-  )
+    "Livros sobre linguagens de programação e desenvolvimento de software",
+  );
 
   await Promise.all([
-    upsertCategory("Redes de Computadores", "Redes, Internet, protocolos e comunicações"),
-    upsertCategory("Engenharia de Software", "Processos, requisitos, arquitetura e qualidade"),
-    upsertCategory("Matemática", "Cálculo, álgebra linear e matemática discreta"),
+    upsertCategory(
+      "Redes de Computadores",
+      "Redes, Internet, protocolos e comunicações",
+    ),
+    upsertCategory(
+      "Engenharia de Software",
+      "Processos, requisitos, arquitetura e qualidade",
+    ),
+    upsertCategory(
+      "Matemática",
+      "Cálculo, álgebra linear e matemática discreta",
+    ),
     upsertCategory("Física", "Mecânica, eletromagnetismo e física geral"),
-    upsertCategory("Bases de Dados", "Modelação, SQL e sistemas de gestão de bases de dados"),
-    upsertCategory("Sistemas Operativos", "Processos, memória, concorrência e kernels"),
-    upsertCategory("Arquitetura de Computadores", "Organização e arquitetura de computadores"),
+    upsertCategory(
+      "Bases de Dados",
+      "Modelação, SQL e sistemas de gestão de bases de dados",
+    ),
+    upsertCategory(
+      "Sistemas Operativos",
+      "Processos, memória, concorrência e kernels",
+    ),
+    upsertCategory(
+      "Arquitetura de Computadores",
+      "Organização e arquitetura de computadores",
+    ),
     upsertCategory("Administração", "Gestão, organizações e estratégia"),
-    upsertCategory("Economia", "Macroeconomia, microeconomia e economia internacional"),
-    upsertCategory("Ciências Sociais", "Sociologia, ciência política e metodologia"),
-  ])
+    upsertCategory(
+      "Economia",
+      "Macroeconomia, microeconomia e economia internacional",
+    ),
+    upsertCategory(
+      "Ciências Sociais",
+      "Sociologia, ciência política e metodologia",
+    ),
+  ]);
 
-  const martinFowler = await prisma.author.findFirst({ where: { name: "Martin Fowler" }, select: { id: true } })
+  const martinFowler = await prisma.author.findFirst({
+    where: { name: "Martin Fowler" },
+    select: { id: true },
+  });
   const martinFowlerId =
     martinFowler?.id ??
     (
@@ -168,8 +210,11 @@ async function main() {
         data: { name: "Martin Fowler", nationality: "British" },
         select: { id: true },
       })
-    ).id
-  await prisma.author.update({ where: { id: martinFowlerId }, data: { nationality: "British" } })
+    ).id;
+  await prisma.author.update({
+    where: { id: martinFowlerId },
+    data: { nationality: "British" },
+  });
 
   const addison = await prisma.publisher.upsert({
     where: { name: "Addison-Wesley" },
@@ -178,7 +223,7 @@ async function main() {
       name: "Addison-Wesley",
       country: "USA",
     },
-  })
+  });
 
   await Promise.all([
     upsertPublisher("Pearson"),
@@ -189,12 +234,12 @@ async function main() {
     upsertPublisher("Prentice Hall"),
     upsertPublisher("Novatec"),
     upsertPublisher("Atlas"),
-  ])
+  ]);
 
   const existing = await prisma.book.findUnique({
     where: { isbn: "9780134757599" },
     select: { id: true },
-  })
+  });
 
   if (!existing) {
     await prisma.book.create({
@@ -206,7 +251,8 @@ async function main() {
         publicationYear: 2018,
         language: "en",
         pages: 448,
-        description: "Livro clássico sobre refatoração e boas práticas de design.",
+        description:
+          "Livro clássico sobre refatoração e boas práticas de design.",
         coverUrl: "https://covers.openlibrary.org/b/isbn/9780134757599-L.jpg",
 
         categoryId: programmingCategory.id,
@@ -224,13 +270,25 @@ async function main() {
         },
         copies: {
           create: [
-            { barcode: "BOOK001", status: BookStatus.AVAILABLE, location: "A1-P2-E3" },
-            { barcode: "BOOK002", status: BookStatus.AVAILABLE, location: "A1-P2-E3" },
-            { barcode: "BOOK003", status: BookStatus.AVAILABLE, location: "A1-P2-E3" },
+            {
+              barcode: "BOOK001",
+              status: BookStatus.AVAILABLE,
+              location: "A1-P2-E3",
+            },
+            {
+              barcode: "BOOK002",
+              status: BookStatus.AVAILABLE,
+              location: "A1-P2-E3",
+            },
+            {
+              barcode: "BOOK003",
+              status: BookStatus.AVAILABLE,
+              location: "A1-P2-E3",
+            },
           ],
         },
       },
-    })
+    });
   }
 
   const seedBooks: SeedBook[] = [
@@ -243,7 +301,8 @@ async function main() {
       category: "Programação",
       publisher: "Novatec",
       language: "pt",
-      description: "Introdução prática à programação com Python para iniciantes.",
+      description:
+        "Introdução prática à programação com Python para iniciantes.",
       coverUrl: makeCoverUrl("Introdução à Programação com Python"),
       keywords: ["python", "programação", "introdução"],
     },
@@ -295,7 +354,8 @@ async function main() {
       category: "Engenharia de Software",
       publisher: "McGraw-Hill",
       language: "pt",
-      description: "Processos de software, requisitos, projeto, testes e manutenção.",
+      description:
+        "Processos de software, requisitos, projeto, testes e manutenção.",
       coverUrl: makeCoverUrl("Engenharia de Software"),
       keywords: ["engenharia de software", "processos", "testes"],
     },
@@ -334,7 +394,8 @@ async function main() {
       category: "Economia",
       publisher: "Pearson",
       language: "pt",
-      description: "Comércio internacional, câmbio, finanças e macroeconomia aberta.",
+      description:
+        "Comércio internacional, câmbio, finanças e macroeconomia aberta.",
       coverUrl: makeCoverUrl("Economia Internacional"),
       keywords: ["economia", "comércio", "finanças"],
     },
@@ -355,27 +416,39 @@ async function main() {
     },
     {
       title: "Design Patterns: Elements of Reusable Object-Oriented Software",
-      authors: ["Erich Gamma", "Richard Helm", "Ralph Johnson", "John Vlissides"],
+      authors: [
+        "Erich Gamma",
+        "Richard Helm",
+        "Ralph Johnson",
+        "John Vlissides",
+      ],
       publicationYear: 1994,
       totalCopies: 2,
       availableCopies: 2,
       category: "Engenharia de Software",
       publisher: "Addison-Wesley",
       language: "en",
-      description: "Catálogo clássico de padrões de projeto orientados a objetos.",
+      description:
+        "Catálogo clássico de padrões de projeto orientados a objetos.",
       coverUrl: makeCoverUrl("Design Patterns"),
       keywords: ["design patterns", "oop", "arquitetura"],
     },
     {
       title: "Introduction to Algorithms",
-      authors: ["Thomas H. Cormen", "Charles E. Leiserson", "Ronald L. Rivest", "Clifford Stein"],
+      authors: [
+        "Thomas H. Cormen",
+        "Charles E. Leiserson",
+        "Ronald L. Rivest",
+        "Clifford Stein",
+      ],
       publicationYear: 2009,
       totalCopies: 3,
       availableCopies: 3,
       category: "Engenharia Informática",
       publisher: "MIT Press",
       language: "en",
-      description: "Algoritmos e estruturas de dados com análise de complexidade.",
+      description:
+        "Algoritmos e estruturas de dados com análise de complexidade.",
       coverUrl: makeCoverUrl("Introduction to Algorithms"),
       keywords: ["algoritmos", "complexidade", "estrutura de dados"],
     },
@@ -401,7 +474,8 @@ async function main() {
       category: "Arquitetura de Computadores",
       publisher: "Morgan Kaufmann",
       language: "en",
-      description: "Arquitetura e organização de computadores (RISC, pipelines, memória).",
+      description:
+        "Arquitetura e organização de computadores (RISC, pipelines, memória).",
       coverUrl: makeCoverUrl("Computer Organization and Design"),
       keywords: ["arquitetura", "processador", "memória"],
     },
@@ -414,7 +488,8 @@ async function main() {
       category: "Bases de Dados",
       publisher: "McGraw-Hill",
       language: "en",
-      description: "Conceitos de bases de dados: modelação, SQL, transações e índices.",
+      description:
+        "Conceitos de bases de dados: modelação, SQL, transações e índices.",
       coverUrl: makeCoverUrl("Database System Concepts"),
       keywords: ["bases de dados", "sql", "transações"],
     },
@@ -429,7 +504,8 @@ async function main() {
       category: "Ciências Sociais",
       publisher: "Atlas",
       language: "pt",
-      description: "Conceitos fundamentais de sociologia e sociedade contemporânea.",
+      description:
+        "Conceitos fundamentais de sociologia e sociedade contemporânea.",
       coverUrl: makeCoverUrl("Introdução à Sociologia"),
       keywords: ["sociologia", "ciências sociais"],
     },
@@ -446,15 +522,112 @@ async function main() {
       coverUrl: makeCoverUrl("Metodologia Científica"),
       keywords: ["metodologia", "pesquisa", "ciência"],
     },
-  ]
+
+    // 📚 SGBU-007: Livros com diferentes MaterialTypes
+    {
+      title: "Dicionário Técnico de Informática (Cedência Diária)",
+      authors: ["Vários Autores"],
+      publicationYear: 2022,
+      totalCopies: 2,
+      availableCopies: 2,
+      category: "Programação",
+      publisher: "Atlas",
+      language: "pt",
+      description:
+        "Dicionário de termos técnicos de informática. Empréstimo de 1 dia útil.",
+      coverUrl: makeCoverUrl("Dicionário Técnico"),
+      keywords: ["dicionário", "termos técnicos"],
+      materialType: MaterialType.DAILY_LOAN,
+      loanPolicy: LoanPolicy.DAILY,
+    },
+    {
+      title: "Enciclopédia de Engenharia (Referência)",
+      authors: ["Vários Autores"],
+      publicationYear: 2020,
+      totalCopies: 1,
+      availableCopies: 1,
+      category: "Engenharia Informática",
+      publisher: "Wiley",
+      language: "pt",
+      description:
+        "Enciclopédia completa de engenharia. Consulta exclusiva na biblioteca.",
+      coverUrl: makeCoverUrl("Enciclopédia de Engenharia"),
+      keywords: ["enciclopédia", "referência"],
+      materialType: MaterialType.REFERENCE,
+      loanPolicy: LoanPolicy.NO_LOAN,
+    },
+    {
+      title: "Ubuntu Server 22.04 LTS - CD de Instalação",
+      authors: ["Canonical Ltd."],
+      publicationYear: 2023,
+      totalCopies: 3,
+      availableCopies: 3,
+      category: "Sistemas Operativos",
+      publisher: null,
+      language: "en",
+      description:
+        "CD de instalação do Ubuntu Server. Empréstimo de 2 dias úteis.",
+      coverUrl: makeCoverUrl("Ubuntu Server CD"),
+      keywords: ["ubuntu", "linux", "cd"],
+      materialType: MaterialType.CD_DVD,
+      loanPolicy: LoanPolicy.SHORT_TERM,
+    },
+    {
+      title: "Python Tutorial - DVD Curso Completo",
+      authors: ["Codecademy"],
+      publicationYear: 2023,
+      totalCopies: 2,
+      availableCopies: 2,
+      category: "Programação",
+      publisher: null,
+      language: "pt",
+      description:
+        "DVD com curso completo de Python. Empréstimo de 2 dias úteis.",
+      coverUrl: makeCoverUrl("Python DVD"),
+      keywords: ["python", "tutorial", "dvd"],
+      materialType: MaterialType.CD_DVD,
+      loanPolicy: LoanPolicy.SHORT_TERM,
+    },
+    {
+      title: "Inteligência Artificial Aplicada à Educação (Tese de Mestrado)",
+      authors: ["Carlos Neves Mussagui Tchípia"],
+      publicationYear: 2024,
+      totalCopies: 1,
+      availableCopies: 1,
+      category: "Engenharia Informática",
+      publisher: "ISPTEC",
+      language: "pt",
+      description:
+        "Dissertação de mestrado sobre IA na educação. Empréstimo de 30 dias.",
+      coverUrl: makeCoverUrl("Tese IA Educação"),
+      keywords: ["ia", "educação", "tese"],
+      materialType: MaterialType.THESIS,
+      loanPolicy: LoanPolicy.EXTENDED,
+    },
+    {
+      title: "Revista ISPTEC Tech - Edição Janeiro 2026",
+      authors: ["ISPTEC"],
+      publicationYear: 2026,
+      totalCopies: 5,
+      availableCopies: 5,
+      category: "Ciências Sociais",
+      publisher: "ISPTEC",
+      language: "pt",
+      description: "Revista mensal do ISPTEC. Empréstimo de 1 dia.",
+      coverUrl: makeCoverUrl("Revista ISPTEC"),
+      keywords: ["revista", "tecnologia"],
+      materialType: MaterialType.MAGAZINE,
+      loanPolicy: LoanPolicy.DAILY,
+    },
+  ];
 
   // Ensure publisher used above exists
-  await upsertPublisher("Morgan Kaufmann")
+  await upsertPublisher("Morgan Kaufmann");
 
-  let bookIndex = 10
+  let bookIndex = 10;
   for (const sb of seedBooks) {
-    const category = await upsertCategory(sb.category)
-    const publisher = sb.publisher ? await upsertPublisher(sb.publisher) : null
+    const category = await upsertCategory(sb.category);
+    const publisher = sb.publisher ? await upsertPublisher(sb.publisher) : null;
 
     const existingBook = await prisma.book.findFirst({
       where: {
@@ -462,16 +635,16 @@ async function main() {
         publicationYear: sb.publicationYear,
       },
       select: { id: true },
-    })
+    });
 
-    if (existingBook) continue
+    if (existingBook) continue;
 
-    const authorRows = [] as { authorId: string; order: number }[]
-    let order = 1
+    const authorRows = [] as { authorId: string; order: number }[];
+    let order = 1;
     for (const authorName of sb.authors) {
-      const a = await upsertAuthor(authorName)
-      authorRows.push({ authorId: a.id, order })
-      order++
+      const a = await upsertAuthor(authorName);
+      authorRows.push({ authorId: a.id, order });
+      order++;
     }
 
     await prisma.book.create({
@@ -491,34 +664,40 @@ async function main() {
         totalCopies: sb.totalCopies,
         availableCopies: sb.availableCopies,
         extractedByOCR: false,
+        // 📚 SGBU-007: Adicionar materialType e loanPolicy
+        materialType: sb.materialType ?? MaterialType.BOOK,
+        loanPolicy: sb.loanPolicy ?? LoanPolicy.STANDARD,
         authors: {
           create: authorRows,
         },
         copies: {
           create: Array.from({ length: sb.totalCopies }).map((_, i) => ({
             barcode: makeBarcode("BOOK", bookIndex * 10 + i + 1),
-            status: i < sb.availableCopies ? BookStatus.AVAILABLE : BookStatus.BORROWED,
+            status:
+              i < sb.availableCopies
+                ? BookStatus.AVAILABLE
+                : BookStatus.BORROWED,
             location: "A1-P1-E1",
           })),
         },
       },
-    })
+    });
 
-    bookIndex++
+    bookIndex++;
   }
 
-  console.log("✅ Seed concluído!")
-  console.log("📧 Admin:", admin.email, "/ password123")
-  console.log("📧 Estudante:", student.email, "/ password123")
-  console.log("📧 Docente:", teacher.email, "/ password123")
-  console.log("📧 Estudante 2:", student2.email, "/ password123")
+  console.log("✅ Seed concluído!");
+  console.log("📧 Admin:", admin.email, "/ password123");
+  console.log("📧 Estudante:", student.email, "/ password123");
+  console.log("📧 Docente:", teacher.email, "/ password123");
+  console.log("📧 Estudante 2:", student2.email, "/ password123");
 }
 
 main()
   .catch((e) => {
-    console.error("Seed error:", e)
-    process.exitCode = 1
+    console.error("Seed error:", e);
+    process.exitCode = 1;
   })
   .finally(async () => {
-    await prisma.$disconnect()
-  })
+    await prisma.$disconnect();
+  });
