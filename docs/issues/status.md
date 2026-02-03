@@ -14,6 +14,14 @@
   - ✅ Notificações automáticas
   - ✅ UI atualizada com botão "Levantar agora"
   - [Ver documentação completa](./SGBU-006-IMPLEMENTATION.md)
+- **SGBU-007 (03/02/2026)**: Regras de empréstimo (Artigo 10º) completo implementado
+  - ✅ Enums MaterialType e LoanPolicy
+  - ✅ Validação: 1 obra por título
+  - ✅ Validação: livros de referência não emprestam
+  - ✅ Cálculo automático de dueDate por política
+  - ✅ Suporte para dias úteis (CD/DVD)
+  - ✅ 6 livros de teste com tipos diversos
+  - [Ver documentação completa](./SGBU-007-IMPLEMENTATION.md)
 
 ## In Progress
 

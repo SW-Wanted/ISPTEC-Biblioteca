@@ -152,7 +152,9 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
       queryClient.invalidateQueries({ queryKey: ["queue", bookId] });
       queryClient.invalidateQueries({ queryKey: ["book", bookId] });
       setShowReserveDialog(false);
-      toast.success("Reserva realizada com sucesso!");
+      toast.success(
+        "Reserva realizada! Receberás notificação quando o livro estiver disponível para levantamento na biblioteca.",
+      );
     },
     onError: (error: Error) => {
       const errorMsg = error.message || "Erro ao realizar reserva";
@@ -418,8 +420,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                       >
                         {(book.available_copies ?? 0) > 0 ||
                         availableCopies.length > 0
-                          ? "Reservar para Retirada"
-                          : "Entrar na Fila"}
+                          ? "Reservar para Levantamento"
+                          : "Entrar na Fila de Espera"}
                       </Button>
                     )
                   ) : (

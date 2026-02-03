@@ -9,6 +9,8 @@ import {
   FineStatus,
   FineType,
   LoanStatus,
+  LoanPolicy,
+  MaterialType,
   NotificationStatus,
   NotificationType,
   Prisma,
@@ -18,6 +20,7 @@ import {
   UserType,
 } from "@prisma/client";
 import {
+  calculateDueDate,
   clampInt,
   FINE_PER_DAY_KZ,
   LOAN_LIMITS,
@@ -56,7 +59,11 @@ function canManageBooks(type: UserType) {
 }
 
 function canManageLoans(type: UserType) {
-  return type === UserType.SUPERVISOR || type === UserType.LIBRARIAN;
+  return (
+    type === UserType.SUPERVISOR ||
+    type === UserType.LIBRARIAN ||
+    type === UserType.STAFF
+  );
 }
 
 function canManageMembers(type: UserType) {
@@ -1211,8 +1218,17 @@ export async function POST(
   }
 
   if (entity === "Loan") {
-    if (!canManageLoans(user.type))
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    // 🔒 FASE 2: Apenas funcionários da biblioteca (LIBRARIAN/STAFF) podem criar empréstimos
+    // Estudantes/Docentes não podem criar empréstimos diretamente - devem fazer reserva primeiro
+    if (!canManageLoans(user.type)) {
+      return NextResponse.json(
+        {
+          error:
+            "Apenas funcionários da biblioteca podem criar empréstimos. Estudantes e docentes devem fazer reserva primeiro.",
+        },
+        { status: 403 },
+      );
+    }
 
     const loanCreateSchema = z.object({
       member_id: z.string().min(1),
@@ -1229,100 +1245,182 @@ export async function POST(
     const memberId = parsed.data.member_id.trim();
     const bookId = parsed.data.book_id.trim();
 
-    const result = await prisma.$transaction(async (tx) => {
-      const member = await tx.user.findUnique({
-        where: { email: memberId },
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          isBlocked: true,
-          totalFines: true,
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const member = await tx.user.findUnique({
+          where: { email: memberId },
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            isBlocked: true,
+            totalFines: true,
+          },
+        });
+        if (
+          !member ||
+          member.status !== UserStatus.ACTIVE ||
+          member.isBlocked
+        ) {
+          throw new Error("MEMBER_INVALID");
+        }
+        if (Number(member.totalFines) > 0) {
+          throw new Error("MEMBER_HAS_FINES");
+        }
+
+        const activeLoans = await tx.loan.count({
+          where: {
+            userId: member.id,
+            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+          },
+        });
+        const limits = LOAN_LIMITS[member.type];
+        if (activeLoans >= limits.maxBooks) {
+          throw new Error("LOAN_LIMIT");
+        }
+
+        // 📚 SGBU-007: Obter informações do livro (materialType, loanPolicy)
+        const book = await tx.book.findUnique({
+          where: { id: bookId },
+          select: {
+            id: true,
+            title: true,
+            materialType: true,
+            loanPolicy: true,
+          },
+        });
+        if (!book) {
+          throw new Error("BOOK_NOT_FOUND");
+        }
+
+        // 📚 SGBU-007: Validar se material permite empréstimo
+        if (book.loanPolicy === "NO_LOAN") {
+          throw new Error("NO_LOAN_REFERENCE");
+        }
+
+        // 📚 SGBU-007: Validar 1 obra por título (Artigo 10º)
+        const existingLoanSameTitle = await tx.loan.findFirst({
+          where: {
+            userId: member.id,
+            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+            copy: {
+              bookId: book.id,
+            },
+          },
+          select: { id: true },
+        });
+        if (existingLoanSameTitle) {
+          throw new Error("ONE_COPY_PER_TITLE");
+        }
+
+        await expireReservationsIfNeeded(bookId);
+
+        const hasOtherReservations = await tx.reservation.findFirst({
+          where: {
+            bookId,
+            status: ReservationStatus.ACTIVE,
+            NOT: { userId: member.id },
+          },
+          select: { id: true },
+        });
+        if (hasOtherReservations) {
+          throw new Error("HAS_RESERVATIONS");
+        }
+
+        const copy = await tx.copy.findFirst({
+          where: { bookId, status: BookStatus.AVAILABLE },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        if (!copy) {
+          throw new Error("NO_COPY");
+        }
+
+        // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
+        const dueDate = calculateDueDate(member.type, book.loanPolicy);
+
+        const loan = await tx.loan.create({
+          data: {
+            userId: member.id,
+            copyId: copy.id,
+            dueDate,
+            status: LoanStatus.ACTIVE,
+          },
+        });
+
+        await tx.copy.update({
+          where: { id: copy.id },
+          data: { status: BookStatus.BORROWED },
+        });
+
+        const availableCopies = await tx.copy.count({
+          where: { bookId, status: BookStatus.AVAILABLE },
+        });
+        const totalCopies = await tx.copy.count({ where: { bookId } });
+        await tx.book.update({
+          where: { id: bookId },
+          data: { availableCopies, totalCopies },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: member.id,
+            type: NotificationType.IN_APP,
+            status: NotificationStatus.PENDING,
+            title: "Empréstimo registado",
+            message: `O seu empréstimo foi registado. Data de devolução: ${dueDate.toISOString()}.`,
+            loanId: loan.id,
+          },
+        });
+
+        return loan;
+      });
+
+      return NextResponse.json({ id: result.id });
+    } catch (error) {
+      // 🚨 SGBU-007: Tratamento de erros específicos
+      const errorMap: Record<string, { message: string; status: number }> = {
+        MEMBER_INVALID: {
+          message: "Utilizador inválido ou bloqueado",
+          status: 400,
         },
-      });
-      if (!member || member.status !== UserStatus.ACTIVE || member.isBlocked) {
-        throw new Error("MEMBER_INVALID");
-      }
-      if (Number(member.totalFines) > 0) {
-        throw new Error("MEMBER_HAS_FINES");
-      }
-
-      const activeLoans = await tx.loan.count({
-        where: {
-          userId: member.id,
-          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        MEMBER_HAS_FINES: {
+          message: "Regularize suas pendências financeiras antes de emprestar",
+          status: 400,
         },
-      });
-      const limits = LOAN_LIMITS[member.type];
-      if (activeLoans >= limits.maxBooks) {
-        throw new Error("LOAN_LIMIT");
-      }
-
-      await expireReservationsIfNeeded(bookId);
-
-      const hasOtherReservations = await tx.reservation.findFirst({
-        where: {
-          bookId,
-          status: ReservationStatus.ACTIVE,
-          NOT: { userId: member.id },
+        LOAN_LIMIT: { message: "Limite de empréstimos atingido", status: 400 },
+        BOOK_NOT_FOUND: { message: "Livro não encontrado", status: 404 },
+        NO_LOAN_REFERENCE: {
+          message: "Livro de referência não pode ser emprestado",
+          status: 400,
         },
-        select: { id: true },
-      });
-      if (hasOtherReservations) {
-        throw new Error("HAS_RESERVATIONS");
+        ONE_COPY_PER_TITLE: {
+          message: "Já tens um exemplar deste título emprestado (Artigo 10º)",
+          status: 400,
+        },
+        HAS_RESERVATIONS: {
+          message: "Livro tem reservas pendentes",
+          status: 400,
+        },
+        NO_COPY: { message: "Nenhuma cópia disponível", status: 404 },
+      };
+
+      if (error instanceof Error) {
+        const knownError = errorMap[error.message];
+        if (knownError) {
+          return NextResponse.json(
+            { error: knownError.message },
+            { status: knownError.status },
+          );
+        }
       }
 
-      const copy = await tx.copy.findFirst({
-        where: { bookId, status: BookStatus.AVAILABLE },
-        orderBy: { createdAt: "asc" },
-        select: { id: true },
-      });
-      if (!copy) {
-        throw new Error("NO_COPY");
-      }
-
-      const dueDate = new Date(
-        Date.now() + limits.loanDays * 24 * 60 * 60 * 1000,
+      console.error("Erro ao criar empréstimo:", error);
+      return NextResponse.json(
+        { error: "Erro interno do servidor" },
+        { status: 500 },
       );
-
-      const loan = await tx.loan.create({
-        data: {
-          userId: member.id,
-          copyId: copy.id,
-          dueDate,
-          status: LoanStatus.ACTIVE,
-        },
-      });
-
-      await tx.copy.update({
-        where: { id: copy.id },
-        data: { status: BookStatus.BORROWED },
-      });
-
-      const availableCopies = await tx.copy.count({
-        where: { bookId, status: BookStatus.AVAILABLE },
-      });
-      const totalCopies = await tx.copy.count({ where: { bookId } });
-      await tx.book.update({
-        where: { id: bookId },
-        data: { availableCopies, totalCopies },
-      });
-
-      await tx.notification.create({
-        data: {
-          userId: member.id,
-          type: NotificationType.IN_APP,
-          status: NotificationStatus.PENDING,
-          title: "Empréstimo registado",
-          message: `O seu empréstimo foi registado. Data de devolução: ${dueDate.toISOString()}.`,
-          loanId: loan.id,
-        },
-      });
-
-      return loan;
-    });
-
-    return NextResponse.json({ id: result.id });
+    }
   }
 
   return NextResponse.json(

@@ -26,6 +26,7 @@ import {
   KeyRound,
   HelpCircle,
   Sparkles,
+  CheckCircle,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
