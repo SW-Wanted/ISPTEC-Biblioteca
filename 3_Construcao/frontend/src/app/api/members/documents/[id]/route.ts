@@ -5,7 +5,10 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserType, UserStatus } from "@prisma/client";
-import { extractStudentDataFromCard, extractRegistrationCode } from "@/lib/qr-reader";
+import {
+  extractStudentDataFromCard,
+  extractRegistrationCode,
+} from "@/lib/qr-reader";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -127,10 +130,14 @@ export async function PATCH(
     // Se for verificação de CARTÃO DE ESTUDANTE, tentar extrair dados do QR Code
     if (isVerified && document.documentType === "STUDENT_CARD") {
       try {
-        console.log("🔍 Tentando extrair dados do QR Code do cartão de estudante...");
-        
-        const studentData = await extractStudentDataFromCard(document.documentUrl);
-        
+        console.log(
+          "🔍 Tentando extrair dados do QR Code do cartão de estudante...",
+        );
+
+        const studentData = await extractStudentDataFromCard(
+          document.documentUrl,
+        );
+
         if (studentData) {
           console.log("✅ Dados extraídos do QR Code:", studentData);
 
@@ -162,7 +169,9 @@ export async function PATCH(
 
           // Extrair código de matrícula do email
           if (document.user.email) {
-            const registrationCode = extractRegistrationCode(document.user.email);
+            const registrationCode = extractRegistrationCode(
+              document.user.email,
+            );
             if (registrationCode) {
               updateData.registrationNumber = registrationCode.toUpperCase();
             }
@@ -185,13 +194,19 @@ export async function PATCH(
               data: updateData,
             });
 
-            console.log("✅ Perfil do estudante atualizado automaticamente:", updateData);
+            console.log(
+              "✅ Perfil do estudante atualizado automaticamente:",
+              updateData,
+            );
           }
         } else {
           console.log("⚠️ Não foi possível extrair dados do QR Code");
         }
       } catch (qrError) {
-        console.error("❌ Erro ao processar QR Code (operação continua):", qrError);
+        console.error(
+          "❌ Erro ao processar QR Code (operação continua):",
+          qrError,
+        );
         // Não falhar a operação se o QR Code não puder ser lido
       }
     }

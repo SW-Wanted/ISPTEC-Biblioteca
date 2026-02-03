@@ -3,8 +3,8 @@
  * Extrai dados de QR Codes de imagens de cartões de estudante
  */
 
-import jsQR from 'jsqr';
-import sharp from 'sharp';
+import jsQR from "jsqr";
+import sharp from "sharp";
 
 /**
  * Lê QR Code de uma imagem usando jsQR e sharp
@@ -12,13 +12,13 @@ import sharp from 'sharp';
  * @returns String contida no QR Code ou null se não encontrado
  */
 export async function readQRFromImage(
-  imageInput: Buffer | string
+  imageInput: Buffer | string,
 ): Promise<string | null> {
   try {
     let imageBuffer: Buffer;
 
     // Se for URL, fazer fetch
-    if (typeof imageInput === 'string') {
+    if (typeof imageInput === "string") {
       const response = await fetch(imageInput);
       if (!response.ok) {
         throw new Error(`Erro ao buscar imagem: ${response.statusText}`);
@@ -36,11 +36,7 @@ export async function readQRFromImage(
       .toBuffer({ resolveWithObject: true });
 
     // Decodificar QR Code
-    const qrCode = jsQR(
-      new Uint8ClampedArray(data),
-      info.width,
-      info.height
-    );
+    const qrCode = jsQR(new Uint8ClampedArray(data), info.width, info.height);
 
     if (qrCode) {
       return qrCode.data;
@@ -48,7 +44,7 @@ export async function readQRFromImage(
 
     return null;
   } catch (error) {
-    console.error('Erro ao ler QR Code da imagem:', error);
+    console.error("Erro ao ler QR Code da imagem:", error);
     return null;
   }
 }
@@ -77,37 +73,37 @@ export function parseVCard(vcardString: string): VCardData {
   // Remover espaços em branco extras
   const lines = vcardString
     .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 
   for (const line of lines) {
     // Ignorar BEGIN/END VCARD
-    if (line.startsWith('BEGIN:VCARD') || line.startsWith('END:VCARD')) {
+    if (line.startsWith("BEGIN:VCARD") || line.startsWith("END:VCARD")) {
       continue;
     }
 
     // Parsear cada campo
-    const colonIndex = line.indexOf(':');
+    const colonIndex = line.indexOf(":");
     if (colonIndex === -1) continue;
 
     const fieldPart = line.substring(0, colonIndex);
     const value = line.substring(colonIndex + 1);
 
     // Extrair o nome do campo (antes de ; ou :)
-    const fieldName = fieldPart.split(';')[0];
+    const fieldName = fieldPart.split(";")[0];
 
     switch (fieldName) {
-      case 'FN': // Full Name
+      case "FN": // Full Name
         data.fullName = value;
         break;
 
-      case 'N': // Name (Structured)
+      case "N": // Name (Structured)
         // Formato: LastName;FirstName;MiddleName;Prefix;Suffix
-        const nameParts = value.split(';');
+        const nameParts = value.split(";");
         if (nameParts.length >= 2) {
           data.lastName = nameParts[0] || undefined;
           data.firstName = nameParts[1] || undefined;
-          
+
           // Se não tiver fullName, construir
           if (!data.fullName && data.firstName && data.lastName) {
             data.fullName = `${data.firstName} ${data.lastName}`.trim();
@@ -115,23 +111,23 @@ export function parseVCard(vcardString: string): VCardData {
         }
         break;
 
-      case 'TEL': // Telephone
+      case "TEL": // Telephone
         if (!data.phone) {
           data.phone = value;
         }
         break;
 
-      case 'EMAIL':
+      case "EMAIL":
         if (!data.email) {
           data.email = value;
         }
         break;
 
-      case 'ORG': // Organization
+      case "ORG": // Organization
         data.organization = value;
         break;
 
-      case 'TITLE': // Job Title
+      case "TITLE": // Job Title
         data.title = value;
         break;
     }
@@ -156,29 +152,29 @@ export function extractRegistrationCode(email: string): string | null {
  * @returns Dados do estudante ou null
  */
 export async function extractStudentDataFromCard(
-  imageInput: Buffer | string
+  imageInput: Buffer | string,
 ): Promise<VCardData | null> {
   try {
     // Ler QR Code
     const qrData = await readQRFromImage(imageInput);
-    
+
     if (!qrData) {
-      console.log('Nenhum QR Code encontrado na imagem');
+      console.log("Nenhum QR Code encontrado na imagem");
       return null;
     }
 
     // Verificar se é VCARD
-    if (!qrData.includes('BEGIN:VCARD')) {
-      console.log('QR Code não contém dados VCARD');
+    if (!qrData.includes("BEGIN:VCARD")) {
+      console.log("QR Code não contém dados VCARD");
       return null;
     }
 
     // Parsear VCARD
     const studentData = parseVCard(qrData);
-    
+
     return studentData;
   } catch (error) {
-    console.error('Erro ao extrair dados do cartão:', error);
+    console.error("Erro ao extrair dados do cartão:", error);
     return null;
   }
 }

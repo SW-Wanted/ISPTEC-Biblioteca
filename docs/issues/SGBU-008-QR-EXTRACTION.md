@@ -7,6 +7,7 @@ Esta funcionalidade estende o **SGBU-008** com extração inteligente de dados d
 ## 🎯 Objetivo
 
 Quando um bibliotecário verifica o **Cartão de Estudante** de um aluno, o sistema:
+
 1. ✅ Lê automaticamente o QR Code da imagem
 2. ✅ Extrai dados no formato VCARD
 3. ✅ Preenche automaticamente o perfil do estudante
@@ -15,11 +16,13 @@ Quando um bibliotecário verifica o **Cartão de Estudante** de um aluno, o sist
 ## 🔧 Tecnologias Utilizadas
 
 ### Bibliotecas
+
 - **jsQR** `^1.4.0` - Decodificação de QR Code de imagens
 - **sharp** `^0.33.5` - Processamento de imagens de alta performance
 - **vcard-parser** (parsing manual implementado)
 
 ### Stack
+
 - TypeScript 5+ com tipagem estrita
 - Next.js 15+ (App Router)
 - Prisma ORM
@@ -29,9 +32,11 @@ Quando um bibliotecário verifica o **Cartão de Estudante** de um aluno, o sist
 ### Novos Arquivos
 
 #### `src/lib/qr-reader.ts`
+
 Biblioteca utilitária para leitura e parsing de QR Codes:
 
 **Funções Exportadas:**
+
 ```typescript
 // Lê QR Code de imagem (Buffer ou URL)
 readQRFromImage(imageInput: Buffer | string): Promise<string | null>
@@ -47,6 +52,7 @@ extractStudentDataFromCard(imageInput: Buffer | string): Promise<VCardData | nul
 ```
 
 **Interface VCardData:**
+
 ```typescript
 interface VCardData {
   fullName?: string;
@@ -62,26 +68,31 @@ interface VCardData {
 ### Arquivos Modificados
 
 #### `src/app/api/members/documents/[id]/route.ts`
+
 - Importa funções de extração
 - Adiciona lógica no `PATCH` para processar STUDENT_CARD
 - Atualiza campos: name, phone, course, registrationNumber, status
 
 #### `package.json`
+
 - Adicionadas dependências: jsqr, sharp, vcard-parser
 
 ## 🔄 Fluxo de Extração
 
 ### 1. Upload do Cartão de Estudante
+
 ```
 Estudante → Upload STUDENT_CARD → Cloudinary → UserDocument.documentUrl
 ```
 
 ### 2. Verificação pelo Bibliotecário
+
 ```
 Bibliotecário → PATCH /api/members/documents/{id} → isVerified: true
 ```
 
 ### 3. Extração Automática (se STUDENT_CARD)
+
 ```mermaid
 graph TD
     A[Verificar documento] --> B{Tipo = STUDENT_CARD?}
@@ -106,6 +117,7 @@ graph TD
 ## 📝 Exemplo de VCARD
 
 ### Input (QR Code do Cartão)
+
 ```vcard
 BEGIN:VCARD
 VERSION:3.0
@@ -119,6 +131,7 @@ END:VCARD
 ```
 
 ### Output (Dados Extraídos)
+
 ```json
 {
   "fullName": "Emanuel Carneiro dos Santos",
@@ -131,6 +144,7 @@ END:VCARD
 ```
 
 ### Atualização no User Model
+
 ```typescript
 {
   name: "Emanuel Carneiro dos Santos",
@@ -144,6 +158,7 @@ END:VCARD
 ## 🧪 Testes
 
 ### Teste Manual
+
 1. Criar utilizador com email `20241234@isptec.co.ao`
 2. Upload de cartão de estudante com QR Code VCARD
 3. Verificar documento como bibliotecário
@@ -155,6 +170,7 @@ END:VCARD
    - Status = ACTIVE
 
 ### Casos de Erro (graceful degradation)
+
 - ❌ **Sem QR Code na imagem** → Apenas verifica documento, não atualiza perfil
 - ❌ **QR Code não é VCARD** → Log warning, operação continua
 - ❌ **Erro ao baixar imagem** → Falha silenciosa, não bloqueia verificação
@@ -163,12 +179,14 @@ END:VCARD
 ## 🔒 Segurança
 
 ### Validações
+
 - ✅ Apenas staff autorizado pode verificar documentos
 - ✅ Tipo de documento validado antes de processar QR
 - ✅ Erros não bloqueiam a verificação principal
 - ✅ Logs detalhados para debugging
 
 ### Privacidade
+
 - ✅ Dados extraídos apenas do QR Code oficial do ISPTEC
 - ✅ Não armazena dados brutos do QR Code
 - ✅ Processamento server-side (não expõe bibliotecas ao cliente)
@@ -176,11 +194,13 @@ END:VCARD
 ## 📊 Performance
 
 ### Otimizações
+
 - **sharp**: Redimensiona imagem para max 1000px antes de processar
 - **jsQR**: Processa apenas canal RGBA necessário
 - **Async/Await**: Não bloqueia resposta HTTP principal
 
 ### Benchmarks Estimados
+
 - Leitura de QR Code: ~200-500ms
 - Parsing VCARD: <5ms
 - Atualização DB: ~50ms
@@ -189,14 +209,17 @@ END:VCARD
 ## 🚀 Deploy
 
 ### Variáveis de Ambiente
+
 Nenhuma variável adicional necessária (usa as mesmas do upload).
 
 ### Dependências de Produção
+
 ```bash
 npm install jsqr sharp vcard-parser --save
 ```
 
 ### Build
+
 ```bash
 npm run build
 ```
@@ -213,6 +236,7 @@ Sharp tem binários nativos - Vercel/Railway fazem build automático.
 ## 🎓 Contexto Académico
 
 Esta funcionalidade demonstra integração de:
+
 - ✅ Visão Computacional (QR Code reading)
 - ✅ Parsing de dados estruturados (VCARD)
 - ✅ Automação de processos (perfil auto-preenchido)

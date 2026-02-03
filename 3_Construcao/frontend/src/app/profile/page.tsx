@@ -142,9 +142,11 @@ export default function Profile() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<{
+    email: string;
     phone: string;
     preferred_notification: string;
   }>({
+    email: "",
     phone: "",
     preferred_notification: "email",
   });
@@ -266,11 +268,12 @@ export default function Profile() {
   };
 
   const handleStartEdit = () => {
-    if (!member) {
+    if (!member || !user) {
       toast.error("Não foi possível carregar os dados do perfil.");
       return;
     }
     setEditForm({
+      email: user.email || "",
       phone: member.phone || "",
       preferred_notification: member.preferred_notification || "email",
     });
@@ -379,6 +382,20 @@ export default function Profile() {
                   <CardContent className="p-6 space-y-6">
                     {isEditing ? (
                       <div className="space-y-4">
+                        <div>
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={editForm.email}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                email: e.target.value,
+                              })
+                            }
+                            placeholder="email@isptec.co.ao"
+                          />
+                        </div>
                         <div>
                           <Label>Telefone</Label>
                           <Input
