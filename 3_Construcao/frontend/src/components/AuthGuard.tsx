@@ -36,8 +36,13 @@ export function AuthGuard({
     });
 
     // Verificar se é admin
-    if (requireAdmin && session.user?.type !== UserType.SUPERVISOR) {
-      console.log("AuthGuard: Não é supervisor, redirecionando para /");
+    const isSettingsAdmin =
+      session.user?.type === UserType.SUPERVISOR ||
+      session.user?.type === UserType.LIBRARIAN ||
+      session.user?.type === UserType.STAFF;
+
+    if (requireAdmin && !isSettingsAdmin) {
+      console.log("AuthGuard: Sem permissão admin, redirecionando para /");
       router.push("/");
       return;
     }
@@ -46,8 +51,7 @@ export function AuthGuard({
     if (requireLibrarian) {
       const isLibrarian =
         session.user?.type === UserType.LIBRARIAN ||
-        session.user?.type === UserType.SUPERVISOR ||
-        session.user?.type === UserType.ADMIN;
+        session.user?.type === UserType.SUPERVISOR;
       console.log("AuthGuard: Verificando bibliotecário", {
         userType: session.user?.type,
         isLibrarian,
@@ -79,15 +83,19 @@ export function AuthGuard({
     return null;
   }
 
-  if (requireAdmin && session.user?.type !== UserType.SUPERVISOR) {
+  const isSettingsAdmin =
+    session.user?.type === UserType.SUPERVISOR ||
+    session.user?.type === UserType.LIBRARIAN ||
+    session.user?.type === UserType.STAFF;
+
+  if (requireAdmin && !isSettingsAdmin) {
     return null;
   }
 
   if (requireLibrarian) {
     const isLibrarian =
       session.user?.type === UserType.LIBRARIAN ||
-      session.user?.type === UserType.SUPERVISOR ||
-      session.user?.type === UserType.ADMIN;
+      session.user?.type === UserType.SUPERVISOR;
     if (!isLibrarian) {
       return null;
     }
