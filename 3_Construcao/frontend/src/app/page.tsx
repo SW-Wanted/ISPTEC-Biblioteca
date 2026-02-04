@@ -122,6 +122,35 @@ export default function Home() {
     initialData: [],
   });
 
+  // Buscar configurações públicas (disponível para todos os usuários)
+  const { data: publicSettings } = useQuery({
+    queryKey: ["public-settings-home"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/public");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Obter políticas específicas
+  const studentPolicy = publicSettings?.loanPolicies?.STUDENT;
+  const teacherPolicy = publicSettings?.loanPolicies?.TEACHER;
+
+  // Horários dinâmicos do banco de dados
+  const weekdayHours =
+    publicSettings?.systemPolicies?.LIBRARY_HOURS_WEEKDAY || "07:30-17:00";
+
+  const saturdayHoursRaw =
+    publicSettings?.systemPolicies?.LIBRARY_HOURS_SATURDAY || "08:00-12:30";
+
+  const saturdayNote =
+    publicSettings?.systemPolicies?.LIBRARY_SATURDAY_NOTE || "";
+
+  // Formatar horários para exibição
+  const openingHours = `Segunda a Sexta: ${weekdayHours}`;
+  const saturdayHours = `Sábados${saturdayNote && saturdayNote.trim() !== "" ? ` (${saturdayNote})` : ""}: ${saturdayHoursRaw}`;
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
@@ -443,8 +472,8 @@ export default function Home() {
                 Horário de Funcionamento
               </h3>
               <div className="mt-3 space-y-2 text-sm text-slate-600">
-                <p>Segunda a Sexta: 07:30 - 17:00</p>
-                <p>Sábados (provas): 08:00 - 12:30</p>
+                <p>{openingHours}</p>
+                <p>{saturdayHours}</p>
               </div>
             </CardContent>
           </Card>
@@ -456,8 +485,14 @@ export default function Home() {
                 Limites de Empréstimo
               </h3>
               <div className="mt-3 space-y-2 text-sm text-slate-600">
-                <p>Estudantes: 2 livros / 5 dias</p>
-                <p>Docentes: 4 livros / 15 dias</p>
+                <p>
+                  Estudantes: {studentPolicy?.maxBooks || 2} livros /{" "}
+                  {studentPolicy?.loanDays || 5} dias
+                </p>
+                <p>
+                  Docentes: {teacherPolicy?.maxBooks || 4} livros /{" "}
+                  {teacherPolicy?.loanDays || 15} dias
+                </p>
               </div>
             </CardContent>
           </Card>
