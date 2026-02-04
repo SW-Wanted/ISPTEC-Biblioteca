@@ -575,9 +575,21 @@ export async function PATCH(
     const status = normalizeEnum(statusParsed.data.status);
     if (status === LockerStatus.OCCUPIED) {
       await prisma.$transaction(async (tx) => {
+        // Verificar se usuário já tem cacifo ativo
+        const existingRental = await tx.lockerRental.findFirst({
+          where: {
+            userId: user.id,
+            endTime: null, // Ainda não devolvido
+          },
+        });
+
+        if (existingRental) {
+          throw new Error("USER_HAS_ACTIVE_LOCKER");
+        }
+
         const locker = await tx.locker.findUnique({
           where: { id },
-          select: { id: true, status: true },
+          select: { id: true, status: true, number: true },
         });
         if (!locker) throw new Error("NOT_FOUND");
         if (locker.status !== "AVAILABLE") throw new Error("NOT_AVAILABLE");
@@ -602,7 +614,8 @@ export async function PATCH(
             type: NotificationType.IN_APP,
             status: NotificationStatus.PENDING,
             title: "Cacifo reservado!",
-            message: `Cacifo reservado por 3 horas. Libere até ${expectedEnd.toISOString()}.`,
+            message: `Cacifo ${locker.number} reservado por 3 horas. Libere até ${expectedEnd.toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}.`,
+            actionType: "view_services", // Redireciona para /services
           },
         });
       });
@@ -626,6 +639,18 @@ export async function PATCH(
     const status = normalizeEnum(statusParsed.data.status);
     if (status === ComputerStatus.OCCUPIED) {
       await prisma.$transaction(async (tx) => {
+        // Verificar se usuário já tem sessão de computador ativa
+        const existingSession = await tx.computerSession.findFirst({
+          where: {
+            userId: user.id,
+            endTime: null, // Ainda não encerrada
+          },
+        });
+
+        if (existingSession) {
+          throw new Error("USER_HAS_ACTIVE_SESSION");
+        }
+
         const computer = await tx.computer.findUnique({
           where: { id },
           select: { id: true, status: true, location: true, number: true },
@@ -653,7 +678,8 @@ export async function PATCH(
             type: NotificationType.IN_APP,
             status: NotificationStatus.PENDING,
             title: "Computador reservado!",
-            message: `Computador ${computer.number} no ${computer.location} reservado por 2 horas.`,
+            message: `Computador ${computer.number} no ${computer.location} reservado por 2 horas. Faça check-in no balcão.`,
+            actionType: "view_services", // Redireciona para /services
           },
         });
       });

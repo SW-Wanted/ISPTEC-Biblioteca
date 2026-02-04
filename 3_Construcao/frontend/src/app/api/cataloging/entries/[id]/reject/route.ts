@@ -18,10 +18,10 @@ const rejectSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const entryId = params.id;
+    const { id: entryId } = await params;
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);

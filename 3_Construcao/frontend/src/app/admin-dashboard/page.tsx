@@ -191,12 +191,20 @@ export default function AdminDashboard() {
               Visão geral do sistema • {DASHBOARD_TODAY_LABEL}
             </p>
           </div>
-          <Link to={createPageUrl("Reports")}>
-            <Button variant="outline">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Relatórios
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <a href="/admin/training">
+              <Button variant="outline">
+                <Users className="w-4 h-4 mr-2" />
+                Formações
+              </Button>
+            </a>
+            <Link to={createPageUrl("Reports")}>
+              <Button variant="outline">
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Relatórios
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

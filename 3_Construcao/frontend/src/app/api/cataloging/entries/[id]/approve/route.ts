@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, MaterialType, LoanPolicy } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -38,10 +38,10 @@ const approveSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const entryId = params.id;
+    const { id: entryId } = await params;
 
     // 1. Verificar autenticação
     const session = await getServerSession(authOptions);
@@ -126,6 +126,8 @@ export async function POST(
             categoryId: data.categoryId,
             description: data.description,
             coverUrl: data.coverUrl || entry.imageUrl,
+            materialType: MaterialType.BOOK,
+            loanPolicy: LoanPolicy.STANDARD,
             totalCopies: data.totalCopies,
             availableCopies: data.totalCopies,
             publisherId,

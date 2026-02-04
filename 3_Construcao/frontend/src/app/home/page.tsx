@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { Link } from '@/lib/router';
-import { createPageUrl } from '@/utils';
-import { api } from '@/api/apiClient';
-import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import { Link } from "@/lib/router";
+import { createPageUrl } from "@/utils";
+import { api } from "@/api/apiClient";
+import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { getUserTypeLabel } from "@/lib/user-helpers";
 import {
   Search,
   BookOpen,
@@ -17,8 +18,8 @@ import {
   Star,
   Calendar,
   Sparkles,
-  AlertCircle
-} from 'lucide-react';
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,8 +34,10 @@ type MemberRow = {
 } & Record<string, unknown>;
 
 export default function Home() {
-  const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [user, setUser] = useState<Awaited<
+    ReturnType<typeof api.auth.me>
+  > | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -49,45 +52,62 @@ export default function Home() {
   }, []);
 
   const { data: member } = useQuery<MemberRow | null>({
-    queryKey: ['member', user?.email],
+    queryKey: ["member", user?.email],
     queryFn: async () => {
-      const members = await api.entities.Member.filter({ user_id: user?.email });
-      return members[0] || null;
+      if (!user?.email) return null;
+      try {
+        const response = await fetch(
+          `/api/members/by-email?email=${encodeURIComponent(user.email)}`,
+        );
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (error) {
+        console.error("Erro ao buscar membro:", error);
+        return null;
+      }
     },
     enabled: !!user?.email,
-    initialData: null as MemberRow | null
+    initialData: null as MemberRow | null,
+    staleTime: 5 * 60 * 1000, // Cache por 5 minutos
   });
 
   const { data: activeLoans = [] } = useQuery({
-    queryKey: ['active-loans', user?.email],
-    queryFn: () => api.entities.Loan.filter({ member_id: user?.email, status: 'active' }),
+    queryKey: ["active-loans", user?.email],
+    queryFn: () =>
+      api.entities.Loan.filter({ member_id: user?.email, status: "active" }),
     enabled: !!user?.email,
-    initialData: []
+    initialData: [],
   });
 
   const { data: activeReservations = [] } = useQuery({
-    queryKey: ['active-reservations', user?.email],
-    queryFn: () => api.entities.Reservation.filter({ member_id: user?.email, status: 'active' }),
+    queryKey: ["active-reservations", user?.email],
+    queryFn: () =>
+      api.entities.Reservation.filter({
+        member_id: user?.email,
+        status: "active",
+      }),
     enabled: !!user?.email,
-    initialData: []
+    initialData: [],
   });
 
   const { data: popularBooks = [] } = useQuery({
-    queryKey: ['popular-books'],
-    queryFn: () => api.entities.Book.list('-total_loans', 6),
-    initialData: []
+    queryKey: ["popular-books"],
+    queryFn: () => api.entities.Book.list("-total_loans", 6),
+    initialData: [],
   });
 
   useQuery({
-    queryKey: ['new-books'],
-    queryFn: () => api.entities.Book.list('-created_date', 4),
+    queryKey: ["new-books"],
+    queryFn: () => api.entities.Book.list("-created_date", 4),
     initialData: [],
   });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = createPageUrl(`SearchBooks?q=${encodeURIComponent(searchQuery)}`);
+      window.location.href = createPageUrl(
+        `SearchBooks?q=${encodeURIComponent(searchQuery)}`,
+      );
     }
   };
 
@@ -99,7 +119,7 @@ export default function Home() {
     return diffDays;
   };
 
-  const urgentLoans = activeLoans.filter(loan => {
+  const urgentLoans = activeLoans.filter((loan) => {
     if (!loan.due_date) return false;
     const days = getDaysUntilDue(loan.due_date);
     return days <= 2;
@@ -114,7 +134,7 @@ export default function Home() {
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
         </div>
-        
+
         <div className="relative px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
@@ -127,7 +147,8 @@ export default function Home() {
                 <span className="block text-indigo-200">ISPTEC</span>
               </h1>
               <p className="text-lg text-indigo-100 mb-8 max-w-2xl mx-auto">
-                Acesse milhares de livros, faça empréstimos online e gerencie suas leituras de forma simples e moderna.
+                Acesse milhares de livros, faça empréstimos online e gerencie
+                suas leituras de forma simples e moderna.
               </p>
             </motion.div>
 
@@ -148,7 +169,7 @@ export default function Home() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-12 pr-32 py-6 text-lg rounded-2xl border-0 shadow-xl shadow-black/10 focus-visible:ring-2 focus-visible:ring-white/50"
                 />
-                <Button 
+                <Button
                   type="submit"
                   className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 rounded-xl px-6"
                 >
@@ -165,16 +186,20 @@ export default function Home() {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="mt-8 flex flex-wrap justify-center gap-4"
               >
-                <Link to={createPageUrl('MyLoans')}>
+                <Link to={createPageUrl("MyLoans")}>
                   <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-xl flex items-center gap-3 hover:bg-white/20 transition-colors">
                     <BookMarked className="w-5 h-5 text-indigo-200" />
-                    <span className="text-white font-medium">{activeLoans.length} Empréstimos ativos</span>
+                    <span className="text-white font-medium">
+                      {activeLoans.length} Empréstimos ativos
+                    </span>
                   </div>
                 </Link>
-                <Link to={createPageUrl('MyReservations')}>
+                <Link to={createPageUrl("MyReservations")}>
                   <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-xl flex items-center gap-3 hover:bg-white/20 transition-colors">
                     <Clock className="w-5 h-5 text-indigo-200" />
-                    <span className="text-white font-medium">{activeReservations.length} Reservas</span>
+                    <span className="text-white font-medium">
+                      {activeReservations.length} Reservas
+                    </span>
                   </div>
                 </Link>
               </motion.div>
@@ -196,12 +221,19 @@ export default function Home() {
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-semibold text-orange-800">Atenção! Devolução próxima</p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Você tem {urgentLoans.length} livro(s) com prazo de devolução em até 2 dias.
+                    <p className="font-semibold text-orange-800">
+                      Atenção! Devolução próxima
                     </p>
-                    <Link to={createPageUrl('MyLoans')}>
-                      <Button variant="outline" size="sm" className="mt-3 border-orange-300 text-orange-700 hover:bg-orange-100">
+                    <p className="text-sm text-orange-700 mt-1">
+                      Você tem {urgentLoans.length} livro(s) com prazo de
+                      devolução em até 2 dias.
+                    </p>
+                    <Link to={createPageUrl("MyLoans")}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 border-orange-300 text-orange-700 hover:bg-orange-100"
+                      >
                         Ver empréstimos
                       </Button>
                     </Link>
@@ -224,15 +256,14 @@ export default function Home() {
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="relative">
                   <p className="text-indigo-100 text-sm">Bem-vindo de volta,</p>
-                  <h2 className="text-2xl font-bold mt-1">{user.full_name || 'Utilizador'}</h2>
+                  <h2 className="text-2xl font-bold mt-1">
+                    {user.full_name || "Utilizador"}
+                  </h2>
                   <div className="flex flex-wrap gap-2 mt-4">
                     <Badge className="bg-white/20 text-white hover:bg-white/30">
-                      {(member.member_type as string) === 'student' ? 'Estudante' : 
-                       (member.member_type as string) === 'teacher' ? 'Docente' : 
-                       (member.member_type as string) === 'staff' ? 'Funcionário' : 
-                       String(member.member_type || '')}
+                      {getUserTypeLabel(member.member_type)}
                     </Badge>
-                    {member.course && typeof member.course === 'string' && (
+                    {member.course && typeof member.course === "string" && (
                       <Badge className="bg-white/20 text-white hover:bg-white/30">
                         {String(member.course)}
                       </Badge>
@@ -247,10 +278,34 @@ export default function Home() {
         {/* Quick Actions */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           {[
-            { icon: Search, label: 'Pesquisar', desc: 'Encontre livros', page: 'SearchBooks', color: 'from-blue-500 to-blue-600' },
-            { icon: BookMarked, label: 'Empréstimos', desc: 'Meus livros', page: 'MyLoans', color: 'from-emerald-500 to-emerald-600' },
-            { icon: Clock, label: 'Reservas', desc: 'Fila de espera', page: 'MyReservations', color: 'from-amber-500 to-orange-500' },
-            { icon: Sparkles, label: 'Recomendações', desc: 'Para você', page: 'Recommendations', color: 'from-purple-500 to-pink-500' },
+            {
+              icon: Search,
+              label: "Pesquisar",
+              desc: "Encontre livros",
+              page: "SearchBooks",
+              color: "from-blue-500 to-blue-600",
+            },
+            {
+              icon: BookMarked,
+              label: "Empréstimos",
+              desc: "Meus livros",
+              page: "MyLoans",
+              color: "from-emerald-500 to-emerald-600",
+            },
+            {
+              icon: Clock,
+              label: "Reservas",
+              desc: "Fila de espera",
+              page: "MyReservations",
+              color: "from-amber-500 to-orange-500",
+            },
+            {
+              icon: Sparkles,
+              label: "Recomendações",
+              desc: "Para você",
+              page: "Recommendations",
+              color: "from-purple-500 to-pink-500",
+            },
           ].map((action, index) => (
             <motion.div
               key={action.page}
@@ -261,10 +316,12 @@ export default function Home() {
               <Link to={createPageUrl(action.page)}>
                 <Card className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden">
                   <CardContent className="p-5">
-                    <div className={cn(
-                      "w-12 h-12 rounded-xl bg-linear-to-br flex items-center justify-center mb-4",
-                      action.color
-                    )}>
+                    <div
+                      className={cn(
+                        "w-12 h-12 rounded-xl bg-linear-to-br flex items-center justify-center mb-4",
+                        action.color,
+                      )}
+                    >
                       <action.icon className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
@@ -282,11 +339,18 @@ export default function Home() {
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-800">Livros Populares</h2>
-              <p className="text-sm text-slate-500 mt-1">Os mais requisitados este mês</p>
+              <h2 className="text-xl font-bold text-slate-800">
+                Livros Populares
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Os mais requisitados este mês
+              </p>
             </div>
-            <Link to={createPageUrl('SearchBooks?sort=popular')}>
-              <Button variant="ghost" className="text-indigo-600 hover:text-indigo-700">
+            <Link to={createPageUrl("SearchBooks?sort=popular")}>
+              <Button
+                variant="ghost"
+                className="text-indigo-600 hover:text-indigo-700"
+              >
                 Ver todos
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
@@ -319,25 +383,29 @@ export default function Home() {
                           <BookOpen className="w-12 h-12 text-slate-300" />
                         </div>
                       )}
-                      {book.available_copies != null && book.available_copies > 0 && (
-                        <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
-                          Disponível
-                        </Badge>
-                      )}
+                      {book.available_copies != null &&
+                        book.available_copies > 0 && (
+                          <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
+                            Disponível
+                          </Badge>
+                        )}
                     </div>
                     <CardContent className="p-3">
                       <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-indigo-600 transition-colors">
                         {book.title}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                        {book.authors?.join(', ') || 'Autor desconhecido'}
+                        {book.authors?.join(", ") || "Autor desconhecido"}
                       </p>
-                      {book.average_rating != null && book.average_rating > 0 && (
-                        <div className="flex items-center gap-1 mt-2">
-                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                          <span className="text-xs text-slate-600">{book.average_rating?.toFixed(1)}</span>
-                        </div>
-                      )}
+                      {book.average_rating != null &&
+                        book.average_rating > 0 && (
+                          <div className="flex items-center gap-1 mt-2">
+                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                            <span className="text-xs text-slate-600">
+                              {book.average_rating?.toFixed(1)}
+                            </span>
+                          </div>
+                        )}
                     </CardContent>
                   </Card>
                 </Link>
@@ -351,7 +419,9 @@ export default function Home() {
           <Card className="border-0 bg-linear-to-br from-blue-50 to-indigo-50 shadow-sm">
             <CardContent className="p-6">
               <Calendar className="w-10 h-10 text-indigo-600 mb-4" />
-              <h3 className="font-semibold text-slate-800">Horário de Funcionamento</h3>
+              <h3 className="font-semibold text-slate-800">
+                Horário de Funcionamento
+              </h3>
               <div className="mt-3 space-y-2 text-sm text-slate-600">
                 <p>Segunda a Sexta: 07:30 - 17:00</p>
                 <p>Sábados (provas): 08:00 - 12:30</p>
@@ -362,7 +432,9 @@ export default function Home() {
           <Card className="border-0 bg-linear-to-br from-emerald-50 to-teal-50 shadow-sm">
             <CardContent className="p-6">
               <TrendingUp className="w-10 h-10 text-emerald-600 mb-4" />
-              <h3 className="font-semibold text-slate-800">Limites de Empréstimo</h3>
+              <h3 className="font-semibold text-slate-800">
+                Limites de Empréstimo
+              </h3>
               <div className="mt-3 space-y-2 text-sm text-slate-600">
                 <p>Estudantes: 2 livros / 5 dias</p>
                 <p>Docentes: 4 livros / 15 dias</p>
@@ -373,11 +445,14 @@ export default function Home() {
           <Card className="border-0 bg-linear-to-br from-purple-50 to-pink-50 shadow-sm sm:col-span-2 lg:col-span-1">
             <CardContent className="p-6">
               <Sparkles className="w-10 h-10 text-purple-600 mb-4" />
-              <h3 className="font-semibold text-slate-800">Precisa de Ajuda?</h3>
+              <h3 className="font-semibold text-slate-800">
+                Precisa de Ajuda?
+              </h3>
               <p className="mt-3 text-sm text-slate-600">
-                Use nosso assistente virtual para tirar dúvidas ou falar com a equipe.
+                Use nosso assistente virtual para tirar dúvidas ou falar com a
+                equipe.
               </p>
-              <Link to={createPageUrl('Chatbot')}>
+              <Link to={createPageUrl("Chatbot")}>
                 <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
                   Iniciar Conversa
                 </Button>
