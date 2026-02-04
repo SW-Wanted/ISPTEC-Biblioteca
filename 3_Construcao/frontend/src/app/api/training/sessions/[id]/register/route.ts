@@ -203,9 +203,12 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    // ✅ Next.js 15+: params é uma Promise
+    const { id: sessionId } = await params;
+
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -226,7 +229,7 @@ export async function DELETE(
     // Buscar participação
     const participant = await prisma.trainingParticipant.findFirst({
       where: {
-        sessionId: params.id,
+        sessionId: sessionId,
         userId: user.id,
       },
       include: {
