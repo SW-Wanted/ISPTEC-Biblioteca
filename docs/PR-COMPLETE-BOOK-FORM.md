@@ -7,28 +7,30 @@ Branch `feat/sgbu-complete-book-form` implementa formulários completos de gest�
 ## ✨ Features Implementadas
 
 ### 1. Formulário Completo de Gestão de Livros
+
 **Arquivo:** `src/app/manage-books/page.tsx` (949 linhas)
 
 #### Campos Implementados (18/18)
+
 - ✅ **Informações Básicas** (9 campos)
-  - Título* (obrigatório)
+  - Título\* (obrigatório)
   - Subtítulo
-  - ISBN* (obrigatório)
-  - Autores* (obrigatório)
-  - Editora* (obrigatório)
-  - Ano de Publicação* (obrigatório)
+  - ISBN\* (obrigatório)
+  - Autores\* (obrigatório)
+  - Editora\* (obrigatório)
+  - Ano de Publicação\* (obrigatório)
   - Edição
   - Idioma (select: pt/en/es/fr)
   - Páginas
 
 - ✅ **Categoria e Tipo** (3 campos)
-  - Categoria* (obrigatório)
+  - Categoria\* (obrigatório)
   - Tipo de Material (6 opções)
   - Política de Empréstimo (5 opções)
 
 - ✅ **Acervo** (3 campos)
-  - Total de Exemplares* (obrigatório, min: 1)
-  - Cópias Disponíveis* (auto-ajuste: max = total)
+  - Total de Exemplares\* (obrigatório, min: 1)
+  - Cópias Disponíveis\* (auto-ajuste: max = total)
   - Localização
 
 - ✅ **Imagem** (1 campo)
@@ -38,6 +40,7 @@ Branch `feat/sgbu-complete-book-form` implementa formulários completos de gest�
   - Resumo/Sinopse (textarea)
 
 #### Validações
+
 ```typescript
 // 7 campos obrigatórios
 const isFormValid = () => {
@@ -61,20 +64,23 @@ const isFormValid = () => {
 - ✅ **Auto-ajuste**: Ao alterar total, available é limitado
 
 #### Enums Implementados (SGBU-007)
+
 ```typescript
 // Material Type (6 opções)
-BOOK, DAILY_LOAN, REFERENCE, CD_DVD, MAGAZINE, THESIS
+(BOOK, DAILY_LOAN, REFERENCE, CD_DVD, MAGAZINE, THESIS);
 
 // Loan Policy (5 opções)
-STANDARD, DAILY, SHORT_TERM, NO_LOAN, EXTENDED
+(STANDARD, DAILY, SHORT_TERM, NO_LOAN, EXTENDED);
 ```
 
 ---
 
 ### 2. Formulário Completo de Catalogação
+
 **Arquivo:** `src/app/cataloging/page.tsx` (1024 linhas)
 
 #### Fluxo Completo
+
 1. **Step 1: Upload de Imagem**
    - Captura via camera/upload
    - Upload para Cloudinary
@@ -93,6 +99,7 @@ STANDARD, DAILY, SHORT_TERM, NO_LOAN, EXTENDED
    - Redirecionamento para gestão
 
 #### Melhorias OCR
+
 ```typescript
 // Prompt otimizado com foco em ISBN
 🔍 PRIORIDADE MÁXIMA - ISBN:
@@ -104,6 +111,7 @@ Procure intensivamente pelo código ISBN na capa do livro:
 ```
 
 #### Auto-Enrichment
+
 - ✅ Busca automática ao extrair ISBN
 - ✅ Fallback para título + autor se ISBN não encontrado
 - ✅ Preenche campos vazios (não sobrescreve dados do OCR)
@@ -112,9 +120,11 @@ Procure intensivamente pelo código ISBN na capa do livro:
 ---
 
 ### 3. Backend API Completo
+
 **Arquivo:** `src/app/api/entities/[entity]/[id]/route.ts`
 
 #### Schema Atualizado
+
 ```typescript
 const bookPatchSchema = z.object({
   // Campos básicos
@@ -127,19 +137,17 @@ const bookPatchSchema = z.object({
   edition: z.string().optional(),
   language: z.string().optional(),
   pages: z.string().optional(),
-  
+
   // Novos campos (SGBU-007)
   total_copies: z.number().int().min(1).optional(),
   available_copies: z.number().int().min(0).optional(),
-  material_type: z.enum([
-    "BOOK", "DAILY_LOAN", "REFERENCE", 
-    "CD_DVD", "MAGAZINE", "THESIS"
-  ]).optional(),
-  loan_policy: z.enum([
-    "STANDARD", "DAILY", "SHORT_TERM", 
-    "NO_LOAN", "EXTENDED"
-  ]).optional(),
-  
+  material_type: z
+    .enum(["BOOK", "DAILY_LOAN", "REFERENCE", "CD_DVD", "MAGAZINE", "THESIS"])
+    .optional(),
+  loan_policy: z
+    .enum(["STANDARD", "DAILY", "SHORT_TERM", "NO_LOAN", "EXTENDED"])
+    .optional(),
+
   // Outros
   category: z.string().optional(),
   description: z.string().optional(),
@@ -151,6 +159,7 @@ const bookPatchSchema = z.object({
 ---
 
 ### 4. Integração Cloudinary
+
 **Arquivo:** `src/api/apiClient.ts`
 
 ```typescript
@@ -166,7 +175,7 @@ export const UploadFile = async (params: {
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/dqupuwymt/${params.resource_type || "image"}/upload`,
-    { method: "POST", body: formData }
+    { method: "POST", body: formData },
   );
 
   return await res.json();
@@ -174,6 +183,7 @@ export const UploadFile = async (params: {
 ```
 
 **Folders configurados:**
+
 - `covers/` - Capas de livros (manage-books)
 - `ocr/` - Imagens de OCR (cataloging)
 - `documents/` - Documentos de usuários
@@ -181,6 +191,7 @@ export const UploadFile = async (params: {
 ---
 
 ### 5. AI Endpoint (Gemini 2.0 Flash)
+
 **Arquivo:** `src/app/api/ai/invoke/route.ts` (NOVO)
 
 ```typescript
@@ -198,7 +209,7 @@ export async function POST(req: Request) {
           data: Buffer.from(buffer).toString("base64"),
         },
       };
-    })
+    }),
   );
 
   // Chamar Gemini API
@@ -218,16 +229,16 @@ export async function POST(req: Request) {
 
 ## 🔧 Arquivos Modificados
 
-| Arquivo | Linhas | Mudanças |
-|---------|--------|----------|
-| `manage-books/page.tsx` | +927 | Formulário completo, validação, imagem |
-| `cataloging/page.tsx` | +579 | OCR, enrichment, formulário completo |
-| `api/entities/[entity]/[id]/route.ts` | +20 | bookPatchSchema expandido |
-| `api/ai/invoke/route.ts` | +96 | Novo endpoint Gemini |
-| `api/apiClient.ts` | +25 | InvokeLLM real, UploadFile |
-| `.env.example` | +30 | Variáveis Cloudinary, Google APIs |
-| `docs/CLOUDINARY-SETUP.md` | +281 | Guia completo de setup |
-| `docs/MANAGE-BOOKS-COMPLETE-FORM.md` | +496 | Documentação técnica |
+| Arquivo                               | Linhas | Mudanças                               |
+| ------------------------------------- | ------ | -------------------------------------- |
+| `manage-books/page.tsx`               | +927   | Formulário completo, validação, imagem |
+| `cataloging/page.tsx`                 | +579   | OCR, enrichment, formulário completo   |
+| `api/entities/[entity]/[id]/route.ts` | +20    | bookPatchSchema expandido              |
+| `api/ai/invoke/route.ts`              | +96    | Novo endpoint Gemini                   |
+| `api/apiClient.ts`                    | +25    | InvokeLLM real, UploadFile             |
+| `.env.example`                        | +30    | Variáveis Cloudinary, Google APIs      |
+| `docs/CLOUDINARY-SETUP.md`            | +281   | Guia completo de setup                 |
+| `docs/MANAGE-BOOKS-COMPLETE-FORM.md`  | +496   | Documentação técnica                   |
 
 **Total:** 2.287 linhas adicionadas, 167 removidas
 
@@ -236,6 +247,7 @@ export async function POST(req: Request) {
 ## 🧪 Como Testar
 
 ### 1. Gestão de Livros (CRUD)
+
 ```bash
 # 1. Acesse http://localhost:3000/manage-books
 # 2. Clique em "Adicionar Livro"
@@ -256,6 +268,7 @@ export async function POST(req: Request) {
 ```
 
 ### 2. Catalogação Inteligente
+
 ```bash
 # 1. Acesse http://localhost:3000/cataloging
 # 2. Step 1: Upload de imagem
@@ -273,6 +286,7 @@ export async function POST(req: Request) {
 ```
 
 ### 3. Validação de APIs
+
 ```bash
 # Testar Cloudinary
 curl -X POST https://api.cloudinary.com/v1_1/dqupuwymt/image/upload \
@@ -304,21 +318,25 @@ curl http://localhost:3000/api/entities/books/{id} \
 ## 📊 Conformidade SGBU
 
 ### Artigo 10º - Limites de Empréstimo
+
 - ✅ `material_type` implementado (BOOK, DAILY_LOAN, REFERENCE, CD_DVD)
 - ✅ `loan_policy` implementado (STANDARD, DAILY, SHORT_TERM, NO_LOAN, EXTENDED)
 - ✅ Backend pronto para lógica de limites por tipo de usuário
 
 ### SGBU-007 - Loan Rules
+
 - ✅ Enums MaterialType e LoanPolicy no Prisma
 - ✅ Campos disponíveis nos formulários
 - ✅ Validação no backend (bookPatchSchema)
 
 ### SGBU-004 - File Upload
+
 - ✅ Cloudinary configurado
 - ✅ Upload funcional com validação
 - ✅ Preview de imagens
 
 ### SGBU-005 - OCR Cataloging
+
 - ✅ Google Gemini 2.0 Flash integrado
 - ✅ Prompt otimizado para ISBN
 - ✅ Auto-enrichment via Google Books
@@ -375,6 +393,7 @@ GOOGLE_GEMINI_API_KEY=AIzaSyCJWcmmV8XCuivRiDyOQFQMxwgHt1HB4Dg
 ## 🚀 Próximos Passos
 
 1. **Merge para main**
+
    ```bash
    git checkout main
    git merge feat/sgbu-complete-book-form
@@ -397,6 +416,7 @@ GOOGLE_GEMINI_API_KEY=AIzaSyCJWcmmV8XCuivRiDyOQFQMxwgHt1HB4Dg
 ## 👥 Equipa
 
 **Grupo 04 - Engenharia Informática ISPTEC**
+
 - Carlos Neves Mussagui Tchípia
 - Emanuel Carneiro dos Santos
 - José Simão Tala

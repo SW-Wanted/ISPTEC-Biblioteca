@@ -282,6 +282,8 @@ export const api = {
         coverUrl?: string;
         location?: string;
         totalCopies?: number;
+        materialType?: string;
+        loanPolicy?: string;
         reviewNotes?: string;
       },
     ): Promise<{ ok: boolean; bookId: string }> => {

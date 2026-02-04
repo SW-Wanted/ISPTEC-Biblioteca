@@ -33,6 +33,12 @@ const approveSchema = z.object({
   coverUrl: z.string().url().optional(),
   location: z.string().optional(),
   totalCopies: z.number().int().min(1).default(1),
+  materialType: z
+    .enum(["BOOK", "DAILY_LOAN", "REFERENCE", "CD_DVD", "MAGAZINE", "THESIS"])
+    .default("BOOK"),
+  loanPolicy: z
+    .enum(["STANDARD", "DAILY", "SHORT_TERM", "NO_LOAN", "EXTENDED"])
+    .default("STANDARD"),
   reviewNotes: z.string().optional(),
 });
 
@@ -126,8 +132,8 @@ export async function POST(
             categoryId: data.categoryId,
             description: data.description,
             coverUrl: data.coverUrl || entry.imageUrl,
-            materialType: MaterialType.BOOK,
-            loanPolicy: LoanPolicy.STANDARD,
+            materialType: data.materialType as MaterialType,
+            loanPolicy: data.loanPolicy as LoanPolicy,
             totalCopies: data.totalCopies,
             availableCopies: data.totalCopies,
             publisherId,
