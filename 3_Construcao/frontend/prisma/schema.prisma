@@ -203,6 +203,13 @@ model User {
   passwordResetTokens PasswordResetToken[]
   trainingSessions  TrainingSession[] @relation("TrainingInstructor")
   trainingParticipations TrainingParticipant[]
+  createdCategories Category[] @relation("CategoryCreator")
+  fineConfigurationsUpdated FineConfiguration[] @relation("FineConfigUpdatedBy")
+  loanPoliciesUpdated LoanPolicyConfig[] @relation("LoanPolicyUpdatedBy")
+  systemPoliciesUpdated SystemPolicy[] @relation("SystemPolicyUpdatedBy")
+  configurationAudits ConfigurationAudit[]
+  faqsCreated       FAQ[] @relation("FAQCreatedBy")
+  faqsUpdated       FAQ[] @relation("FAQUpdatedBy")
 
   @@index([email])
   @@index([registrationNumber])
@@ -252,6 +259,7 @@ model Category {
   name            String   @unique
   description     String?
   parentId        String?
+  createdById     String?
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -259,6 +267,7 @@ model Category {
   parent          Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children        Category[] @relation("CategoryHierarchy")
   books           Book[]
+  createdBy       User?      @relation("CategoryCreator", fields: [createdById], references: [id])
   
   @@index([parentId])
 }
@@ -888,6 +897,107 @@ model SystemConfiguration {
   updatedBy       String?
   
   @@index([key])
+}
+
+// ============================================
+// MÓDULO DE CONFIGURAÇÕES E POLÍTICAS
+// ============================================
+
+model FineConfiguration {
+  id          String   @id @default(cuid())
+  type        FineType @unique
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?
+  isActive    Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  updatedBy   User?    @relation("FineConfigUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([type])
+}
+
+model LoanPolicyConfig {
+  id          String   @id @default(cuid())
+  userType    UserType @unique
+  loanDays    Int
+  maxBooks    Int
+  maxRenewals Int      @default(2)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  updatedBy   User?    @relation("LoanPolicyUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([userType])
+}
+
+model SystemPolicy {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  updatedBy   User?    @relation("SystemPolicyUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([key])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  module      String
+
+  rolePermissions RolePermission[]
+
+  @@index([code])
+}
+
+model RolePermission {
+  role         UserType
+  permissionId String
+
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([role, permissionId])
+  @@index([permissionId])
+}
+
+model ConfigurationAudit {
+  id         String   @id @default(cuid())
+  configKey  String
+  oldValue   String?
+  newValue   String
+  changedBy  String
+  changedAt  DateTime @default(now())
+  ipAddress  String?
+  reason     String?
+
+  user       User     @relation(fields: [changedBy], references: [id])
+
+  @@index([configKey])
+  @@index([changedAt])
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String   @db.Text
+  answer      String   @db.Text
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  updatedById String?
+
+  createdBy   User?    @relation("FAQCreatedBy", fields: [createdById], references: [id])
+  updatedBy   User?    @relation("FAQUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([order])
+  @@index([isActive])
 }
 
 // ============================================

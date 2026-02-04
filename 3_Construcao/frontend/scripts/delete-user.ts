@@ -11,14 +11,13 @@ async function deleteUser() {
     const user = await prisma.user.findUnique({
       where: { email: USER_EMAIL },
       include: {
-        accounts: true,
-        sessions: true,
         loans: true,
         reservations: true,
         trainingParticipations: true,
-        documents: true,
+        userDocuments: true,
         activityLogs: true,
         notifications: true,
+        fines: true,
       },
     });
 
@@ -33,8 +32,6 @@ async function deleteUser() {
     console.log(`   Email: ${user.email}`);
     console.log(`   Tipo: ${user.type}`);
     console.log(`   Status: ${user.activationStatus}`);
-    console.log(`   Contas OAuth: ${user.accounts.length}`);
-    console.log(`   Sessões: ${user.sessions.length}`);
     console.log(`   Empréstimos: ${user.loans.length}`);
     console.log(`   Reservas: ${user.reservations.length}`);
     console.log(
