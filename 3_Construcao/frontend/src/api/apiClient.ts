@@ -357,11 +357,11 @@ export const api = {
 
         // Tentar usar API real se configurada
         try {
-          const response = await fetch('/api/ai/invoke', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const response = await fetch("/api/ai/invoke", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ prompt, file_urls, response_json_schema }),
-            credentials: 'include',
+            credentials: "include",
           });
 
           if (response.ok) {
@@ -369,7 +369,7 @@ export const api = {
             return data.result as TResponse;
           }
         } catch (error) {
-          console.warn('⚠️ API de IA não disponível, usando fallback:', error);
+          console.warn("⚠️ API de IA não disponível, usando fallback:", error);
         }
 
         // Fallback: retornar estrutura vazia mas válida

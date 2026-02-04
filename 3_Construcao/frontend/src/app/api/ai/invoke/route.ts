@@ -11,23 +11,26 @@ const invokeSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, file_urls, response_json_schema } = invokeSchema.parse(body);
+    const { prompt, file_urls, response_json_schema } =
+      invokeSchema.parse(body);
 
     const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: "API Gemini não configurada" },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
+    const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-exp",
-      generationConfig: response_json_schema ? {
-        responseMimeType: "application/json",
-        responseSchema: response_json_schema,
-      } : undefined,
+      generationConfig: response_json_schema
+        ? {
+            responseMimeType: "application/json",
+            responseSchema: response_json_schema,
+          }
+        : undefined,
     });
 
     let result;
@@ -38,16 +41,16 @@ export async function POST(request: NextRequest) {
         file_urls.map(async (url) => {
           const response = await fetch(url);
           const buffer = await response.arrayBuffer();
-          const base64 = Buffer.from(buffer).toString('base64');
-          const mimeType = response.headers.get('content-type') || 'image/jpeg';
-          
+          const base64 = Buffer.from(buffer).toString("base64");
+          const mimeType = response.headers.get("content-type") || "image/jpeg";
+
           return {
             inlineData: {
               data: base64,
               mimeType,
             },
           };
-        })
+        }),
       );
 
       result = await model.generateContent([prompt, ...imageParts]);
@@ -72,17 +75,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ result: parsedResult }, { status: 200 });
   } catch (error) {
     console.error("Erro ao invocar IA:", error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Dados inválidos", details: error.errors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erro ao processar requisição" },
-      { status: 500 }
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao processar requisição",
+      },
+      { status: 500 },
     );
   }
 }
