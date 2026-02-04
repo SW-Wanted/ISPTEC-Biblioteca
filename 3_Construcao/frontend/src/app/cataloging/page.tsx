@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -61,6 +62,9 @@ export default function Cataloging() {
     location: string;
     total_copies: string;
     available_copies: string;
+    cover_url: string;
+    material_type: string;
+    loan_policy: string;
   };
 
   const [formData, setFormData] = useState<CatalogFormState>({
@@ -78,6 +82,9 @@ export default function Cataloging() {
     location: "",
     total_copies: "1",
     available_copies: "1",
+    cover_url: "",
+    material_type: "BOOK",
+    loan_policy: "STANDARD",
   });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -133,21 +140,31 @@ export default function Cataloging() {
       setUploadedImageUrl(file_url); // Save the Cloudinary URL
       const extracted =
         await api.integrations.Core.InvokeLLM<ExtractedBookData>({
-          prompt: `Você é um especialista em catalogação de livros. Analise cuidadosamente esta imagem de um livro (pode ser a capa, folha de rosto, ou contracapa) e extraia as seguintes informações bibliográficas:
+          prompt: `Você é um especialista em catalogação de livros. Analise CUIDADOSAMENTE esta imagem de livro e extraia informações bibliográficas.
 
-1. TÍTULO: O título principal do livro (obrigatório)
-2. SUBTÍTULO: Se houver subtítulo
-3. ISBN: Número ISBN (10 ou 13 dígitos, geralmente na contracapa ou página de créditos)
-4. AUTORES: Lista de autores separados por vírgula
-5. EDITORA: Nome da editora/publisher
-6. ANO DE PUBLICAÇÃO: Ano em formato AAAA
-7. EDIÇÃO: Número da edição (ex: "2ª edição", "3rd edition")
-8. CATEGORIA SUGERIDA: Baseado no conteúdo, sugira uma categoria (Ciências, Engenharia, Medicina, Direito, Economia, Informática, Literatura, História, etc.)
-9. IDIOMA: pt (português), en (inglês), es (espanhol), fr (francês)
-10. DESCRIÇÃO: Se visível, uma breve sinopse ou descrição do livro
+🔍 PRIORIDADE MÁXIMA - ISBN:
+Procure intensivamente pelo código ISBN (10 ou 13 dígitos):
+- Na CONTRACAPA (parte de trás)
+- Na FOLHA DE ROSTO (primeiras páginas)
+- Junto ao código de barras
+- Perto das informações da editora
+- Formato: ISBN 978-X-XXXX-XXXX-X ou ISBN-13: 978XXXXXXXXXX
 
-Seja preciso e extraia apenas informações claramente visíveis. Se algum dado não estiver visível ou legível, deixe o campo vazio.
-Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da imagem e clareza das informações.`,
+EXTRAIA:
+1. ⭐ ISBN: BUSQUE INTENSIVAMENTE - código de 10 ou 13 dígitos (ESSENCIAL para busca automática)
+2. Título: Título principal do livro
+3. Subtítulo: Se houver
+4. Autores: Lista separada por vírgula
+5. Editora: Nome da publisher
+6. Ano: Ano de publicação (AAAA)
+7. Edição: Número (ex: "2ª", "3rd")
+8. Categoria Sugerida: Baseado no conteúdo (Engenharia, Ciências, Medicina, Direito, Economia, Informática, Literatura, História)
+9. Idioma: pt, en, es, fr
+10. Descrição: Sinopse se visível
+
+⚠️ IMPORTANTE: Mesmo que outros dados estejam parciais, SEMPRE tente extrair o ISBN! Ele permite buscar automaticamente todas as outras informações.
+
+Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
           file_urls: [file_url],
           response_json_schema: {
             type: "object",
@@ -332,9 +349,11 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
         pages: formData.pages ? parseInt(formData.pages, 10) : undefined,
         categoryId,
         description: formData.description,
-        coverUrl: uploadedImageUrl || undefined,
+        coverUrl: uploadedImageUrl || formData.cover_url || undefined,
         location: formData.location || "Acervo Geral",
         totalCopies: parseInt(formData.total_copies, 10) || 1,
+        materialType: formData.material_type as any,
+        loanPolicy: formData.loan_policy as any,
         reviewNotes: "Auto-aprovado via catalogação inteligente",
       });
     },
@@ -347,6 +366,20 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
       toast.error(`Erro ao cadastrar livro: ${error.message}`);
     },
   });
+
+  const isFormValid = () => {
+    return (
+      formData.title.trim() !== "" &&
+      formData.isbn?.trim() !== "" &&
+      formData.authors.trim() !== "" &&
+      formData.publication_year !== "" &&
+      formData.category !== "" &&
+      formData.publisher?.trim() !== "" &&
+      parseInt(formData.total_copies) >= 1 &&
+      parseInt(formData.available_copies) >= 0 &&
+      parseInt(formData.available_copies) <= parseInt(formData.total_copies)
+    );
+  };
 
   const resetCataloging = () => {
     setStep(1);
@@ -368,6 +401,9 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
       location: "",
       total_copies: "1",
       available_copies: "1",
+      cover_url: "",
+      material_type: "BOOK",
+      loan_policy: "STANDARD",
     });
   };
 
@@ -534,95 +570,380 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label>Título *</Label>
-                      <Input
-                        value={formData.title || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, title: e.target.value })
-                        }
-                      />
+                <div className="grid gap-6">
+                  {/* Seção 1: Informações Básicas */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                      Informações Básicas
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <Label>
+                          Título <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          value={formData.title || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, title: e.target.value })
+                          }
+                          className={
+                            !formData.title.trim() ? "border-red-300" : ""
+                          }
+                          placeholder="Título do livro"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Subtítulo</Label>
+                        <Input
+                          value={formData.subtitle || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              subtitle: e.target.value,
+                            })
+                          }
+                          placeholder="Subtítulo (opcional)"
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          ISBN <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          value={formData.isbn || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, isbn: e.target.value })
+                          }
+                          className={
+                            !formData.isbn?.trim() ? "border-red-300" : ""
+                          }
+                          placeholder="978-..."
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          Autores <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          value={formData.authors || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              authors: e.target.value,
+                            })
+                          }
+                          className={
+                            !formData.authors.trim() ? "border-red-300" : ""
+                          }
+                          placeholder="Separar por vírgula"
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          Editora <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          value={formData.publisher || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              publisher: e.target.value,
+                            })
+                          }
+                          className={
+                            !formData.publisher?.trim() ? "border-red-300" : ""
+                          }
+                          placeholder="Nome da editora"
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          Ano <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1000"
+                          max={new Date().getFullYear() + 1}
+                          value={formData.publication_year || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              publication_year: e.target.value,
+                            })
+                          }
+                          className={
+                            !formData.publication_year ? "border-red-300" : ""
+                          }
+                          placeholder="AAAA"
+                        />
+                      </div>
+                      <div>
+                        <Label>Edição</Label>
+                        <Input
+                          value={formData.edition || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              edition: e.target.value,
+                            })
+                          }
+                          placeholder="1ª, 2ª..."
+                        />
+                      </div>
+                      <div>
+                        <Label>Idioma</Label>
+                        <Select
+                          value={formData.language}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, language: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pt">Português</SelectItem>
+                            <SelectItem value="en">Inglês</SelectItem>
+                            <SelectItem value="es">Espanhol</SelectItem>
+                            <SelectItem value="fr">Francês</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Páginas</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.pages || ""}
+                          onChange={(e) =>
+                            setFormData({ ...formData, pages: e.target.value })
+                          }
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label>ISBN</Label>
-                      <Input
-                        value={formData.isbn || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, isbn: e.target.value })
-                        }
-                      />
+                  </div>
+
+                  {/* Seção 2: Categoria e Tipo */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                      Categoria e Tipo
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>
+                          Categoria <span className="text-red-600">*</span>
+                        </Label>
+                        <Select
+                          value={formData.category || ""}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, category: v })
+                          }
+                        >
+                          <SelectTrigger
+                            className={
+                              !formData.category ? "border-red-300" : ""
+                            }
+                          >
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories
+                              .filter((cat) => Boolean(cat.name))
+                              .map((cat) => (
+                                <SelectItem key={cat.id} value={cat.name!}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Tipo de Material</Label>
+                        <Select
+                          value={formData.material_type}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, material_type: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BOOK">Livro Normal</SelectItem>
+                            <SelectItem value="DAILY_LOAN">
+                              Cedência Diária
+                            </SelectItem>
+                            <SelectItem value="REFERENCE">
+                              Referência
+                            </SelectItem>
+                            <SelectItem value="CD_DVD">CD/DVD</SelectItem>
+                            <SelectItem value="MAGAZINE">Revista</SelectItem>
+                            <SelectItem value="THESIS">Tese</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Política de Empréstimo</Label>
+                        <Select
+                          value={formData.loan_policy}
+                          onValueChange={(v) =>
+                            setFormData({ ...formData, loan_policy: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="STANDARD">
+                              Padrão (5/15 dias)
+                            </SelectItem>
+                            <SelectItem value="DAILY">
+                              Diária (1 dia)
+                            </SelectItem>
+                            <SelectItem value="SHORT_TERM">
+                              Curto prazo (2 dias)
+                            </SelectItem>
+                            <SelectItem value="NO_LOAN">
+                              Não empresta
+                            </SelectItem>
+                            <SelectItem value="EXTENDED">
+                              Estendido (30 dias)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Autores</Label>
-                      <Input
-                        value={formData.authors || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, authors: e.target.value })
-                        }
-                        placeholder="Separar por vírgula"
-                      />
+                  </div>
+
+                  {/* Seção 3: Acervo */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                      Acervo
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>
+                          Total de Exemplares{" "}
+                          <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={formData.total_copies || "1"}
+                          onChange={(e) => {
+                            const newTotal = parseInt(e.target.value) || 1;
+                            setFormData({
+                              ...formData,
+                              total_copies: e.target.value,
+                              available_copies: Math.min(
+                                parseInt(formData.available_copies) || 1,
+                                newTotal,
+                              ).toString(),
+                            });
+                          }}
+                          className={
+                            parseInt(formData.total_copies) < 1
+                              ? "border-red-300"
+                              : ""
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>
+                          Cópias Disponíveis{" "}
+                          <span className="text-red-600">*</span>
+                        </Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={formData.total_copies}
+                          value={formData.available_copies || "1"}
+                          onChange={(e) => {
+                            const newAvail = parseInt(e.target.value) || 0;
+                            setFormData({
+                              ...formData,
+                              available_copies: Math.min(
+                                newAvail,
+                                parseInt(formData.total_copies) || 1,
+                              ).toString(),
+                            });
+                          }}
+                          className={
+                            parseInt(formData.available_copies) >
+                            parseInt(formData.total_copies)
+                              ? "border-red-300"
+                              : ""
+                          }
+                        />
+                        {parseInt(formData.available_copies) >
+                          parseInt(formData.total_copies) && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Não pode exceder {formData.total_copies}
+                          </p>
+                        )}
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label>Localização</Label>
+                        <Input
+                          value={formData.location || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              location: e.target.value,
+                            })
+                          }
+                          placeholder="Ex: A1-P2-E3"
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Seção 4: Imagem da Capa */}
+                  {uploadedImage && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                        Imagem da Capa
+                      </h3>
+                      <div className="flex items-center gap-4">
+                        <Image
+                          src={uploadedImage}
+                          alt="Capa"
+                          width={120}
+                          height={180}
+                          className="rounded border object-cover"
+                          unoptimized
+                          loader={({ src }) => src}
+                        />
+                        <p className="text-sm text-slate-500">
+                          Imagem capturada será usada como capa
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Seção 5: Descrição */}
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-slate-700 border-b pb-2">
+                      Descrição
+                    </h3>
                     <div>
-                      <Label>Editora</Label>
-                      <Input
-                        value={formData.publisher || ""}
+                      <Label>Resumo/Sinopse</Label>
+                      <Textarea
+                        value={formData.description || ""}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            publisher: e.target.value,
+                            description: e.target.value,
                           })
                         }
-                      />
-                    </div>
-                    <div>
-                      <Label>Ano</Label>
-                      <Input
-                        type="number"
-                        value={formData.publication_year || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            publication_year: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                    <div>
-                      <Label>Categoria</Label>
-                      <Select
-                        value={formData.category || ""}
-                        onValueChange={(v) =>
-                          setFormData({ ...formData, category: v })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories
-                            .filter((cat) => Boolean(cat.name))
-                            .map((cat) => (
-                              <SelectItem key={cat.id} value={cat.name!}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>Localização</Label>
-                      <Input
-                        value={formData.location || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, location: e.target.value })
-                        }
-                        placeholder="Ex: Estante A"
+                        placeholder="Breve resumo..."
+                        rows={4}
                       />
                     </div>
                   </div>
-                  <div className="flex gap-3 pt-4">
+
+                  {/* Botões de Ação */}
+                  <div className="flex gap-3 pt-4 border-t">
                     <Button variant="outline" onClick={resetCataloging}>
                       <X className="w-4 h-4 mr-2" />
                       Cancelar
@@ -645,17 +966,17 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
                       ) : (
                         <Wand2 className="w-4 h-4 mr-2" />
                       )}
-                      Enriquecer
+                      Enriquecer Dados
                     </Button>
                     <Button
                       className="flex-1"
                       onClick={() => createBookMutation.mutate()}
-                      disabled={createBookMutation.isPending || !formData.title}
+                      disabled={createBookMutation.isPending || !isFormValid()}
                     >
                       {createBookMutation.isPending && (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       )}
-                      Cadastrar Livro
+                      Catalogar Livro
                     </Button>
                   </div>
                 </div>
