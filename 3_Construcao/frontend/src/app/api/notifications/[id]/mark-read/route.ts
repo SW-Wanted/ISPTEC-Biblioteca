@@ -24,7 +24,9 @@ export async function POST(
     select: { id: true, status: true, isBlocked: true },
   });
 
-  if (!user || user.status !== UserStatus.ACTIVE || user.isBlocked) {
+  // ✅ Permitir PENDING (usuários em onboarding também recebem notificações)
+  // ❌ Bloquear apenas INACTIVE e bloqueados
+  if (!user || user.status === UserStatus.INACTIVE || user.isBlocked) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
 

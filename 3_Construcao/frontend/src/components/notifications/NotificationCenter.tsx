@@ -15,10 +15,17 @@ import {
   RefreshCw,
   Settings,
   ChevronRight,
+  FileText,
+  KeyRound,
 } from "lucide-react";
 
 import type { Notification as ApiNotification } from "@/api/apiClient";
 import { cn } from "@/lib/utils";
+import {
+  getNotificationActionUrl,
+  getNotificationActionType,
+  hasNotificationAction,
+} from "@/lib/notification-helpers";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -52,34 +59,53 @@ async function httpJson<T>(input: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-function getNotificationIcon(actionType: string | undefined) {
+function getNotificationIcon(metadata: any) {
+  const actionType = getNotificationActionType(metadata);
+
   switch (actionType) {
-    case "renew":
-      return <RefreshCw className="w-4 h-4 text-indigo-600" />;
-    case "pay_fine":
-      return <CreditCard className="w-4 h-4 text-red-600" />;
-    case "collect_reservation":
+    case "document_review":
+    case "document_approved":
+    case "document_rejected":
+      return <FileText className="w-4 h-4 text-purple-600" />;
+    case "training_available":
+    case "training_scheduled":
+    case "training_reminder":
+      return <KeyRound className="w-4 h-4 text-blue-600" />;
+    case "account_activated":
+      return <CheckCheck className="w-4 h-4 text-emerald-600" />;
+    case "loan_due_soon":
+    case "loan_overdue":
+    case "loan_renewed":
+      return <Clock className="w-4 h-4 text-orange-600" />;
+    case "reservation_available":
+    case "reservation_expired":
       return <BookOpen className="w-4 h-4 text-emerald-600" />;
-    case "view_loan":
+    case "fine_issued":
+    case "fine_paid":
+      return <CreditCard className="w-4 h-4 text-red-600" />;
+    case "locker_overtime":
+    case "computer_session_ending":
       return <Clock className="w-4 h-4 text-orange-600" />;
     default:
       return <Bell className="w-4 h-4 text-slate-600" />;
   }
 }
 
-function getActionUrl(actionType: string | undefined): string {
-  switch (actionType) {
-    case "renew":
-    case "view_loan":
-      return "/my-loans";
-    case "collect_reservation":
-      return "/my-reservations";
-    case "pay_fine":
-      return "/profile?tab=fines";
-    default:
-      return "/notifications";
+const handleNotificationClick = async (notification: ApiNotification) => {
+  try {
+    // Marcar como lida
+    await markAsReadMutation.mutateAsync(notification.id!);
+
+    // Navegar para URL da metadata ou fallback para /notifications
+    const actionUrl = getNotificationActionUrl(notification.metadata);
+    const targetUrl = actionUrl || "/notifications";
+
+    setIsOpen(false);
+    router.push(targetUrl);
+  } catch (error) {
+    console.error("Erro ao processar notificação:", error);
   }
-}
+};
 
 export default function NotificationCenter({ user }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -192,15 +218,23 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
   }, [email, recentNotifications]);
 
   const handleNotificationClick = async (notification: ApiNotification) => {
-    if (!notification?.id) return;
+    try {
+      // Marcar como lida se ainda não foi
+      const isRead =
+        notification.status === "READ" || notification.status === "read";
+      if (!isRead && notification.id) {
+        await markAsReadMutation.mutateAsync(notification.id);
+      }
 
-    const isRead = notification.status === "read";
-    if (!isRead) {
-      await markAsReadMutation.mutateAsync(notification.id);
+      // Navegar para URL da metadata ou fallback para /notifications
+      const actionUrl = getNotificationActionUrl(notification.metadata);
+      const targetUrl = actionUrl || "/notifications";
+
+      setIsOpen(false);
+      router.push(targetUrl);
+    } catch (error) {
+      console.error("Erro ao processar notificação:", error);
     }
-
-    setIsOpen(false);
-    router.push(getActionUrl(notification.action_type));
   };
 
   return (
@@ -277,25 +311,29 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
                     "w-full text-left block p-4 hover:bg-slate-50 transition-colors",
-                    notification.status !== "read" && "bg-indigo-50/50",
+                    notification.status !== "READ" &&
+                      notification.status !== "read" &&
+                      "bg-indigo-50/50",
                   )}
                 >
                   <div className="flex gap-3">
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                        notification.status !== "read"
+                        notification.status !== "READ" &&
+                          notification.status !== "read"
                           ? "bg-indigo-100"
                           : "bg-slate-100",
                       )}
                     >
-                      {getNotificationIcon(notification.action_type)}
+                      {getNotificationIcon(notification.metadata)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p
                         className={cn(
                           "text-sm",
-                          notification.status !== "read"
+                          notification.status !== "READ" &&
+                            notification.status !== "read"
                             ? "font-medium text-slate-800"
                             : "text-slate-600",
                         )}
@@ -314,9 +352,10 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                         </p>
                       )}
                     </div>
-                    {notification.status !== "read" && (
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full shrink-0 mt-2" />
-                    )}
+                    {notification.status !== "READ" &&
+                      notification.status !== "read" && (
+                        <div className="w-2 h-2 bg-indigo-500 rounded-full shrink-0 mt-2" />
+                      )}
                   </div>
                 </button>
               ))}
