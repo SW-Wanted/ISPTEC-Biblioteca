@@ -184,6 +184,9 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
             },
           },
         });
+      console.log('📸 Imagem carregada:', file_url);
+      console.log('📖 Dados extraídos:', extracted);
+      
       setExtractedData(extracted);
       setFormData((prev) => ({
         ...prev,
@@ -198,19 +201,28 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
         language: extracted.language || "pt",
         description: extracted.description || "",
       }));
+      
+      console.log('🔄 Mudando para step 2');
       setStep(2);
-      toast.success("Dados extraídos com sucesso!");
+      toast.success("Dados extraídos! Enriquecendo via Google Books...");
 
-      // Auto-enriquecer se houver ISBN ou título+autor
-      if (extracted.isbn || (extracted.title && extracted.authors)) {
-        setTimeout(() => {
-          enrichMutation.mutate({
-            isbn: extracted.isbn,
-            title: extracted.title,
-            author: extracted.authors,
-          });
-        }, 500);
-      }
+      // Auto-enriquecer sempre (usa ISBN ou título+autor como fallback)
+      setTimeout(() => {
+        const enrichParams: { isbn?: string; title?: string; author?: string } = {};
+        
+        if (extracted.isbn) enrichParams.isbn = extracted.isbn;
+        if (extracted.title) enrichParams.title = extracted.title;
+        if (extracted.authors) enrichParams.author = extracted.authors;
+        
+        console.log('📚 Enriquecendo com params:', enrichParams);
+        
+        if (enrichParams.isbn || enrichParams.title) {
+          enrichMutation.mutate(enrichParams);
+        } else {
+          toast.info('Nenhum ISBN ou título para enriquecer');
+        }
+      }, 800);
+    
     } catch {
       toast.error("Erro ao processar imagem. Tente novamente.");
     } finally {
@@ -239,13 +251,17 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
       return result.enrichedData;
     },
     onSuccess: (enrichedData) => {
+      console.log('✅ Dados enriquecidos recebidos:', enrichedData);
+      
       if (enrichedData) {
         // Aplicar dados enriquecidos ao formulário (sem sobrescrever campos já preenchidos)
         setFormData((prev) => ({
           ...prev,
           title: enrichedData.title || prev.title,
           subtitle: enrichedData.subtitle || prev.subtitle,
-          authors: enrichedData.authors || prev.authors,
+          authors: (enrichedData.authors && Array.isArray(enrichedData.authors) 
+            ? enrichedData.authors.join(', ') 
+            : enrichedData.authors) || prev.authors,
           publisher: enrichedData.publisher || prev.publisher,
           publication_year: enrichedData.publicationYear
             ? String(enrichedData.publicationYear)
@@ -256,20 +272,22 @@ Forneça também um nível de confiança (0.0 a 1.0) baseado na qualidade da ima
           isbn: enrichedData.isbn || prev.isbn,
         }));
 
-        // Atualizar capa se não houver
-        if (enrichedData.coverUrl && !uploadedImageUrl) {
-          setUploadedImageUrl(enrichedData.coverUrl);
-          setUploadedImage(enrichedData.coverUrl);
+        // Atualizar capa se não houver e se a API retornou thumbnail
+        if (enrichedData.thumbnail && !uploadedImageUrl) {
+          console.log('🖼️ Usando thumbnail do Google Books:', enrichedData.thumbnail);
+          setUploadedImageUrl(enrichedData.thumbnail);
+          setUploadedImage(enrichedData.thumbnail);
         }
 
-        toast.success("✨ Dados enriquecidos via Google Books!");
+        toast.success(`✨ Dados enriquecidos via ${enrichedData.source || 'API externa'}!`);
       } else {
-        toast.info("Sem dados adicionais encontrados");
+        toast.info("Sem dados adicionais encontrados nas APIs externas");
       }
     },
     onError: (error: Error) => {
-      console.error("Erro ao enriquecer:", error);
-      toast.error(`Erro ao enriquecer dados: ${error.message}`);
+      console.error("❌ Erro ao enriquecer:", error);
+      // Não mostrar erro como crítico - enriquecimento é opcional
+      toast.warning(`Enriquecimento indisponível: ${error.message}. Continue manualmente.`);
     },
   });
 

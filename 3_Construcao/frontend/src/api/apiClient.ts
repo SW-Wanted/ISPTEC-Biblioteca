@@ -346,12 +346,33 @@ export const api = {
       },
       InvokeLLM: async <TResponse = unknown>({
         prompt,
+        file_urls,
+        response_json_schema,
       }: {
         prompt: string;
+        file_urls?: string[];
         response_json_schema?: unknown;
       } & Record<string, unknown>): Promise<TResponse> => {
-        // No external provider: return a simple, deterministic response.
-        // If the caller expects JSON (cataloging/recommendations), try to comply.
+        ensureBrowser();
+
+        // Tentar usar API real se configurada
+        try {
+          const response = await fetch('/api/ai/invoke', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, file_urls, response_json_schema }),
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            return data.result as TResponse;
+          }
+        } catch (error) {
+          console.warn('⚠️ API de IA não disponível, usando fallback:', error);
+        }
+
+        // Fallback: retornar estrutura vazia mas válida
         const wantsJson =
           /\{[\s\S]*\}/.test(String(prompt)) || /json/i.test(String(prompt));
         if (wantsJson) {
