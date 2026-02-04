@@ -27,6 +27,7 @@ interface UserDocument {
 
 interface DocumentsManagerProps {
   documents: UserDocument[];
+  userType?: string | null;
   onDocumentsChange?: () => void;
 }
 
@@ -35,16 +36,42 @@ const DOCUMENT_TYPES = {
   STUDENT_CARD: "Cartão de Estudante",
   ENROLLMENT: "Ficha de Matrícula",
   STAFF_CARD: "Cartão de Colaborador",
+  TEACHER_CARD: "Cartão de Professor",
 } as const;
 
 type DocumentTypeKey = keyof typeof DOCUMENT_TYPES;
 
+// Documentos requeridos por tipo de usuário
+const getRequiredDocuments = (
+  userType: string | null | undefined,
+): DocumentTypeKey[] => {
+  const type = userType?.toLowerCase();
+
+  switch (type) {
+    case "student":
+      return ["STUDENT_CARD", "ENROLLMENT"];
+    case "teacher":
+      return ["TEACHER_CARD"];
+    case "staff":
+    case "librarian":
+    case "cataloger":
+    case "supervisor":
+      return ["STAFF_CARD"];
+    default:
+      return ["ID_CARD"];
+  }
+};
+
 export function DocumentsManager({
   documents,
+  userType,
   onDocumentsChange,
 }: DocumentsManagerProps) {
   const [uploading, setUploading] = useState<DocumentTypeKey | null>(null);
   const { toast } = useToast();
+
+  // Obter documentos requeridos baseado no tipo de usuário
+  const requiredDocuments = getRequiredDocuments(userType);
 
   const handleFileUpload = async (
     documentType: DocumentTypeKey,
@@ -276,9 +303,7 @@ export function DocumentsManager({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {(Object.keys(DOCUMENT_TYPES) as DocumentTypeKey[]).map((type) =>
-          renderDocumentCard(type),
-        )}
+        {requiredDocuments.map((type) => renderDocumentCard(type))}
       </div>
     </div>
   );

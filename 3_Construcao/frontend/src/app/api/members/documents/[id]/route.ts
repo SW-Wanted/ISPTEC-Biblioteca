@@ -125,7 +125,63 @@ export async function PATCH(
         verifiedAt: isVerified ? new Date() : null,
         verifiedBy: isVerified ? staff.id : null,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            activationStatus: true,
+          },
+        },
+      },
     });
+
+    // Se documento aprovado, verificar se pode mudar status para PENDING_TRAINING
+    if (isVerified) {
+      // Apenas processar se o usuário ainda está em PENDING_DOCUMENTS
+      if (
+        !updatedDocument.user.activationStatus ||
+        updatedDocument.user.activationStatus === "PENDING_DOCUMENTS"
+      ) {
+        // ✅ Basta 1 documento verificado para avançar para PENDING_TRAINING
+        const approvedDocs = await prisma.userDocument.findMany({
+          where: {
+            userId: document.user.id,
+            isVerified: true,
+          },
+        });
+
+        // Se pelo menos 1 documento aprovado
+        if (approvedDocs.length >= 1) {
+          try {
+            await prisma.user.update({
+              where: { id: document.user.id },
+              data: { activationStatus: "PENDING_TRAINING" },
+            });
+
+            // Notificar que pode solicitar formação
+            await prisma.notification.create({
+              data: {
+                userId: document.user.id,
+                type: "EMAIL",
+                status: "PENDING",
+                title: "Documentos aprovados! 🎉",
+                message:
+                  "Seus documentos foram validados. Agora você pode solicitar a formação obrigatória para ativar sua conta.",
+                actionType: "view_services",
+              },
+            });
+          } catch (error) {
+            console.error(
+              "⚠️ Erro ao atualizar status ou criar notificação (pode ser duplicação):",
+              error,
+            );
+            // Não falhar a requisição se for apenas erro de notificação
+          }
+        }
+      }
+    }
 
     // Se for verificação de CARTÃO DE ESTUDANTE, tentar extrair dados do QR Code
     if (isVerified && document.documentType === "STUDENT_CARD") {

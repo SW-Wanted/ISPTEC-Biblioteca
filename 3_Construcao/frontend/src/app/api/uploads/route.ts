@@ -48,7 +48,9 @@ async function requireActiveUser() {
   });
 
   if (!user) return null;
-  if (user.status !== UserStatus.ACTIVE || user.isBlocked) return null;
+  // ✅ Permitir PENDING (para upload de documentos durante onboarding)
+  // ❌ Bloquear apenas INACTIVE e usuários bloqueados
+  if (user.status === UserStatus.INACTIVE || user.isBlocked) return null;
 
   return user;
 }
