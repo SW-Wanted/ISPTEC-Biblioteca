@@ -36,7 +36,11 @@ async function requireActiveUser() {
 const updateProfileSchema = z.object({
   email: z.string().email("Email inválido").optional(),
   phone: z.string().optional(),
-  preferred_notification: z.enum(["EMAIL", "SMS", "PUSH", "IN_APP"]).optional(),
+  preferred_notification: z
+    .string()
+    .transform((val) => val?.toUpperCase())
+    .pipe(z.enum(["EMAIL", "SMS", "PUSH", "IN_APP"]))
+    .optional(),
 });
 
 // ---------------------------------------------------------------------------
