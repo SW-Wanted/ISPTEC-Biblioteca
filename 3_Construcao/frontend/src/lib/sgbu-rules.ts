@@ -55,6 +55,7 @@ export function calculateDueDate(
   userType: UserType,
   loanPolicy: LoanPolicy,
   fromDate: Date = new Date(),
+  loanDaysOverride?: number,
 ): Date {
   let days: number;
 
@@ -64,7 +65,7 @@ export function calculateDueDate(
 
   if (loanPolicy === LoanPolicy.STANDARD) {
     // Usa os limites padrão por tipo de utilizador
-    days = LOAN_LIMITS[userType].loanDays;
+    days = loanDaysOverride ?? LOAN_LIMITS[userType].loanDays;
   } else {
     // Usa política específica do material
     const policyDays = LOAN_POLICY_DAYS[loanPolicy];

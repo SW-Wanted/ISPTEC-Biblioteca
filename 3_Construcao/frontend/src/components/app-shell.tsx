@@ -28,6 +28,7 @@ import {
   Sparkles,
   CheckCircle,
   FileCheck,
+  Settings,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
+  { name: "Políticas", href: "/admin/settings", icon: Settings },
 ];
 
 function isActive(pathname: string, href: string) {
@@ -103,9 +105,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Verificar se é admin baseado no UserType
   const isAdmin =
+    user?.type === "SUPERVISOR" ||
     user?.type === "LIBRARIAN" ||
-    user?.type === "CATALOGER" ||
-    user?.type === "SUPERVISOR";
+    user?.type === "STAFF";
 
   const router = useRouter();
 
@@ -394,7 +396,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     )}
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {isAdmin && (
+                  <>
+                    <DropdownMenuItem>
+                      <Link
+                        href="/admin/settings"
+                        className="flex items-center gap-2 w-full"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Políticas
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem>
                   <Link href="/help" className="flex items-center gap-2 w-full">
                     <HelpCircle className="w-4 h-4" />

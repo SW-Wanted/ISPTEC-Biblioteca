@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import prisma from "@/lib/prisma";
-import { requireActiveUser } from "@/lib/requireActiveUser";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
 import { UserType } from "@prisma/client";
 
 /**

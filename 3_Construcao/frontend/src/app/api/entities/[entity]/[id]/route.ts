@@ -19,7 +19,11 @@ import {
   UserStatus,
   UserType,
 } from "@prisma/client";
-import { FINE_PER_DAY_KZ, normalizeEnum } from "@/lib/sgbu-rules";
+import { normalizeEnum } from "@/lib/sgbu-rules";
+import {
+  getFineAmount,
+  getReservationCollectionHours,
+} from "@/lib/settings-config";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 const statusSchema = z.object({ status: z.string() });
@@ -173,6 +177,7 @@ async function notifyNextReservation(
   tx: Prisma.TransactionClient,
   bookId: string,
 ) {
+  const collectionHours = await getReservationCollectionHours();
   const nextReservation = await tx.reservation.findFirst({
     where: { bookId, status: ReservationStatus.ACTIVE },
     orderBy: { queuePosition: "asc" },
@@ -189,7 +194,7 @@ async function notifyNextReservation(
 
   if (!availableCopy) return;
 
-  const expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  const expiryDate = new Date(Date.now() + collectionHours * 60 * 60 * 1000);
 
   await tx.reservation.update({
     where: { id: nextReservation.id },
@@ -212,7 +217,7 @@ async function notifyNextReservation(
       type: NotificationType.IN_APP,
       status: NotificationStatus.PENDING,
       title: "Livro disponível!",
-      message: "O livro reservado ficou disponível. Tens 48h para levantar.",
+      message: `O livro reservado ficou disponível. Tens ${collectionHours}h para levantar.`,
       reservationId: nextReservation.id,
     },
   });
@@ -307,6 +312,7 @@ export async function PATCH(
 
     if (nextStatus === "RETURNED") {
       const now = new Date();
+      const finePerDay = await getFineAmount(FineType.LATE_RETURN);
 
       await prisma.$transaction(async (tx) => {
         const loan = await tx.loan.findUnique({
@@ -328,7 +334,7 @@ export async function PATCH(
               ),
             )
           : 0;
-        const fineAmount = daysOverdue * FINE_PER_DAY_KZ;
+        const fineAmount = daysOverdue * finePerDay;
 
         await tx.loan.update({
           where: { id: loan.id },

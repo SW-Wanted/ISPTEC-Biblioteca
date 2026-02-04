@@ -22,11 +22,14 @@ import {
 import {
   calculateDueDate,
   clampInt,
-  FINE_PER_DAY_KZ,
-  LOAN_LIMITS,
   normalizeEnum,
   toIso,
 } from "@/lib/sgbu-rules";
+import {
+  getFineAmount,
+  getLoanPolicyConfig,
+  getReservationCollectionHours,
+} from "@/lib/settings-config";
 
 const filterSchema = z.record(z.string(), z.unknown()).optional();
 
@@ -100,6 +103,7 @@ async function requireUser() {
 
 async function syncOverdueLoansAndFines(userId?: string) {
   const now = new Date();
+  const finePerDay = await getFineAmount(FineType.LATE_RETURN);
 
   const overdueLoans = await prisma.loan.findMany({
     where: {
@@ -128,7 +132,7 @@ async function syncOverdueLoansAndFines(userId?: string) {
           (now.getTime() - loan.dueDate.getTime()) / (1000 * 60 * 60 * 24),
         ),
       );
-      const fineAmount = daysOverdue * FINE_PER_DAY_KZ;
+      const fineAmount = daysOverdue * finePerDay;
 
       await tx.loan.update({
         where: { id: loan.id },
@@ -199,6 +203,7 @@ async function syncOverdueLoansAndFines(userId?: string) {
 
 async function expireReservationsIfNeeded(bookId?: string) {
   const now = new Date();
+  const collectionHours = await getReservationCollectionHours();
 
   const expired = await prisma.reservation.findMany({
     where: {
@@ -249,7 +254,9 @@ async function expireReservationsIfNeeded(bookId?: string) {
         });
 
         if (next) {
-          const expiryDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+          const expiryDate = new Date(
+            Date.now() + collectionHours * 60 * 60 * 1000,
+          );
           await tx.reservation.update({
             where: { id: next.id },
             data: {
@@ -271,8 +278,7 @@ async function expireReservationsIfNeeded(bookId?: string) {
               type: NotificationType.IN_APP,
               status: NotificationStatus.PENDING,
               title: "Livro disponível!",
-              message:
-                "O livro reservado ficou disponível. Tens 48h para levantar.",
+              message: `O livro reservado ficou disponível. Tens ${collectionHours}h para levantar.`,
               reservationId: next.id,
             },
           });
@@ -1278,8 +1284,8 @@ export async function POST(
             status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
           },
         });
-        const limits = LOAN_LIMITS[member.type];
-        if (activeLoans >= limits.maxBooks) {
+        const policyConfig = await getLoanPolicyConfig(member.type);
+        if (activeLoans >= policyConfig.maxBooks) {
           throw new Error("LOAN_LIMIT");
         }
 
@@ -1341,13 +1347,19 @@ export async function POST(
         }
 
         // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
-        const dueDate = calculateDueDate(member.type, book.loanPolicy);
+        const dueDate = calculateDueDate(
+          member.type,
+          book.loanPolicy,
+          new Date(),
+          policyConfig.loanDays,
+        );
 
         const loan = await tx.loan.create({
           data: {
             userId: member.id,
             copyId: copy.id,
             dueDate,
+            maxRenewals: policyConfig.maxRenewals,
             status: LoanStatus.ACTIVE,
           },
         });

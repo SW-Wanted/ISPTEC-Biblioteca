@@ -20,66 +20,84 @@ export function ActiveReservationsCard() {
   const { data, isLoading } = useQuery({
     queryKey: ["active-reservations"],
     queryFn: async () => {
-      // Buscar cacifos ativos
-      const lockersRes = await fetch(
-        "/api/entities/LockerRental?filter=" +
-          encodeURIComponent(JSON.stringify({ endTime: null })),
-      );
-      const lockersData = await lockersRes.json();
-
-      // Buscar sessões de computador ativas
-      const computersRes = await fetch(
-        "/api/entities/ComputerSession?filter=" +
-          encodeURIComponent(JSON.stringify({ endTime: null })),
-      );
-      const computersData = await computersRes.json();
-
       const reservations: ActiveReservation[] = [];
 
-      // Processar cacifos
-      if (lockersData.data) {
-        for (const rental of lockersData.data) {
-          const locker = await fetch(
-            `/api/entities/Locker/${rental.lockerId}`,
-          ).then((r) => r.json());
-          const now = new Date();
-          const expectedEnd = new Date(rental.expectedEnd);
-          const remainingMs = expectedEnd.getTime() - now.getTime();
-          const remainingMinutes = Math.max(0, Math.floor(remainingMs / 60000));
+      try {
+        // Buscar cacifos ativos
+        const lockersRes = await fetch(
+          "/api/entities/LockerRental?filter=" +
+            encodeURIComponent(JSON.stringify({ endTime: null })),
+        );
+        if (lockersRes.ok) {
+          const lockersData = await lockersRes.json();
 
-          reservations.push({
-            type: "locker",
-            id: rental.id,
-            number: locker.number,
-            location: locker.location,
-            startTime: rental.startTime,
-            expectedEnd: rental.expectedEnd,
-            remainingMinutes,
-          });
+          // Processar cacifos
+          if (lockersData.data) {
+            for (const rental of lockersData.data) {
+              const locker = await fetch(
+                `/api/entities/Locker/${rental.lockerId}`,
+              ).then((r) => r.json());
+              const now = new Date();
+              const expectedEnd = new Date(rental.expectedEnd);
+              const remainingMs = expectedEnd.getTime() - now.getTime();
+              const remainingMinutes = Math.max(
+                0,
+                Math.floor(remainingMs / 60000),
+              );
+
+              reservations.push({
+                type: "locker",
+                id: rental.id,
+                number: locker.data?.number || "N/A",
+                location: locker.data?.location || "Biblioteca",
+                startTime: rental.startTime,
+                expectedEnd: rental.expectedEnd,
+                remainingMinutes,
+              });
+            }
+          }
         }
+      } catch (error) {
+        console.warn("LockerRental API não disponível:", error);
       }
 
-      // Processar computadores
-      if (computersData.data) {
-        for (const session of computersData.data) {
-          const computer = await fetch(
-            `/api/entities/Computer/${session.computerId}`,
-          ).then((r) => r.json());
-          const now = new Date();
-          const expectedEnd = new Date(session.expectedEnd);
-          const remainingMs = expectedEnd.getTime() - now.getTime();
-          const remainingMinutes = Math.max(0, Math.floor(remainingMs / 60000));
+      try {
+        // Buscar sessões de computador ativas
+        const computersRes = await fetch(
+          "/api/entities/ComputerSession?filter=" +
+            encodeURIComponent(JSON.stringify({ endTime: null })),
+        );
+        if (computersRes.ok) {
+          const computersData = await computersRes.json();
 
-          reservations.push({
-            type: "computer",
-            id: session.id,
-            number: computer.number,
-            location: computer.location,
-            startTime: session.startTime,
-            expectedEnd: session.expectedEnd,
-            remainingMinutes,
-          });
+          // Processar computadores
+          if (computersData.data) {
+            for (const session of computersData.data) {
+              const computer = await fetch(
+                `/api/entities/Computer/${session.computerId}`,
+              ).then((r) => r.json());
+              const now = new Date();
+              const expectedEnd = new Date(session.expectedEnd);
+              const remainingMs = expectedEnd.getTime() - now.getTime();
+              const remainingMinutes = Math.max(
+                0,
+                Math.floor(remainingMs / 60000),
+              );
+
+              reservations.push({
+                type: "computer",
+                id: session.id,
+                number: computer.data?.identifier || "N/A",
+                location: computer.data?.location || "Sala de Informática",
+                startTime: session.startTime,
+                expectedEnd: session.expectedEnd,
+                remainingMinutes,
+              });
+            }
+          }
         }
+      } catch (error) {
+        console.warn("ComputerSession API não disponível:", error);
       }
 
       return reservations;
