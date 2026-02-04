@@ -1,0 +1,221 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { KeyRound, Monitor, Clock, MapPin, Calendar } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+interface ActiveReservation {
+  type: "locker" | "computer";
+  id: string;
+  number: string;
+  location: string;
+  startTime: string;
+  expectedEnd: string;
+  remainingMinutes: number;
+}
+
+export function ActiveReservationsCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["active-reservations"],
+    queryFn: async () => {
+      // Buscar cacifos ativos
+      const lockersRes = await fetch(
+        "/api/entities/LockerRental?filter=" +
+          encodeURIComponent(JSON.stringify({ endTime: null })),
+      );
+      const lockersData = await lockersRes.json();
+
+      // Buscar sessões de computador ativas
+      const computersRes = await fetch(
+        "/api/entities/ComputerSession?filter=" +
+          encodeURIComponent(JSON.stringify({ endTime: null })),
+      );
+      const computersData = await computersRes.json();
+
+      const reservations: ActiveReservation[] = [];
+
+      // Processar cacifos
+      if (lockersData.data) {
+        for (const rental of lockersData.data) {
+          const locker = await fetch(
+            `/api/entities/Locker/${rental.lockerId}`,
+          ).then((r) => r.json());
+          const now = new Date();
+          const expectedEnd = new Date(rental.expectedEnd);
+          const remainingMs = expectedEnd.getTime() - now.getTime();
+          const remainingMinutes = Math.max(0, Math.floor(remainingMs / 60000));
+
+          reservations.push({
+            type: "locker",
+            id: rental.id,
+            number: locker.number,
+            location: locker.location,
+            startTime: rental.startTime,
+            expectedEnd: rental.expectedEnd,
+            remainingMinutes,
+          });
+        }
+      }
+
+      // Processar computadores
+      if (computersData.data) {
+        for (const session of computersData.data) {
+          const computer = await fetch(
+            `/api/entities/Computer/${session.computerId}`,
+          ).then((r) => r.json());
+          const now = new Date();
+          const expectedEnd = new Date(session.expectedEnd);
+          const remainingMs = expectedEnd.getTime() - now.getTime();
+          const remainingMinutes = Math.max(0, Math.floor(remainingMs / 60000));
+
+          reservations.push({
+            type: "computer",
+            id: session.id,
+            number: computer.number,
+            location: computer.location,
+            startTime: session.startTime,
+            expectedEnd: session.expectedEnd,
+            remainingMinutes,
+          });
+        }
+      }
+
+      return reservations;
+    },
+    refetchInterval: 60000, // Atualizar a cada minuto
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Minhas Reservas Ativas</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const reservations = data || [];
+
+  if (reservations.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Minhas Reservas Ativas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Você não tem reservas ativas no momento
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {reservations[0].type === "locker" ? (
+            <KeyRound className="h-5 w-5" />
+          ) : (
+            <Monitor className="h-5 w-5" />
+          )}
+          Minhas Reservas Ativas
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {reservations.map((reservation) => {
+          const isOvertime = reservation.remainingMinutes <= 0;
+          const isClosing = reservation.remainingMinutes <= 30 && !isOvertime;
+
+          return (
+            <div
+              key={reservation.id}
+              className={`border rounded-lg p-4 ${
+                isOvertime
+                  ? "border-destructive bg-destructive/5"
+                  : isClosing
+                    ? "border-yellow-500 bg-yellow-50"
+                    : "border-border"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  {reservation.type === "locker" ? (
+                    <KeyRound className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Monitor className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {reservation.type === "locker" ? "Cacifo" : "Computador"}{" "}
+                      {reservation.number}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {reservation.location}
+                    </p>
+                  </div>
+                </div>
+                <Badge
+                  variant={
+                    isOvertime
+                      ? "destructive"
+                      : isClosing
+                        ? "secondary"
+                        : "default"
+                  }
+                >
+                  {isOvertime
+                    ? "Tempo esgotado!"
+                    : `${reservation.remainingMinutes}min restantes`}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span>
+                    Início:{" "}
+                    {new Date(reservation.startTime).toLocaleTimeString(
+                      "pt-AO",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                  <span>
+                    Término:{" "}
+                    {new Date(reservation.expectedEnd).toLocaleTimeString(
+                      "pt-AO",
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {isOvertime && (
+                <p className="text-xs text-destructive mt-2">
+                  ⚠️ Multa aplicada! Devolva o mais rápido possível.
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}

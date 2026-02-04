@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Sparkles,
   CheckCircle,
+  FileCheck,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -59,9 +60,11 @@ const USER_NAV_ITEMS: NavItem[] = [
 ];
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
-  { name: "Dashboard Admin", href: "/admin-dashboard", icon: BarChart3 },
-  { name: "Gestão de Livros", href: "/manage-books", icon: Library },
-  { name: "Gestão de Membros", href: "/manage-members", icon: Users },
+  { name: "Painel de Controlo", href: "/admin-dashboard", icon: BarChart3 },
+  { name: "Livros", href: "/manage-books", icon: Library },
+  { name: "Membros", href: "/manage-members", icon: Users },
+  { name: "Documentos", href: "/verify-documents", icon: FileCheck },
+  { name: "Formações", href: "/admin/training", icon: CheckCircle },
   { name: "Empréstimos", href: "/manage-loans", icon: BookMarked },
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
@@ -89,7 +92,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryFn: async () => {
       const response = await fetch("/api/auth/me");
       if (!response.ok) return null;
-      return response.json();
+      const data = await response.json();
+      console.log("📥 Dados do /api/auth/me:", data); // Debug
+      return data;
     },
     enabled: !isAuthPage,
     retry: false,
@@ -102,12 +107,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     user?.type === "CATALOGER" ||
     user?.type === "SUPERVISOR";
 
+  const router = useRouter();
+
+  // Redirecionar usuários PENDING para onboarding
+  React.useEffect(() => {
+    const isAuthPage = pathname === "/login" || pathname === "/register";
+    const isOnboardingPage = pathname.startsWith("/onboarding");
+    const isProfilePage = pathname.startsWith("/profile"); // Permitir acesso ao perfil para upload de documentos
+    const isServicesPage = pathname.startsWith("/services"); // Permitir acesso a formações para PENDING_TRAINING
+    const isNotificationsPage = pathname.startsWith("/notifications"); // Permitir acesso a notificações
+    const isApiPage = pathname.startsWith("/api"); // Permitir chamadas API
+
+    if (
+      user &&
+      user.activationStatus !== "ACTIVE" &&
+      !isAuthPage &&
+      !isOnboardingPage &&
+      !isProfilePage &&
+      !isServicesPage &&
+      !isNotificationsPage &&
+      !isApiPage
+    ) {
+      console.log(
+        "🔀 Redirecting PENDING user to onboarding:",
+        user.activationStatus,
+      );
+      router.push("/onboarding");
+    }
+  }, [user, pathname, router]);
+
   // Log para debug
   React.useEffect(() => {
     console.log("🔍 Debug AppShell:", {
       email: user?.email,
       name: user?.name,
+      full_name: user?.full_name,
       type: user?.type,
+      activationStatus: user?.activationStatus,
       isAdmin,
     });
   }, [user, isAdmin]);
@@ -156,7 +192,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex items-center gap-2">
           <BookOpen className="w-7 h-7 text-indigo-600" />
-          <span className="font-bold text-lg text-slate-800">SGBU</span>
+          <span className="font-bold text-lg text-slate-800">ISPTEC</span>
         </div>
 
         <div className="flex items-center gap-2">

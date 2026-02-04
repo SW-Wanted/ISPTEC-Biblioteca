@@ -206,6 +206,95 @@ export const api = {
       );
     },
   },
+  cataloging: {
+    enrichData: async (params: {
+      isbn?: string;
+      title?: string;
+      author?: string;
+    }): Promise<{
+      enrichedData: {
+        title?: string | null;
+        subtitle?: string | null;
+        authors?: string[] | null;
+        publisher?: string | null;
+        publicationYear?: number | null;
+        pages?: number | null;
+        language?: string | null;
+        description?: string | null;
+        categories?: string[] | null;
+        thumbnail?: string | null;
+        isbn?: string | null;
+        source?: string;
+      } | null;
+      message?: string;
+    }> => {
+      ensureBrowser();
+      return await http<{
+        enrichedData: {
+          title?: string | null;
+          subtitle?: string | null;
+          authors?: string[] | null;
+          publisher?: string | null;
+          publicationYear?: number | null;
+          pages?: number | null;
+          language?: string | null;
+          description?: string | null;
+          categories?: string[] | null;
+          thumbnail?: string | null;
+          isbn?: string | null;
+          source?: string;
+        } | null;
+        message?: string;
+      }>("/api/cataloging/enrich", {
+        method: "POST",
+        body: JSON.stringify(params),
+      });
+    },
+    createEntry: async (data: {
+      imageUrl: string;
+      extractedTitle?: string;
+      extractedAuthor?: string;
+      extractedISBN?: string;
+      extractedPublisher?: string;
+      extractedYear?: number;
+      enrichedData?: Record<string, unknown>;
+    }): Promise<{ id: string }> => {
+      ensureBrowser();
+      return await http<{ id: string }>("/api/cataloging/entries", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    approveEntry: async (
+      entryId: string,
+      approvalData: {
+        title: string;
+        subtitle?: string;
+        isbn?: string;
+        authors?: string;
+        publisher?: string;
+        publicationYear?: number;
+        edition?: string;
+        language?: string;
+        pages?: number;
+        categoryId: string;
+        description?: string;
+        coverUrl?: string;
+        location?: string;
+        totalCopies?: number;
+        reviewNotes?: string;
+      },
+    ): Promise<{ ok: boolean; bookId: string }> => {
+      ensureBrowser();
+      return await http<{ ok: boolean; bookId: string }>(
+        `/api/cataloging/entries/${encodeURIComponent(entryId)}/approve`,
+        {
+          method: "POST",
+          body: JSON.stringify(approvalData),
+        },
+      );
+    },
+  },
   entities: {
     Book: createEntityClient<Book>("Book"),
     Category: createEntityClient<Category>("Category"),

@@ -111,6 +111,23 @@ enum RequestStatus {
   CANCELLED
 }
 
+// 🎓 SGBU-017: Status de Ativação de Conta
+enum AccountActivationStatus {
+  PENDING_DOCUMENTS    // Aguardando validação de documentos
+  PENDING_TRAINING     // Docs validados, aguardando formação
+  TRAINING_SCHEDULED   // Formação agendada
+  ACTIVE               // Formação concluída, conta ativa
+  BLOCKED              // Bloqueado por multas/violações
+}
+
+// 📚 Formação de Biblioteca
+enum TrainingStatus {
+  SCHEDULED            // Agendada
+  IN_PROGRESS          // Em andamento
+  COMPLETED            // Concluída
+  CANCELLED            // Cancelada
+}
+
 // 📚 SGBU-007: Tipos de Material (Artigo 10º)
 enum MaterialType {
   BOOK              // Livro normal
@@ -142,6 +159,7 @@ model User {
   phone             String?
   type              UserType
   status            UserStatus      @default(PENDING)
+  activationStatus  AccountActivationStatus @default(PENDING_DOCUMENTS)
   
   // Dados específicos
   registrationNumber String?        @unique // Matrícula (estudantes) ou Nº colaborador
@@ -183,6 +201,8 @@ model User {
   chatMessages      ChatMessage[]
   bookReviews       BookReview[]
   passwordResetTokens PasswordResetToken[]
+  trainingSessions  TrainingSession[] @relation("TrainingInstructor")
+  trainingParticipations TrainingParticipant[]
 
   @@index([email])
   @@index([registrationNumber])
@@ -646,6 +666,71 @@ model SpecialRequest {
   @@index([userId])
   @@index([type])
   @@index([status])
+}
+
+// ============================================
+// MÓDULO DE FORMAÇÕES
+// ============================================
+
+model TrainingSession {
+  id              String          @id @default(cuid())
+  
+  // Instrutor/Organizador
+  trainerId       String
+  trainer         User            @relation("TrainingInstructor", fields: [trainerId], references: [id])
+  
+  // Informações da sessão
+  title           String          // Ex: "Formação de Uso da Biblioteca - Turma 01/2026"
+  description     String?         @db.Text
+  location        String          // Ex: "Sala 201", "Biblioteca Principal"
+  maxParticipants Int             @default(20)
+  
+  // Datas
+  scheduledDate   DateTime        // Data/hora agendada
+  actualDate      DateTime?       // Data/hora real (quando marcada presença)
+  duration        Int             @default(120) // Duração em minutos
+  
+  // Status e controle
+  status          TrainingStatus  @default(SCHEDULED)
+  notes           String?         @db.Text
+  
+  // Timestamps
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  // Relações
+  participants    TrainingParticipant[]
+  
+  @@index([trainerId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+model TrainingParticipant {
+  id              String          @id @default(cuid())
+  
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sessionId       String
+  session         TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Controle de presença
+  attended        Boolean         @default(false)
+  attendedAt      DateTime?       // Quando a presença foi marcada
+  
+  // Certificado
+  certificateUrl  String?         // URL do certificado PDF (gerado após presença)
+  certificateGeneratedAt DateTime?
+  
+  // Timestamps
+  registeredAt    DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@unique([userId, sessionId])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([attended])
 }
 
 // ============================================

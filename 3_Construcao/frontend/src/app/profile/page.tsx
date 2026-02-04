@@ -8,6 +8,15 @@ import { createPageUrl } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
+  getUserTypeLabel,
+  getUserStatusLabel,
+  getLoanLimits,
+  getNotificationTypeLabel,
+  getNotificationTypeOptions,
+} from "@/lib/user-helpers";
+import { DocumentsManager } from "@/components/documents-manager";
+import { QRCodeDisplay } from "@/components/qrcode-display";
+import {
   Mail,
   Phone,
   Building2,
@@ -61,15 +70,23 @@ interface Member {
   phone?: string | null;
   preferred_notification?: "email" | "sms" | "push" | "in_app" | string | null;
   member_type?:
-    | "student"
-    | "teacher"
-    | "staff"
-    | "librarian"
-    | "cataloger"
-    | "supervisor"
+    | "STUDENT"
+    | "TEACHER"
+    | "STAFF"
+    | "LIBRARIAN"
+    | "CATALOGER"
+    | "SUPERVISOR"
     | string
     | null;
-  status?: "active" | string | null;
+  status?: "ACTIVE" | "INACTIVE" | "BLOCKED" | "PENDING" | string | null;
+  activation_status?:
+    | "ACTIVE"
+    | "PENDING_DOCUMENTS"
+    | "PENDING_TRAINING"
+    | "TRAINING_SCHEDULED"
+    | "BLOCKED"
+    | string
+    | null;
   is_blocked?: boolean | null;
   blocked_reason?: string | null;
   registration_number?: string | null;
@@ -78,6 +95,7 @@ interface Member {
   max_books?: number | null;
   loan_days?: number | null;
   qr_code?: string | null;
+  total_fines?: number | null;
 }
 
 interface Fine {
@@ -133,7 +151,8 @@ function toDate(value: unknown): Date | null {
 export default function Profile() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const defaultTab = tabParam === "fines" ? "fines" : "info";
+  const validTabs = ["info", "fines", "stats", "documents", "qrcode"];
+  const defaultTab = validTabs.includes(tabParam || "") ? tabParam! : "info";
 
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -204,6 +223,18 @@ export default function Profile() {
     initialData: [],
   });
 
+  const { data: documents = [], refetch: refetchDocuments } = useQuery<any[]>({
+    queryKey: ["user-documents"],
+    enabled: authState === "auth",
+    queryFn: async () => {
+      const response = await fetch("/api/members/documents");
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.documents || [];
+    },
+    initialData: [],
+  });
+
   const pendingFines = fines.filter((f) => f.status === "pending");
   const totalPendingFines = pendingFines.reduce(
     (sum, f) => sum + (f.amount || 0),
@@ -231,27 +262,8 @@ export default function Profile() {
     },
   });
 
-  const getMemberTypeLabel = (type?: Member["member_type"]) => {
-    switch (type) {
-      case "student":
-        return "Estudante";
-      case "teacher":
-        return "Docente";
-      case "staff":
-        return "Funcionário";
-      case "librarian":
-        return "Bibliotecário";
-      case "cataloger":
-        return "Catalogador";
-      case "supervisor":
-        return "Supervisor";
-      default:
-        return type || "—";
-    }
-  };
-
   const handleStartEdit = () => {
-    if (!member) {
+    if (!member || !user) {
       toast.error("Não foi possível carregar os dados do perfil.");
       return;
     }
@@ -317,12 +329,30 @@ export default function Profile() {
                 </h1>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
                   <Badge className="bg-indigo-100 text-indigo-700">
-                    {getMemberTypeLabel(member?.member_type)}
+                    {getUserTypeLabel(member?.member_type)}
                   </Badge>
-                  {member?.status === "active" && (
+                  {member?.activation_status === "ACTIVE" && (
                     <Badge className="bg-emerald-100 text-emerald-700">
                       <CheckCircle className="w-3 h-3 mr-1" />
-                      Ativo
+                      Conta Ativa
+                    </Badge>
+                  )}
+                  {member?.activation_status === "TRAINING_SCHEDULED" && (
+                    <Badge className="bg-blue-100 text-blue-700">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Formação Agendada
+                    </Badge>
+                  )}
+                  {member?.activation_status === "PENDING_TRAINING" && (
+                    <Badge className="bg-yellow-100 text-yellow-700">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Aguardando Formação
+                    </Badge>
+                  )}
+                  {member?.activation_status === "PENDING_DOCUMENTS" && (
+                    <Badge className="bg-orange-100 text-orange-700">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Documentos Pendentes
                     </Badge>
                   )}
                   {member?.is_blocked && (
@@ -355,6 +385,8 @@ export default function Profile() {
                 <TabsTrigger value="fines">
                   Multas ({pendingFines.length})
                 </TabsTrigger>
+                <TabsTrigger value="documents">Documentos</TabsTrigger>
+                <TabsTrigger value="qrcode">QR Code</TabsTrigger>
                 <TabsTrigger value="stats">Estatísticas</TabsTrigger>
               </TabsList>
               <TabsContent value="info" className="mt-6">
@@ -387,17 +419,17 @@ export default function Profile() {
                             }
                           >
                             <SelectTrigger>
-                              <SelectValue />
+                              <SelectValue placeholder="Selecione uma opção" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="email">Email</SelectItem>
-                              <SelectItem value="sms">SMS</SelectItem>
-                              <SelectItem value="push">
-                                Notificação Push
-                              </SelectItem>
-                              <SelectItem value="in_app">
-                                No Aplicativo
-                              </SelectItem>
+                              {getNotificationTypeOptions().map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -495,8 +527,10 @@ export default function Profile() {
                               <p className="text-sm text-slate-500">
                                 Notificações via
                               </p>
-                              <p className="font-medium text-slate-800 capitalize">
-                                {member?.preferred_notification || "Email"}
+                              <p className="font-medium text-slate-800">
+                                {getNotificationTypeLabel(
+                                  member?.preferred_notification,
+                                )}
                               </p>
                             </div>
                           </div>
@@ -510,7 +544,7 @@ export default function Profile() {
                             <div className="p-3 bg-slate-50 rounded-lg">
                               <p className="text-2xl font-bold text-indigo-600">
                                 {member?.max_books ||
-                                  (member?.member_type === "teacher" ? 4 : 2)}
+                                  getLoanLimits(member?.member_type).maxBooks}
                               </p>
                               <p className="text-xs text-slate-500">
                                 Livros máximo
@@ -519,7 +553,7 @@ export default function Profile() {
                             <div className="p-3 bg-slate-50 rounded-lg">
                               <p className="text-2xl font-bold text-indigo-600">
                                 {member?.loan_days ||
-                                  (member?.member_type === "teacher" ? 15 : 5)}
+                                  getLoanLimits(member?.member_type).loanDays}
                               </p>
                               <p className="text-xs text-slate-500">
                                 Dias por empréstimo
@@ -622,6 +656,23 @@ export default function Profile() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+              <TabsContent value="documents" className="mt-6">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle>Meus Documentos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DocumentsManager
+                      documents={documents}
+                      userType={member?.member_type}
+                      onDocumentsChange={() => refetchDocuments()}
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="qrcode" className="mt-6">
+                <QRCodeDisplay />
               </TabsContent>
               <TabsContent value="stats" className="mt-6">
                 <Card className="border-0 shadow-sm">

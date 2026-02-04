@@ -17,6 +17,8 @@ import {
   Filter,
   Settings,
   Loader2,
+  KeyRound,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -238,6 +240,10 @@ export default function Notifications() {
         return <BookOpen className="w-5 h-5 text-emerald-600" />;
       case "view_loan":
         return <Clock className="w-5 h-5 text-orange-600" />;
+      case "view_services":
+        return <KeyRound className="w-5 h-5 text-blue-600" />;
+      case "view_documents":
+        return <FileText className="w-5 h-5 text-purple-600" />;
       default:
         return <Bell className="w-5 h-5 text-slate-600" />;
     }
@@ -252,6 +258,10 @@ export default function Notifications() {
         return createPageUrl("MyReservations");
       case "pay_fine":
         return createPageUrl("Profile?tab=fines");
+      case "view_services":
+        return createPageUrl("Services");
+      case "view_documents":
+        return createPageUrl("Profile?tab=documents");
       default:
         return null;
     }
