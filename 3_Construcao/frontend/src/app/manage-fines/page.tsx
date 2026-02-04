@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { downloadCSV, type CSVColumn } from "@/lib/csv-export";
 
 type FineRow = FineBase & {
   member_id?: string;
@@ -38,6 +39,7 @@ export default function ManageFines() {
   const [user, setUser] = useState<Awaited<ReturnType<typeof api.auth.me>> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [activeTab, setActiveTab] = useState<'pending' | 'paid' | 'waived'>('pending');
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showWaiverDialog, setShowWaiverDialog] = useState(false);
   const [selectedFine, setSelectedFine] = useState<FineRow | null>(null);
@@ -146,6 +148,21 @@ export default function ManageFines() {
     }
   };
 
+  const getFineStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pendente';
+      case 'paid':
+        return 'Pago';
+      case 'waived':
+        return 'Dispensado';
+      case 'cancelled':
+        return 'Cancelado';
+      default:
+        return status ?? '';
+    }
+  };
+
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case 'pending': return <Badge className="bg-amber-100 text-amber-700">Pendente</Badge>;
@@ -166,6 +183,97 @@ export default function ManageFines() {
       if (filterType !== 'all' && fine.type !== filterType) return false;
       return true;
     });
+  };
+
+  const handleExport = () => {
+    const baseList = activeTab === 'pending' ? pendingFines : activeTab === 'paid' ? paidFines : waivedFines;
+    const rows = filteredFines(baseList);
+
+    if (rows.length === 0) {
+      toast.error('Não há multas para exportar com os filtros atuais');
+      return;
+    }
+
+    const tabLabel = activeTab === 'pending' ? 'pendentes' : activeTab === 'paid' ? 'pagas' : 'dispensadas';
+    const filename = `multas-${tabLabel}-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`;
+
+    const columns: CSVColumn[] = [
+      {
+        key: 'member_id',
+        label: 'ID do Membro',
+        formatter: (v) => String(v ?? ''),
+      },
+      {
+        key: 'member_id',
+        label: 'Nome do Membro',
+        formatter: (_v, row) => String(row.member_name ?? row.member_id ?? ''),
+      },
+      {
+        key: 'type',
+        label: 'Tipo',
+        formatter: (v) => getFineTypeLabel(String(v ?? '')) ?? '',
+      },
+      {
+        key: 'amount',
+        label: 'Valor (AOA)',
+        formatter: (v) => {
+          const n = Number(v ?? 0);
+          return Number.isFinite(n) ? n.toLocaleString('pt-AO') : '0';
+        },
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        formatter: (v) => getFineStatusLabel(String(v ?? '')),
+      },
+      {
+        key: 'created_date',
+        label: 'Data',
+        formatter: (_v, row) => {
+          const dateStr = String(row.generated_at ?? row.created_date ?? '');
+          if (!dateStr) return '';
+          const d = new Date(dateStr);
+          return Number.isNaN(d.getTime()) ? '' : format(d, 'dd/MM/yyyy');
+        },
+      },
+      {
+        key: 'reason',
+        label: 'Motivo',
+        formatter: (v) => String(v ?? ''),
+      },
+      {
+        key: 'paid_at',
+        label: 'Pago em',
+        formatter: (v) => {
+          if (!v) return '';
+          const d = new Date(String(v));
+          return Number.isNaN(d.getTime()) ? '' : format(d, 'dd/MM/yyyy');
+        },
+      },
+      {
+        key: 'payment_method',
+        label: 'Método de Pagamento',
+        formatter: (v) => String(v ?? ''),
+      },
+      {
+        key: 'payment_reference',
+        label: 'Referência',
+        formatter: (v) => String(v ?? ''),
+      },
+      {
+        key: 'waived_by',
+        label: 'Dispensado por',
+        formatter: (v) => String(v ?? ''),
+      },
+      {
+        key: 'waiver_reason',
+        label: 'Motivo da Dispensa',
+        formatter: (v) => String(v ?? ''),
+      },
+    ];
+
+    downloadCSV(rows, columns, { filename });
+    toast.success('CSV exportado com sucesso');
   };
 
   const FineRow = ({ fine }: { fine: FineRow }) => (
@@ -229,7 +337,7 @@ export default function ManageFines() {
             </h1>
             <p className="text-slate-500 mt-1">{pendingFines.length} multa(s) pendente(s)</p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport} disabled={isLoading}>
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>
@@ -308,7 +416,7 @@ export default function ManageFines() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="pending">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pending' | 'paid' | 'waived')}>
           <TabsList className="mb-6">
             <TabsTrigger value="pending">
               <AlertTriangle className="w-4 h-4 mr-2" />
