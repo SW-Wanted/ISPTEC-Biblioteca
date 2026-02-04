@@ -54,6 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { downloadCSV, type CSVColumn } from "@/lib/csv-export";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -269,6 +270,146 @@ export default function ManageLoans() {
         loan.member_name?.toLowerCase().includes(query) ||
         loan.member_id?.toLowerCase().includes(query),
     );
+  };
+
+  const translateLoanStatus = (status: unknown) => {
+    const s = String(status ?? "").toLowerCase();
+    const map: Record<string, string> = {
+      active: "Ativo",
+      overdue: "Em atraso",
+      returned: "Devolvido",
+      cancelled: "Cancelado",
+    };
+    return map[s] || s || "-";
+  };
+
+  const translateReservationStatus = (status: unknown) => {
+    const s = String(status ?? "").toLowerCase();
+    const map: Record<string, string> = {
+      active: "Ativo",
+      available: "Disponível",
+      collected: "Levantado",
+      expired: "Expirado",
+      cancelled: "Cancelado",
+    };
+    return map[s] || s || "-";
+  };
+
+  const handleExport = () => {
+    const date = new Date().toISOString().split("T")[0];
+
+    if (activeTab === "process") {
+      if (pendingReservations.length === 0) {
+        toast.error("Sem reservas para exportar");
+        return;
+      }
+
+      const columns: CSVColumn[] = [
+        {
+          key: "book_title",
+          label: "Livro",
+          formatter: (v) => String(v ?? ""),
+        },
+        {
+          key: "member_id",
+          label: "Membro (Email)",
+          formatter: (v) => String(v ?? ""),
+        },
+        {
+          key: "reservation_date",
+          label: "Data Reserva",
+          formatter: (v) =>
+            v ? format(new Date(String(v)), "dd/MM/yyyy") : "",
+        },
+        {
+          key: "queue_position",
+          label: "Posição",
+          formatter: (v) => String(v ?? ""),
+        },
+        {
+          key: "status",
+          label: "Status",
+          formatter: (v) => translateReservationStatus(v),
+        },
+        {
+          key: "expiry_date",
+          label: "Expira Em",
+          formatter: (v) =>
+            v ? format(new Date(String(v)), "dd/MM/yyyy") : "",
+        },
+      ];
+
+      downloadCSV(
+        pendingReservations as unknown as Array<Record<string, unknown>>,
+        columns,
+        {
+          filename: `reservas-pendentes-${date}.csv`,
+        },
+      );
+      toast.success("CSV exportado: Reservas pendentes");
+      return;
+    }
+
+    const sourceLoans =
+      loanSubTab === "active"
+        ? activeLoans
+        : loanSubTab === "overdue"
+          ? overdueLoans
+          : returnedLoans;
+
+    const exportLoans = filteredLoans(sourceLoans);
+    if (exportLoans.length === 0) {
+      toast.error("Sem empréstimos para exportar");
+      return;
+    }
+
+    const columns: CSVColumn[] = [
+      {
+        key: "book_title",
+        label: "Livro",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "member_name",
+        label: "Membro",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "member_id",
+        label: "Membro (Email)",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "loan_date",
+        label: "Data Empréstimo",
+        formatter: (v) => (v ? format(new Date(String(v)), "dd/MM/yyyy") : ""),
+      },
+      {
+        key: "due_date",
+        label: "Vencimento",
+        formatter: (v) => (v ? format(new Date(String(v)), "dd/MM/yyyy") : ""),
+      },
+      {
+        key: "status",
+        label: "Status",
+        formatter: (v) => translateLoanStatus(v),
+      },
+      {
+        key: "renewal_count",
+        label: "Renovações",
+        formatter: (_v, row) =>
+          `${Number(row.renewal_count ?? 0)}/${Number(row.max_renewals ?? 0)}`,
+      },
+    ];
+
+    downloadCSV(
+      exportLoans as unknown as Array<Record<string, unknown>>,
+      columns,
+      {
+        filename: `emprestimos-${loanSubTab}-${date}.csv`,
+      },
+    );
+    toast.success("CSV exportado: Empréstimos");
   };
 
   // Components
@@ -488,7 +629,7 @@ export default function ManageLoans() {
               {availableReservations.length} reserva(s) aguardando
             </p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>

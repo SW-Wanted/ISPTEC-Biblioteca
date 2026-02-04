@@ -27,6 +27,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { createPageUrl } from "@/utils";
 import { getUserTypeLabel, getUserStatusLabel } from "@/lib/user-helpers";
+import { downloadCSV, type CSVColumn } from "@/lib/csv-export";
+import { toast } from "sonner";
 
 type MemberRow = {
   id: string;
@@ -152,6 +154,73 @@ export default function ManageMembers() {
     return true;
   });
 
+  const handleExport = () => {
+    if (filteredMembers.length === 0) {
+      toast.error("Sem dados para exportar");
+      return;
+    }
+
+    const date = new Date().toISOString().split("T")[0];
+    const filename = `membros-${date}.csv`;
+
+    const columns: CSVColumn[] = [
+      {
+        key: "name",
+        label: "Nome",
+        formatter: (v) => String(v ?? "Sem nome"),
+      },
+      {
+        key: "email",
+        label: "Email",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "member_type",
+        label: "Tipo",
+        formatter: (v) => getUserTypeLabel(String(v ?? "")),
+      },
+      {
+        key: "activation_status",
+        label: "Status",
+        formatter: (_v, row) => {
+          const activation = String(row.activation_status ?? "");
+          const status = String(row.status ?? "");
+          return getUserStatusLabel(activation || status);
+        },
+      },
+      {
+        key: "registration_number",
+        label: "Matrícula",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "is_blocked",
+        label: "Bloqueado",
+        formatter: (v) => (v ? "Sim" : "Não"),
+      },
+      {
+        key: "total_fines",
+        label: "Total Multas (Kz)",
+        formatter: (v) => {
+          const n = Number(v ?? 0);
+          return Number.isFinite(n) ? n.toLocaleString("pt-AO") : "0";
+        },
+      },
+      {
+        key: "created_date",
+        label: "Cadastro",
+        formatter: (v) => {
+          if (!v) return "";
+          const d = new Date(String(v));
+          return Number.isNaN(d.getTime()) ? "" : format(d, "dd/MM/yyyy");
+        },
+      },
+    ];
+
+    downloadCSV(filteredMembers, columns, { filename });
+    toast.success("CSV exportado com sucesso");
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,7 +236,7 @@ export default function ManageMembers() {
                 : `${filteredMembers.length} de ${members.length} membro(s)`}
             </p>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="w-4 h-4 mr-2" />
             Exportar
           </Button>
