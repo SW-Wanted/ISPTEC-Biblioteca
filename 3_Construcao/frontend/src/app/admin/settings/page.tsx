@@ -159,6 +159,24 @@ function AdminSettingsPage() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Fetch Activity Logs (SGBU-011)
+  const [activityType, setActivityType] = useState<string>("");
+  const [activityUserId, setActivityUserId] = useState<string>("");
+
+  const { data: activityLogsData, isLoading: activityLogsLoading } = useQuery({
+    queryKey: ["activity-logs", activityType, activityUserId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: "50" });
+      if (activityType) params.append("type", activityType);
+      if (activityUserId) params.append("userId", activityUserId);
+
+      const res = await fetch(`/api/activity-logs?${params.toString()}`);
+      if (!res.ok) throw new Error("Erro ao carregar logs de atividade");
+      return res.json();
+    },
+    staleTime: 1 * 60 * 1000, // 1 minuto
+  });
+
   // Fetch FAQs
   const { data: faqsData, isLoading: faqsLoading } = useQuery({
     queryKey: ["faqs"],
