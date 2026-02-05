@@ -31,13 +31,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    // Apenas ADMIN e LIBRARIAN podem ver logs de atividade
+    // Apenas LIBRARIAN, CATALOGER e SUPERVISOR podem ver logs de atividade
     const user = await prisma?.user.findUnique({
       where: { id: session.user.id },
       select: { type: true },
     });
 
-    if (!user || ![UserType.ADMIN, UserType.LIBRARIAN].includes(user.type)) {
+    if (!user || ![UserType.LIBRARIAN, UserType.CATALOGER, UserType.SUPERVISOR].includes(user.type)) {
       return NextResponse.json(
         { error: "Sem permissão para acessar logs de atividade" },
         { status: 403 },
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Parâmetros inválidos", details: parsed.error.errors },
+        { error: "Parâmetros inválidos", details: parsed.error.issues },
         { status: 400 },
       );
     }

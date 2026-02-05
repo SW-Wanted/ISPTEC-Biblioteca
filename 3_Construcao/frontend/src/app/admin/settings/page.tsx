@@ -1457,6 +1457,151 @@ function AdminSettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Activity Logs Tab (SGBU-011) */}
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Logs de Atividade do Sistema</CardTitle>
+              <CardDescription>
+                Auditoria completa de operações críticas (empréstimos,
+                devoluções, renovações, reservas, multas)
+              </CardDescription>
+
+              {/* Filtros */}
+              <div className="flex gap-4 mt-4">
+                <div className="flex-1">
+                  <Label htmlFor="activity-type-filter">
+                    Tipo de Atividade
+                  </Label>
+                  <Input
+                    id="activity-type-filter"
+                    placeholder="Ex: LOAN_CREATED, FINE_PAID..."
+                    value={activityType}
+                    onChange={(e) => setActivityType(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="activity-user-filter">ID do Utilizador</Label>
+                  <Input
+                    id="activity-user-filter"
+                    placeholder="CUID do utilizador..."
+                    value={activityUserId}
+                    onChange={(e) => setActivityUserId(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="self-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setActivityType("");
+                      setActivityUserId("");
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Limpar
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activityLogsLoading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data/Hora</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Ação</TableHead>
+                        <TableHead>Utilizador</TableHead>
+                        <TableHead>Entidade</TableHead>
+                        <TableHead>Metadados</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(activityLogsData?.logs || []).length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="text-center text-muted-foreground py-8"
+                          >
+                            Nenhum log de atividade encontrado
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        (activityLogsData?.logs || []).map((log: any) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="text-sm whitespace-nowrap">
+                              {formatDate(log.createdAt)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">
+                                {log.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {log.action}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <p className="font-medium">{log.userName}</p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                                  {log.userEmail}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              {log.entityType ? (
+                                <div>
+                                  <p className="font-mono text-xs">
+                                    {log.entityType}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate max-w-[100px]">
+                                    {log.entityId}
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {log.metadata &&
+                              Object.keys(log.metadata).length > 0 ? (
+                                <details className="cursor-pointer">
+                                  <summary className="text-primary hover:underline">
+                                    Ver detalhes
+                                  </summary>
+                                  <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-w-[300px]">
+                                    {JSON.stringify(log.metadata, null, 2)}
+                                  </pre>
+                                </details>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Info sobre paginação */}
+                  {activityLogsData?.meta && (
+                    <div className="mt-4 text-sm text-muted-foreground text-center">
+                      A mostrar {activityLogsData.meta.count} registros
+                      {activityLogsData.meta.hasMore &&
+                        " (pode haver mais resultados)"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

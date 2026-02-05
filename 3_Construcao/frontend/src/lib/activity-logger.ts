@@ -1,119 +1,54 @@
+import { prisma } from "./prisma";
+
 /**
- * Helper centralizado para Activity Logging - SGBU-011
- * Sistema de Gestão de Biblioteca Universitária - ISPTEC
+ * SGBU-011: Sistema centralizado de logging de atividades
  *
- * Registra operações críticas para auditoria e rastreabilidade
+ * Este módulo fornece funções helpers para registrar atividades críticas
+ * do sistema, conforme especificado na issue SGBU-011.
+ *
+ * Operações críticas logadas:
+ * - Empréstimo de livros (LOAN_CREATED)
+ * - Devolução de livros (LOAN_RETURNED)
+ * - Renovação de empréstimos (LOAN_RENEWED)
+ * - Criação de reservas (RESERVATION_CREATED)
+ * - Pagamento de multas (FINE_PAID)
+ * - Isenção de multas (FINE_WAIVED)
+ *
+ * @module activity-logger
  */
-
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 /**
- * Tipos de atividades críticas que devem ser logadas
+ * Interface para dados de log de atividade  * Schema ActivityLog fields:
+ * - action: String (CREATE, UPDATE, DELETE)
+ * - entity: String (Books, LOAN, USER, RESERVATION, FINE)
+ * - entityId: String?
+ * - description: String
+ * - metadata: Json?
+ * - createdAt: DateTime
  */
-export type ActivityType =
-  | "LOAN_CREATED" // Empréstimo criado
-  | "LOAN_RETURNED" // Devolução realizada
-  | "LOAN_RENEWED" // Renovação realizada
-  | "RESERVATION_CREATED" // Reserva criada
-  | "RESERVATION_COLLECTED" // Reserva levantada
-  | "RESERVATION_CANCELLED" // Reserva cancelada
-  | "FINE_GENERATED" // Multa gerada
-  | "FINE_PAID" // Multa paga
-  | "FINE_WAIVED" // Multa isentada
-  | "FINE_CANCELLED" // Multa cancelada
-  | "USER_BLOCKED" // Usuário bloqueado
-  | "USER_UNBLOCKED" // Usuário desbloqueado
-  | "CATALOG_APPROVED" // Catalogação aprovada
-  | "CATALOG_REJECTED"; // Catalogação rejeitada
-
-/**
- * Interface para dados do log de atividade
- */
-export interface ActivityLogData {
-  userId: string;
-  activityType: ActivityType;
+interface ActivityLogData {
+  userId: string | null;
+  action: string;
+  entity: string;
+  entityId?: string | null;
   description: string;
-  entityType?: string; // "Loan", "Fine", "Reservation", etc
-  entityId?: string; // ID da entidade relacionada
-  metadata?: Record<string, any>; // Dados adicionais (sem dados sensíveis!)
-  ipAddress?: string;
+  metadata?: Record<string, any>;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }
 
 /**
- * Cria um registro de atividade no banco de dados
- *
- * **IMPORTANTE:**
- * - NÃO inclua dados sensíveis no metadata (senhas, tokens, etc)
- * - Use descriptions claras e em português
- * - Sempre passe userId do usuário que executou a ação
- *
- * @param data - Dados da atividade a ser logada
- * @returns Promise com o log criado ou null se falhar
- */
-export async function logActivity(data: ActivityLogData): Promise<{
-  id: string;
-  timestamp: Date;
-} | null> {
-  try {
-    // Sanitizar metadata para remover dados sensíveis
-    const sanitizedMetadata = sanitizeMetadata(data.metadata || {});
-
-    const log = await prisma.activityLog.create({
-      data: {
-        userId: data.userId,
-        activityType: data.activityType,
-        description: data.description,
-        entityType: data.entityType,
-        entityId: data.entityId,
-        metadata: sanitizedMetadata as Prisma.InputJsonValue,
-        ipAddress: data.ipAddress,
-        timestamp: new Date(),
-      },
-      select: {
-        id: true,
-        timestamp: true,
-      },
-    });
-
-    return log;
-  } catch (error) {
-    // Não propagar erro para não quebrar a operação principal
-    console.error("❌ Erro ao criar activity log:", error);
-    return null;
-  }
-}
-
-/**
- * Remove dados sensíveis do metadata antes de salvar
+ * Sanitiza metadados para remover informações sensíveis
  */
 function sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
-  const sensitiveKeys = [
-    "password",
-    "token",
-    "secret",
-    "apiKey",
-    "creditCard",
-    "ssn",
-    "taxId",
-  ];
+  const sensitiveKeys = ["password", "token", "secret", "apiKey", "creditCard"];
+  const sanitized = { ...metadata };
 
-  const sanitized: Record<string, any> = {};
-
-  for (const [key, value] of Object.entries(metadata)) {
-    const lowerKey = key.toLowerCase();
-
-    // Remover chaves sensíveis
-    if (sensitiveKeys.some((sk) => lowerKey.includes(sk))) {
+  for (const key in sanitized) {
+    if (
+      sensitiveKeys.some((s) => key.toLowerCase().includes(s.toLowerCase()))
+    ) {
       sanitized[key] = "[REDACTED]";
-      continue;
-    }
-
-    // Sanitizar recursivamente objetos aninhados
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      sanitized[key] = sanitizeMetadata(value);
-    } else {
-      sanitized[key] = value;
     }
   }
 
@@ -121,199 +56,240 @@ function sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
 }
 
 /**
- * Helper para logar criação de empréstimo
+ * Função genérica para criar log de atividade
+ */
+async function logActivity(data: ActivityLogData) {
+  try {
+    const log = await prisma.activityLog.create({
+      data: {
+        userId: data.userId,
+        action: data.action,
+        entity: data.entity,
+        entityId: data.entityId || null,
+        description: data.description,
+        metadata: data.metadata ? sanitizeMetadata(data.metadata) : null,
+        ipAddress: data.ipAddress || null,
+        userAgent: data.userAgent || null,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+      },
+    });
+
+    return log;
+  } catch (error) {
+    console.error("Erro ao criar log de atividade:", error);
+    // Não propagar erro para não quebrar operação principal
+    return null;
+  }
+}
+
+// ========================================
+// EMPRÉSTIMOS
+// ========================================
+
+/**
+ * Loga criação de empréstimo
  */
 export async function logLoanCreated(params: {
   userId: string;
   loanId: string;
+  copyId: string;
   bookTitle: string;
   dueDate: Date;
-  ipAddress?: string;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "LOAN_CREATED",
-    description: `Empréstimo criado: "${params.bookTitle}" (vencimento: ${params.dueDate.toLocaleDateString("pt-AO")})`,
-    entityType: "Loan",
+    action: "CREATE",
+    entity: "LOAN",
     entityId: params.loanId,
+    description: `Empréstimo criado: "${params.bookTitle}"`,
     metadata: {
+      copyId: params.copyId,
       bookTitle: params.bookTitle,
       dueDate: params.dueDate.toISOString(),
     },
-    ipAddress: params.ipAddress,
   });
 }
 
 /**
- * Helper para logar devolução
+ * Loga devolução de livro
  */
 export async function logLoanReturned(params: {
   userId: string;
   loanId: string;
-  bookTitle: string;
-  returnDate: Date;
+  copyId: string;
   wasOverdue: boolean;
-  ipAddress?: string;
+  daysOverdue?: number;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "LOAN_RETURNED",
-    description: `Devolução realizada: "${params.bookTitle}"${params.wasOverdue ? " (estava em atraso)" : ""}`,
-    entityType: "Loan",
+    action: "UPDATE",
+    entity: "LOAN",
     entityId: params.loanId,
+    description: params.wasOverdue
+      ? `Livro devolvido com atraso (${params.daysOverdue} dia(s))`
+      : "Livro devolvido dentro do prazo",
     metadata: {
-      bookTitle: params.bookTitle,
-      returnDate: params.returnDate.toISOString(),
+      copyId: params.copyId,
       wasOverdue: params.wasOverdue,
+      daysOverdue: params.daysOverdue || 0,
     },
-    ipAddress: params.ipAddress,
   });
 }
 
 /**
- * Helper para logar renovação
+ * Loga renovação de empréstimo
  */
 export async function logLoanRenewed(params: {
   userId: string;
   loanId: string;
-  bookTitle: string;
-  newDueDate: Date;
   renewalCount: number;
-  ipAddress?: string;
+  newDueDate: Date;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "LOAN_RENEWED",
-    description: `Renovação ${params.renewalCount}: "${params.bookTitle}" (novo vencimento: ${params.newDueDate.toLocaleDateString("pt-AO")})`,
-    entityType: "Loan",
+    action: "UPDATE",
+    entity: "LOAN",
     entityId: params.loanId,
+    description: `Empréstimo renovado (${params.renewalCount}ª renovação)`,
     metadata: {
-      bookTitle: params.bookTitle,
-      newDueDate: params.newDueDate.toISOString(),
       renewalCount: params.renewalCount,
+      newDueDate: params.newDueDate.toISOString(),
     },
-    ipAddress: params.ipAddress,
   });
 }
 
+// ========================================
+// RESERVAS
+// ========================================
+
 /**
- * Helper para logar reserva
+ * Loga criação de reserva
  */
 export async function logReservationCreated(params: {
   userId: string;
   reservationId: string;
+  bookId: string;
   bookTitle: string;
   queuePosition: number;
-  ipAddress?: string;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "RESERVATION_CREATED",
-    description: `Reserva criada: "${params.bookTitle}" (posição na fila: ${params.queuePosition})`,
-    entityType: "Reservation",
+    action: "CREATE",
+    entity: "RESERVATION",
     entityId: params.reservationId,
+    description: `Reserva criada: "${params.bookTitle}" (posição na fila: ${params.queuePosition})`,
     metadata: {
+      bookId: params.bookId,
       bookTitle: params.bookTitle,
       queuePosition: params.queuePosition,
     },
-    ipAddress: params.ipAddress,
   });
 }
 
 /**
- * Helper para logar multa paga
+ * Loga cancelamento de reserva
+ */
+export async function logReservationCancelled(params: {
+  userId: string;
+  reservationId: string;
+  reason: string;
+}) {
+  return logActivity({
+    userId: params.userId,
+    action: "DELETE",
+    entity: "RESERVATION",
+    entityId: params.reservationId,
+    description: `Reserva cancelada: ${params.reason}`,
+    metadata: {
+      reason: params.reason,
+    },
+  });
+}
+
+// ========================================
+// MULTAS
+// ========================================
+
+/**
+ * Loga pagamento de multa
  */
 export async function logFinePaid(params: {
   userId: string;
   fineId: string;
   amount: number;
   paymentMethod?: string;
-  ipAddress?: string;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "FINE_PAID",
-    description: `Multa paga: ${params.amount} Kz${params.paymentMethod ? ` (${params.paymentMethod})` : ""}`,
-    entityType: "Fine",
+    action: "UPDATE",
+    entity: "FINE",
     entityId: params.fineId,
+    description: `Multa paga: ${params.amount.toFixed(2)} Kz`,
     metadata: {
       amount: params.amount,
-      paymentMethod: params.paymentMethod,
+      paymentMethod: params.paymentMethod || "Não especificado",
     },
-    ipAddress: params.ipAddress,
   });
 }
 
 /**
- * Helper para logar multa isentada
+ * Loga isenção de multa
  */
 export async function logFineWaived(params: {
-  userId: string; // Usuário que executou a isenção (admin)
-  targetUserId: string; // Usuário que tinha a multa
+  userId: string; // Admin que isentou
+  targetUserId: string; // Utilizador que tinha a multa
   fineId: string;
   amount: number;
   reason: string;
-  ipAddress?: string;
 }) {
   return logActivity({
     userId: params.userId,
-    activityType: "FINE_WAIVED",
-    description: `Multa isentada para usuário ${params.targetUserId}: ${params.amount} Kz (motivo: ${params.reason})`,
-    entityType: "Fine",
+    action: "UPDATE",
+    entity: "FINE",
     entityId: params.fineId,
+    description: `Multa isentada para utilizador ${params.targetUserId}: ${params.reason}`,
     metadata: {
       targetUserId: params.targetUserId,
       amount: params.amount,
       reason: params.reason,
     },
-    ipAddress: params.ipAddress,
   });
 }
 
-/**
- * Helper genérico para outras atividades
- */
-export async function logGenericActivity(params: {
-  userId: string;
-  type: ActivityType;
-  description: string;
-  entityType?: string;
-  entityId?: string;
-  metadata?: Record<string, any>;
-  ipAddress?: string;
-}) {
-  return logActivity(params);
-}
+// ========================================
+// QUERY HELPER
+// ========================================
 
 /**
  * Busca logs de atividade com filtros
  */
-export async function getActivityLogs(params: {
+export async function getActivityLogs(params?: {
   userId?: string;
-  activityTypes?: ActivityType[];
-  entityType?: string;
-  entityId?: string;
+  type?: string; // filter action field
+  entityType?: string; // filter entity field
   startDate?: Date;
   endDate?: Date;
   limit?: number;
   offset?: number;
 }) {
-  const where: Prisma.ActivityLogWhereInput = {};
+  const where: any = {};
 
-  if (params.userId) where.userId = params.userId;
-  if (params.activityTypes && params.activityTypes.length > 0) {
-    where.activityType = { in: params.activityTypes };
-  }
-  if (params.entityType) where.entityType = params.entityType;
-  if (params.entityId) where.entityId = params.entityId;
-  if (params.startDate || params.endDate) {
-    where.timestamp = {};
-    if (params.startDate) where.timestamp.gte = params.startDate;
-    if (params.endDate) where.timestamp.lte = params.endDate;
+  if (params?.userId) where.userId = params.userId;
+  if (params?.type)
+    where.action = { contains: params.type, mode: "insensitive" };
+  if (params?.entityType) where.entity = params.entityType;
+
+  if (params?.startDate || params?.endDate) {
+    where.createdAt = {};
+    if (params.startDate) where.createdAt.gte = params.startDate;
+    if (params.endDate) where.createdAt.lte = params.endDate;
   }
 
-  const [logs, total] = await Promise.all([
-    prisma.activityLog.findMany({
+  try {
+    const logs = await prisma.activityLog.findMany({
       where,
       include: {
         user: {
@@ -321,16 +297,17 @@ export async function getActivityLogs(params: {
             id: true,
             name: true,
             email: true,
-            type: true,
           },
         },
       },
-      orderBy: { timestamp: "desc" },
-      take: params.limit || 50,
-      skip: params.offset || 0,
-    }),
-    prisma.activityLog.count({ where }),
-  ]);
+      orderBy: { createdAt: "desc" },
+      take: params?.limit || 50,
+      skip: params?.offset || 0,
+    });
 
-  return { logs, total };
+    return logs;
+  } catch (error) {
+    console.error("Erro ao buscar logs de atividade:", error);
+    return [];
+  }
 }
