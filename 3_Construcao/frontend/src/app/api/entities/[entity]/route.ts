@@ -30,6 +30,7 @@ import {
   getLoanPolicyConfig,
   getReservationCollectionHours,
 } from "@/lib/settings-config";
+import { logLoanCreated, logReservationCreated } from "@/lib/activity-logger";
 
 const filterSchema = z.record(z.string(), z.unknown()).optional();
 
@@ -1093,6 +1094,12 @@ export async function POST(
         where: { bookId, status: ReservationStatus.ACTIVE },
       });
 
+      // Buscar informações do livro para o log
+      const book = await tx.book.findUnique({
+        where: { id: bookId },
+        select: { title: true },
+      });
+
       const res = await tx.reservation.create({
         data: {
           bookId,
@@ -1112,6 +1119,14 @@ export async function POST(
           reservationId: res.id,
         },
       });
+
+      // ✅ SGBU-011: Log de atividade crítica (reserva criada)
+      await logReservationCreated({
+        userId: user.id,
+        reservationId: res.id,
+        bookTitle: book?.title || "Livro desconhecido",
+        queuePosition: activeCount + 1,
+      }).catch((err) => console.error("Erro ao logar reserva:", err));
 
       return res;
     });
@@ -1388,6 +1403,14 @@ export async function POST(
             loanId: loan.id,
           },
         });
+
+        // ✅ SGBU-011: Log de atividade crítica (empréstimo criado)
+        await logLoanCreated({
+          userId: member.id,
+          loanId: loan.id,
+          bookTitle: book.title,
+          dueDate,
+        }).catch((err) => console.error("Erro ao logar empréstimo:", err));
 
         return loan;
       });

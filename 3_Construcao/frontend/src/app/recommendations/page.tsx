@@ -143,50 +143,29 @@ export default function Recommendations() {
   const { data: popularBooks = [] } = useQuery({ queryKey: ['popular-recommendations'], queryFn: () => api.entities.Book.list('-total_loans', 8), initialData: [] });
   const { data: topRatedBooks = [] } = useQuery({ queryKey: ['top-rated-recommendations'], queryFn: async () => { const books = await api.entities.Book.list('-average_rating', 20); return books.filter((b: Book) => (b.average_rating ?? 0) > 0).slice(0, 8); }, initialData: [] });
   const { data: newArrivals = [] } = useQuery({ queryKey: ['new-arrivals'], queryFn: () => api.entities.Book.list('-created_date', 8), initialData: [] });
-  const { data: userLoans = [] } = useQuery({ queryKey: ['user-loans', user?.email], queryFn: () => api.entities.Loan.filter({ member_id: user?.email }), enabled: !!user?.email, initialData: [] });
-
-  // AI-powered recommendations based on user history
-  const { data: aiRecommendations = [], isLoading: aiLoading } = useQuery({
-    queryKey: ['ai-recommendations', user?.email, userLoans],
+  // Recomendações personalizadas usando o novo endpoint RF026
+  const { data: personalRecommendations, isLoading: personalLoading } = useQuery({
+    queryKey: ['personal-recommendations', user?.email],
     queryFn: async () => {
-      if (userLoans.length === 0) return [];
-      
-      const borrowedTitles = userLoans.slice(0, 5).map(l => l.book_title).join(', ');
-      const allBooks = await api.entities.Book.list('-average_rating', 50);
-      const borrowedBookIds = userLoans.map((l) => l.book_id).filter((id): id is string => typeof id === 'string');
-      const availableBooks = allBooks.filter((b: Book) => !borrowedBookIds.includes(b.id) && (b.available_copies ?? 0) > 0);
-      
-      if (availableBooks.length === 0) return [];
-      
-      const response = await api.integrations.Core.InvokeLLM<{
-    		recommended_indices?: number[];
-    		reasoning?: string;
-    	}>({
-        prompt: `Baseado no histórico de leitura do utilizador (livros: ${borrowedTitles}), recomende os 4 melhores livros da seguinte lista que seriam mais relevantes. Considere similaridade de temas, autores relacionados e progressão lógica de leitura.
-
-Lista de livros disponíveis:
-${availableBooks.slice(0, 20).map((b, i) => `${i + 1}. "${b.title}" por ${b.authors?.join(', ') || 'Desconhecido'} - Categoria: ${b.category || 'Geral'}`).join('\n')}
-
-Retorne apenas os números dos livros recomendados (1-20) em ordem de relevância.`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            recommended_indices: { type: "array", items: { type: "number" }, description: "Índices dos livros recomendados (1-20)" },
-            reasoning: { type: "string", description: "Breve explicação das recomendações" }
-          }
+      try {
+        const response = await fetch(`/api/recommendations?limit=8`);
+        if (!response.ok) {
+          console.error('Erro ao buscar recomendações:', await response.text());
+          return { recommendations: [] };
         }
-      });
-
-      const indices = response.recommended_indices || [];
-    return indices
-      .map((i) => availableBooks[i - 1])
-      .filter((b): b is BookLike => Boolean(b))
-      .slice(0, 4);
+        const data = await response.json();
+        return data.success ? data.data : { recommendations: [] };
+      } catch (error) {
+        console.error('Erro ao buscar recomendações:', error);
+        return { recommendations: [] };
+      }
     },
-    enabled: !!user?.email && userLoans.length > 0,
-    initialData: [],
-    staleTime: 1000 * 60 * 30 // Cache for 30 minutes
+    enabled: !!user?.email,
+    staleTime: 1000 * 60 * 30, // Cache for 30 minutes
   });
+
+  const aiRecommendations = personalRecommendations?.recommendations || [];
+  const aiLoading = personalLoading;
 
   if (!user) return null;
 
@@ -203,7 +182,7 @@ Retorne apenas os números dos livros recomendados (1-20) em ordem de relevânci
           </div>
         </div>
 
-        {userLoans.length > 0 && (
+        {aiRecommendations.length > 0 && (
           <BookSection 
             title="Recomendados para Você" 
             icon={Sparkles} 

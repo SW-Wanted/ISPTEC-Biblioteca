@@ -24,6 +24,7 @@ import {
   getFineAmount,
   getReservationCollectionHours,
 } from "@/lib/settings-config";
+import { logFinePaid, logFineWaived, logLoanReturned } from "@/lib/activity-logger";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 const statusSchema = z.object({ status: z.string() });
@@ -334,18 +335,27 @@ export async function PATCH(
       const now = new Date();
       const finePerDay = await getFineAmount(FineType.LATE_RETURN);
 
+      let loanUserId: string;
+      let copyId: string;
+      let daysOverdue = 0;
+      let wasOverdue = false;
+
       await prisma.$transaction(async (tx) => {
         const loan = await tx.loan.findUnique({
           where: { id },
           include: {
-            copy: { select: { id: true, bookId: true } },
+            copy: { select: { id: true, bookId: true, book: { select: { title: true } } } },
             user: { select: { id: true, type: true } },
           },
         });
         if (!loan) throw new Error("NOT_FOUND");
 
+        loanUserId = loan.userId;
+        copyId = loan.copyId;
+
         const isOverdue = loan.dueDate.getTime() < now.getTime();
-        const daysOverdue = isOverdue
+        wasOverdue = isOverdue;
+        daysOverdue = isOverdue
           ? Math.max(
               0,
               Math.floor(
@@ -419,6 +429,15 @@ export async function PATCH(
           data: { availableCopies, totalCopies },
         });
       });
+
+      // ✅ SGBU-011: Log de atividade crítica (devolução de livro)
+      await logLoanReturned({
+        userId: loanUserId,
+        loanId: id,
+        copyId,
+        wasOverdue,
+        daysOverdue,
+      }).catch(err => console.error("Erro ao logar devolução de livro:", err));
 
       return NextResponse.json({ ok: true });
     }
@@ -753,19 +772,18 @@ export async function PATCH(
       await prisma.$transaction(async (tx) => {
         const fine = await tx.fine.findUnique({
           where: { id },
-          select: { id: true, userId: true, status: true },
+          select: { id: true, userId: true, status: true, amount: true },
         });
         if (!fine) throw new Error("NOT_FOUND");
+
+        const paymentMethod = typeof parsed.payment_method === "string" ? parsed.payment_method : null;
 
         await tx.fine.update({
           where: { id },
           data: {
             status: FineStatus.PAID,
             paidAt: new Date(),
-            paymentMethod:
-              typeof parsed.payment_method === "string"
-                ? parsed.payment_method
-                : null,
+            paymentMethod,
             paymentReference:
               typeof parsed.payment_reference === "string"
                 ? parsed.payment_reference
@@ -781,6 +799,14 @@ export async function PATCH(
           where: { id: fine.userId },
           data: { totalFines: sum._sum.amount ?? 0 },
         });
+
+        // ✅ SGBU-011: Log de atividade crítica (multa paga)
+        await logFinePaid({
+          userId: fine.userId,
+          fineId: fine.id,
+          amount: Number(fine.amount),
+          paymentMethod: paymentMethod || undefined,
+        }).catch(err => console.error("Erro ao logar pagamento de multa:", err));
       });
 
       return NextResponse.json({ ok: true });
@@ -790,21 +816,20 @@ export async function PATCH(
       await prisma.$transaction(async (tx) => {
         const fine = await tx.fine.findUnique({
           where: { id },
-          select: { id: true, userId: true },
+          select: { id: true, userId: true, amount: true },
         });
         if (!fine) throw new Error("NOT_FOUND");
+
+        const waivedBy = typeof parsed.waived_by === "string" ? parsed.waived_by : user!.id;
+        const waiverReason = typeof parsed.waiver_reason === "string" ? parsed.waiver_reason : "Isenção administrativa";
 
         await tx.fine.update({
           where: { id },
           data: {
             status: FineStatus.WAIVED,
             waivedAt: new Date(),
-            waivedBy:
-              typeof parsed.waived_by === "string" ? parsed.waived_by : null,
-            waiverReason:
-              typeof parsed.waiver_reason === "string"
-                ? parsed.waiver_reason
-                : null,
+            waivedBy,
+            waiverReason,
           },
         });
 
@@ -816,6 +841,15 @@ export async function PATCH(
           where: { id: fine.userId },
           data: { totalFines: sum._sum.amount ?? 0 },
         });
+
+        // ✅ SGBU-011: Log de atividade crítica (multa isentada)
+        await logFineWaived({
+          userId: waivedBy,
+          targetUserId: fine.userId,
+          fineId: fine.id,
+          amount: Number(fine.amount),
+          reason: waiverReason,
+        }).catch(err => console.error("Erro ao logar isenção de multa:", err));
       });
 
       return NextResponse.json({ ok: true });
