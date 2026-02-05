@@ -54,10 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Usar Gemini Vision (modelo ESTÁVEL da PR #47)
-    console.log("🤖 Criando modelo Gemini: gemini-1.5-flash");
+    // 3. Usar Gemini Vision (modelo ESTÁVEL)
+    // Nota: Usar 'gemini-1.5-flash-latest' ou 'gemini-1.5-pro-latest' para sempre pegar a versão mais recente
+    console.log("🤖 Criando modelo Gemini: gemini-1.5-flash-latest");
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash", // Modelo estável (não experimental)
+      model: "gemini-1.5-flash-latest", // Versão sempre atualizada do Flash
     });
 
     const prompt = `Você é um especialista em catalogação bibliográfica. Analise esta imagem de um livro (capa, contracapa ou folha de rosto) e extraia APENAS as informações que estão CLARAMENTE VISÍVEIS.
@@ -113,10 +114,13 @@ Se a imagem não for de um livro ou estiver ilegível, retorne:
     console.log("🚀 Chamando Gemini Vision API...");
     const result = await model.generateContent([prompt, imagePart]);
     console.log("✅ Resposta recebida do Gemini");
-    
+
     const response = await result.response;
     const text = response.text();
-    console.log("📄 Texto extraído (primeiros 200 chars):", text.substring(0, 200));
+    console.log(
+      "📄 Texto extraído (primeiros 200 chars):",
+      text.substring(0, 200),
+    );
 
     // 4. Parsear resposta JSON
     // Remover markdown code blocks se houver
@@ -161,7 +165,7 @@ Se a imagem não for de um livro ou estiver ilegível, retorne:
     });
   } catch (error) {
     console.error("❌ Erro na análise de imagem:", error);
-    
+
     // Log detalhado do erro
     if (error instanceof Error) {
       console.error("  - Error name:", error.name);
@@ -171,31 +175,41 @@ Se a imagem não for de um livro ou estiver ilegível, retorne:
 
     // Tratar erros específicos do Gemini
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("API key")) {
+
+    if (
+      errorMessage.includes("API_KEY_INVALID") ||
+      errorMessage.includes("API key")
+    ) {
       return NextResponse.json(
         {
-          error: "API Key do Gemini inválida. Configure GOOGLE_GEMINI_API_KEY corretamente.",
+          error:
+            "API Key do Gemini inválida. Configure GOOGLE_GEMINI_API_KEY corretamente.",
           message: errorMessage,
         },
         { status: 503 },
       );
     }
-    
-    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("RESOURCE_EXHAUSTED")) {
+
+    if (
+      errorMessage.includes("429") ||
+      errorMessage.includes("quota") ||
+      errorMessage.includes("RESOURCE_EXHAUSTED")
+    ) {
       return NextResponse.json(
         {
-          error: "Quota da API Gemini esgotada. Aguarde alguns minutos ou use outra API Key.",
+          error:
+            "Quota da API Gemini esgotada. Aguarde alguns minutos ou use outra API Key.",
           message: errorMessage,
         },
         { status: 429 },
       );
     }
-    
+
     if (errorMessage.includes("404") || errorMessage.includes("not found")) {
       return NextResponse.json(
         {
-          error: "Modelo Gemini não encontrado. Verifique se 'gemini-1.5-flash' está disponível.",
+          error:
+            "Modelo Gemini não encontrado. Verifique se 'gemini-1.5-flash' está disponível.",
           message: errorMessage,
         },
         { status: 503 },
