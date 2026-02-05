@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import {
+  AccountActivationStatus,
   FineStatus,
   LoanStatus,
   NotificationStatus,
@@ -12,7 +13,8 @@ import {
   UserStatus,
   UserType,
 } from "@prisma/client";
-import { LOAN_LIMITS, toIso } from "@/lib/sgbu-rules";
+import { calculateDueDate, toIso } from "@/lib/sgbu-rules";
+import { getLoanPolicyConfig } from "@/lib/settings-config";
 import { logLoanRenewed } from "@/lib/activity-logger";
 
 function lowerEnum(value: string): string {
@@ -35,12 +37,21 @@ async function requireUser() {
       name: true,
       type: true,
       status: true,
+      activationStatus: true,
       isBlocked: true,
     },
   });
 
   if (!user) return null;
-  if (user.status !== UserStatus.ACTIVE || user.isBlocked) return null;
+  const isBlocked =
+    user.isBlocked ||
+    user.status === UserStatus.BLOCKED ||
+    user.status === UserStatus.INACTIVE ||
+    user.activationStatus === AccountActivationStatus.BLOCKED;
+  const isActive =
+    user.status === UserStatus.ACTIVE ||
+    user.activationStatus === AccountActivationStatus.ACTIVE;
+  if (isBlocked || !isActive) return null;
 
   return user;
 }
@@ -102,7 +113,11 @@ export async function POST(
   const preload = await prisma.loan.findUnique({
     where: { id },
     include: {
-      copy: { include: { book: { select: { id: true, title: true } } } },
+      copy: {
+        include: {
+          book: { select: { id: true, title: true, loanPolicy: true } },
+        },
+      },
       user: { select: { id: true } },
     },
   });
@@ -128,7 +143,11 @@ export async function POST(
       const loan = await tx.loan.findUnique({
         where: { id },
         include: {
-          copy: { include: { book: { select: { id: true, title: true } } } },
+          copy: {
+            include: {
+              book: { select: { id: true, title: true, loanPolicy: true } },
+            },
+          },
           user: {
             select: {
               id: true,
@@ -159,7 +178,10 @@ export async function POST(
         throw new Error("OVERDUE");
       }
 
-      if (loan.renewalCount >= loan.maxRenewals) {
+      const policyConfig = await getLoanPolicyConfig(loan.user.type);
+      const effectiveMaxRenewals = policyConfig.maxRenewals;
+
+      if (loan.renewalCount >= effectiveMaxRenewals) {
         throw new Error("MAX_RENEWALS");
       }
 
@@ -189,9 +211,11 @@ export async function POST(
         throw new Error("PENDING_FINES");
       }
 
-      const loanDays = LOAN_LIMITS[loan.user.type].loanDays;
-      const newDueDate = new Date(
-        now.getTime() + loanDays * 24 * 60 * 60 * 1000,
+      const newDueDate = calculateDueDate(
+        loan.user.type,
+        loan.copy.book.loanPolicy,
+        now,
+        policyConfig.loanDays,
       );
 
       const updated = await tx.loan.update({
@@ -199,6 +223,7 @@ export async function POST(
         data: {
           dueDate: newDueDate,
           renewalCount: loan.renewalCount + 1,
+          maxRenewals: effectiveMaxRenewals,
           status: LoanStatus.ACTIVE,
         },
         include: {

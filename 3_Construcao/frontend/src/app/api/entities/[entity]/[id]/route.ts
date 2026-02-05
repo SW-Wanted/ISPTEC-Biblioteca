@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import {
+  AccountActivationStatus,
   BookStatus,
   ComputerStatus,
   FineStatus,
@@ -19,12 +20,16 @@ import {
   UserStatus,
   UserType,
 } from "@prisma/client";
-import { normalizeEnum } from "@/lib/sgbu-rules";
+import { normalizeEnum, toIso } from "@/lib/sgbu-rules";
 import {
   getFineAmount,
   getReservationCollectionHours,
 } from "@/lib/settings-config";
-import { logFinePaid, logFineWaived, logLoanReturned } from "@/lib/activity-logger";
+import {
+  logFinePaid,
+  logFineWaived,
+  logLoanReturned,
+} from "@/lib/activity-logger";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 const statusSchema = z.object({ status: z.string() });
@@ -80,6 +85,10 @@ function isEnumValue<T extends Record<string, string>>(
   return Object.values(enumObj).includes(value as T[keyof T]);
 }
 
+function lowerEnum(value: string): string {
+  return value.toLowerCase();
+}
+
 function canManageBooks(type: UserType) {
   return (
     type === UserType.SUPERVISOR ||
@@ -112,11 +121,18 @@ async function requireUser() {
       name: true,
       type: true,
       status: true,
+      activationStatus: true,
       isBlocked: true,
     },
   });
   if (!user) return null;
-  if (user.status !== UserStatus.ACTIVE || user.isBlocked) return null;
+  const isBlocked =
+    user.isBlocked ||
+    user.status === UserStatus.BLOCKED ||
+    user.status === UserStatus.INACTIVE ||
+    user.activationStatus === AccountActivationStatus.BLOCKED;
+  // Permitir PENDING/PENDING_TRAINING na API, mas bloquear explicitamente contas inativas/bloqueadas
+  if (isBlocked) return null;
 
   return user;
 }
@@ -298,25 +314,230 @@ export async function PATCH(
       });
     }
 
-    // Atualizar total_copies e available_copies
-    if (typeof parsed.total_copies === "number") {
-      data.totalCopies = parsed.total_copies;
-    }
-    if (typeof parsed.available_copies === "number") {
-      data.availableCopies = parsed.available_copies;
+    const book = await prisma.book.update({
+      where: { id },
+      data,
+      include: {
+        category: { select: { name: true } },
+        publisher: { select: { name: true } },
+      },
+    });
+
+    return NextResponse.json({
+      id: book.id,
+      title: book.title,
+      category: book.category?.name ?? null,
+      publisher: book.publisher?.name ?? null,
+      cover_url: book.coverUrl,
+      updated_date: toIso(book.updatedAt),
+    });
+  }
+
+  if (entity === "Reservation") {
+    // 🔒 Apenas o próprio utilizador pode cancelar/atualizar sua reserva
+    // ou staff pode gerenciar todas
+    const reservation = await prisma.reservation.findUnique({
+      where: { id },
+      select: { userId: true, status: true, bookId: true },
+    });
+
+    if (!reservation) {
+      return NextResponse.json(
+        { error: "Reserva não encontrada" },
+        { status: 404 },
+      );
     }
 
-    // Atualizar material_type e loan_policy
-    if (typeof parsed.material_type === "string") {
-      data.materialType = parsed.material_type as any;
-    }
-    if (typeof parsed.loan_policy === "string") {
-      data.loanPolicy = parsed.loan_policy as any;
+    // Verificar permissões
+    const isOwner = reservation.userId === user.id;
+    const canManage = canManageMembers(user.type);
+
+    if (!isOwner && !canManage) {
+      return NextResponse.json(
+        { error: "Sem permissão para alterar esta reserva" },
+        { status: 403 },
+      );
     }
 
-    await prisma.book.update({ where: { id }, data });
+    // Validar mudança de status
+    const statusParsed = statusSchema.safeParse(body);
+    if (statusParsed.success) {
+      const newStatus = normalizeEnum(statusParsed.data.status);
+      if (isEnumValue(ReservationStatus, newStatus)) {
+        // Estudantes só podem cancelar suas próprias reservas
+        if (!canManage && newStatus !== ReservationStatus.CANCELLED) {
+          return NextResponse.json(
+            { error: "Estudantes só podem cancelar reservas" },
+            { status: 403 },
+          );
+        }
 
-    return NextResponse.json({ ok: true });
+        // Não pode alterar se já foi coletada
+        if (reservation.status === ReservationStatus.COLLECTED) {
+          return NextResponse.json(
+            { error: "Reserva já foi coletada" },
+            { status: 400 },
+          );
+        }
+
+        // Não pode cancelar/expirar novamente se já está nesse estado
+        if (
+          (newStatus === ReservationStatus.CANCELLED &&
+            reservation.status === ReservationStatus.CANCELLED) ||
+          (newStatus === ReservationStatus.EXPIRED &&
+            reservation.status === ReservationStatus.EXPIRED)
+        ) {
+          return NextResponse.json(
+            { error: "Reserva já está nesse estado" },
+            { status: 400 },
+          );
+        }
+
+        // AVAILABLE: Processar reserva manualmente (admin)
+        if (newStatus === ReservationStatus.AVAILABLE) {
+          if (!canManage) {
+            return NextResponse.json(
+              { error: "Sem permissão para processar reservas" },
+              { status: 403 },
+            );
+          }
+
+          if (reservation.status !== ReservationStatus.ACTIVE) {
+            return NextResponse.json(
+              { error: "Reserva não está ativa para processamento" },
+              { status: 409 },
+            );
+          }
+
+          // Verificar se há cópia disponível
+          const availableCopy = await prisma.copy.findFirst({
+            where: {
+              bookId: reservation.bookId,
+              status: BookStatus.AVAILABLE,
+            },
+            orderBy: { createdAt: "asc" },
+          });
+
+          if (!availableCopy) {
+            return NextResponse.json(
+              { error: "Não há cópia disponível para processar esta reserva" },
+              { status: 400 },
+            );
+          }
+
+          const collectionHours = await getReservationCollectionHours();
+          const expiryDate = new Date(
+            Date.now() + collectionHours * 60 * 60 * 1000,
+          );
+
+          const updated = await prisma.$transaction(async (tx) => {
+            // Atualizar reserva
+            const res = await tx.reservation.update({
+              where: { id },
+              data: {
+                status: ReservationStatus.AVAILABLE,
+                availableDate: new Date(),
+                expiryDate,
+                notifiedAt: new Date(),
+                updatedAt: new Date(),
+              },
+            });
+
+            // Marcar cópia como reservada
+            await tx.copy.update({
+              where: { id: availableCopy.id },
+              data: { status: BookStatus.RESERVED },
+            });
+
+            // Criar notificação
+            await tx.notification.create({
+              data: {
+                userId: reservation.userId,
+                type: NotificationType.IN_APP,
+                status: NotificationStatus.PENDING,
+                title: "Livro disponível!",
+                message: `O livro reservado ficou disponível. Tens ${collectionHours}h para levantar.`,
+                reservationId: res.id,
+              },
+            });
+
+            return res;
+          });
+
+          return NextResponse.json({
+            id: updated.id,
+            status: lowerEnum(updated.status),
+            available_date: toIso(updated.availableDate!),
+            expiry_date: toIso(updated.expiryDate!),
+            updated_date: toIso(updated.updatedAt),
+          });
+        }
+
+        if (newStatus === ReservationStatus.COLLECTED) {
+          if (!canManage) {
+            return NextResponse.json(
+              { error: "Sem permissão para marcar levantamento" },
+              { status: 403 },
+            );
+          }
+
+          if (reservation.status !== ReservationStatus.AVAILABLE) {
+            return NextResponse.json(
+              { error: "Reserva não está disponível para levantamento" },
+              { status: 409 },
+            );
+          }
+        }
+
+        // Cancelar/expirar reserva e notificar próximo na fila
+        const updated = await prisma.$transaction(async (tx) => {
+          const res = await tx.reservation.update({
+            where: { id },
+            data: {
+              status: newStatus,
+              collectionDate:
+                newStatus === ReservationStatus.COLLECTED
+                  ? new Date()
+                  : undefined,
+              updatedAt: new Date(),
+            },
+          });
+
+          // Se cancelou ou expirou, liberar cópia reservada (se houver) e notificar próximo
+          if (
+            newStatus === ReservationStatus.CANCELLED ||
+            newStatus === ReservationStatus.EXPIRED
+          ) {
+            const reservedCopy = await tx.copy.findFirst({
+              where: {
+                bookId: reservation.bookId,
+                status: BookStatus.RESERVED,
+              },
+            });
+
+            if (reservedCopy) {
+              await tx.copy.update({
+                where: { id: reservedCopy.id },
+                data: { status: BookStatus.AVAILABLE },
+              });
+            }
+
+            // Notificar próximo na fila
+            await notifyNextReservation(tx, reservation.bookId);
+          }
+
+          return res;
+        });
+
+        return NextResponse.json({
+          id: updated.id,
+          status: lowerEnum(updated.status),
+          updated_date: toIso(updated.updatedAt),
+        });
+      }
+    }
+
+    return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
   }
 
   if (entity === "Loan") {
@@ -344,7 +565,13 @@ export async function PATCH(
         const loan = await tx.loan.findUnique({
           where: { id },
           include: {
-            copy: { select: { id: true, bookId: true, book: { select: { title: true } } } },
+            copy: {
+              select: {
+                id: true,
+                bookId: true,
+                book: { select: { title: true } },
+              },
+            },
             user: { select: { id: true, type: true } },
           },
         });
@@ -437,7 +664,9 @@ export async function PATCH(
         copyId,
         wasOverdue,
         daysOverdue,
-      }).catch(err => console.error("Erro ao logar devolução de livro:", err));
+      }).catch((err) =>
+        console.error("Erro ao logar devolução de livro:", err),
+      );
 
       return NextResponse.json({ ok: true });
     }
@@ -776,7 +1005,10 @@ export async function PATCH(
         });
         if (!fine) throw new Error("NOT_FOUND");
 
-        const paymentMethod = typeof parsed.payment_method === "string" ? parsed.payment_method : null;
+        const paymentMethod =
+          typeof parsed.payment_method === "string"
+            ? parsed.payment_method
+            : null;
 
         await tx.fine.update({
           where: { id },
@@ -806,7 +1038,9 @@ export async function PATCH(
           fineId: fine.id,
           amount: Number(fine.amount),
           paymentMethod: paymentMethod || undefined,
-        }).catch(err => console.error("Erro ao logar pagamento de multa:", err));
+        }).catch((err) =>
+          console.error("Erro ao logar pagamento de multa:", err),
+        );
       });
 
       return NextResponse.json({ ok: true });
@@ -820,8 +1054,12 @@ export async function PATCH(
         });
         if (!fine) throw new Error("NOT_FOUND");
 
-        const waivedBy = typeof parsed.waived_by === "string" ? parsed.waived_by : user!.id;
-        const waiverReason = typeof parsed.waiver_reason === "string" ? parsed.waiver_reason : "Isenção administrativa";
+        const waivedBy =
+          typeof parsed.waived_by === "string" ? parsed.waived_by : user!.id;
+        const waiverReason =
+          typeof parsed.waiver_reason === "string"
+            ? parsed.waiver_reason
+            : "Isenção administrativa";
 
         await tx.fine.update({
           where: { id },
@@ -849,7 +1087,9 @@ export async function PATCH(
           fineId: fine.id,
           amount: Number(fine.amount),
           reason: waiverReason,
-        }).catch(err => console.error("Erro ao logar isenção de multa:", err));
+        }).catch((err) =>
+          console.error("Erro ao logar isenção de multa:", err),
+        );
       });
 
       return NextResponse.json({ ok: true });

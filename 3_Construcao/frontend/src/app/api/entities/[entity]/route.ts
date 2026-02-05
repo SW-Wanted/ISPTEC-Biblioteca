@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import {
+  AccountActivationStatus,
   BookStatus,
   FineStatus,
   FineType,
@@ -90,14 +91,20 @@ async function requireUser() {
       name: true,
       type: true,
       status: true,
+      activationStatus: true,
       isBlocked: true,
       totalFines: true,
     },
   });
   if (!user) return null;
   // ✅ Permitir PENDING (para acessar notificações durante onboarding)
-  // ❌ Bloquear apenas INACTIVE e usuários bloqueados
-  if (user.status === UserStatus.INACTIVE || user.isBlocked) return null;
+  // ❌ Bloquear apenas INACTIVE/BLOCKED e usuários bloqueados
+  const isBlocked =
+    user.isBlocked ||
+    user.status === UserStatus.INACTIVE ||
+    user.status === UserStatus.BLOCKED ||
+    user.activationStatus === AccountActivationStatus.BLOCKED;
+  if (isBlocked) return null;
 
   return user;
 }
@@ -559,7 +566,11 @@ export async function GET(
       take: limit,
       include: {
         user: { select: { email: true, name: true, type: true } },
-        copy: { include: { book: { select: { id: true, title: true } } } },
+        copy: {
+          include: {
+            book: { select: { id: true, title: true, coverUrl: true } },
+          },
+        },
       },
     });
 
@@ -574,6 +585,7 @@ export async function GET(
         member_name: l.user.name,
         book_id: l.copy.book.id,
         book_title: l.copy.book.title,
+        cover_url: l.copy.book.coverUrl,
         copy_id: l.copyId,
         renewal_count: l.renewalCount,
         max_renewals: l.maxRenewals,
@@ -596,13 +608,26 @@ export async function GET(
       if (isEnumValue(ReservationStatus, s)) where.status = s;
     }
 
-    // 🔒 SGBU-006: Utilizador não-staff só vê suas próprias reservas
+    // 🔒 SGBU-006: Regras de visualização
+    // - Staff pode ver todas
+    // - Estudantes podem ver:
+    //   a) Suas próprias reservas (filtro com member_id = seu email)
+    //   b) Fila de qualquer livro (filtro com book_id, para ver posição na fila)
     if (!canManageMembers(user.type)) {
       const memberEmail = filter?.member_id ? String(filter.member_id) : null;
-      if (!memberEmail || memberEmail !== user.email) {
+      const bookId = filter?.book_id ? String(filter.book_id) : null;
+
+      // Se está filtrando por member_id, só pode ver suas próprias
+      if (memberEmail && memberEmail !== user.email) {
         return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
       }
-      where.userId = user.id;
+
+      // Se não está filtrando por book_id nem por seu member_id, bloquear
+      if (!bookId && !memberEmail) {
+        where.userId = user.id; // Forçar a ver apenas suas próprias
+      }
+      // Se está filtrando por book_id (ver fila), permitir
+      // Se está filtrando por seu member_id, já validado acima
     }
 
     const reservations = await prisma.reservation.findMany({
@@ -610,8 +635,8 @@ export async function GET(
       orderBy: [{ reservationDate: "desc" }, { queuePosition: "asc" }],
       take: limit,
       include: {
-        user: { select: { email: true } },
-        book: { select: { title: true } },
+        user: { select: { email: true, type: true } },
+        book: { select: { title: true, coverUrl: true } },
       },
     });
 
@@ -620,12 +645,15 @@ export async function GET(
         id: r.id,
         status: lowerEnum(r.status),
         member_id: r.user.email,
+        member_type: lowerEnum(r.user.type),
         book_id: r.bookId,
         book_title: r.book.title,
+        cover_url: r.book.coverUrl,
         reservation_date: toIso(r.reservationDate),
         queue_position: r.queuePosition,
         available_date: toIso(r.availableDate) ?? null,
         expiry_date: toIso(r.expiryDate) ?? null,
+        collection_date: toIso(r.collectionDate) ?? null,
         created_date: toIso(r.createdAt),
         updated_date: toIso(r.updatedAt),
       })),
@@ -777,6 +805,44 @@ export async function GET(
     );
   }
 
+  if (entity === "LockerRental") {
+    // Utilizador comum vê apenas os próprios alugueres; staff vê todos
+    const where: Prisma.LockerRentalWhereInput = {};
+    if (!canManageMembers(user.type)) {
+      where.userId = user.id;
+    }
+
+    if (filter?.endTime === null) {
+      where.endTime = null;
+    }
+
+    const rentals = await prisma.lockerRental.findMany({
+      where,
+      orderBy: [{ endTime: "asc" }, { startTime: "desc" }],
+      take: limit,
+      include: {
+        locker: { select: { number: true, location: true } },
+      },
+    });
+
+    return NextResponse.json(
+      rentals.map((r) => ({
+        id: r.id,
+        locker_id: r.lockerId,
+        locker_number: r.locker.number,
+        locker_location: r.locker.location,
+        user_id: r.userId,
+        start_time: toIso(r.startTime),
+        end_time: toIso(r.endTime) ?? null,
+        expected_end: toIso(r.expectedEnd),
+        overtime_minutes: r.overtimeMinutes,
+        fine_amount: Number(r.fineAmount),
+        created_date: toIso(r.createdAt),
+        updated_date: toIso(r.updatedAt),
+      })),
+    );
+  }
+
   if (entity === "Computer") {
     const computers = await prisma.computer.findMany({
       orderBy: [{ location: "asc" }, { number: "asc" }],
@@ -798,6 +864,44 @@ export async function GET(
         status: lowerEnum(c.status),
         created_date: toIso(c.createdAt),
         updated_date: toIso(c.updatedAt),
+      })),
+    );
+  }
+
+  if (entity === "ComputerSession") {
+    // Utilizador comum vê apenas as suas sessões; staff vê todas
+    const where: Prisma.ComputerSessionWhereInput = {};
+    if (!canManageMembers(user.type)) {
+      where.userId = user.id;
+    }
+
+    if (filter?.endTime === null) {
+      where.endTime = null;
+    }
+
+    const sessions = await prisma.computerSession.findMany({
+      where,
+      orderBy: [{ endTime: "asc" }, { startTime: "desc" }],
+      take: limit,
+      include: {
+        computer: { select: { number: true, location: true } },
+      },
+    });
+
+    return NextResponse.json(
+      sessions.map((s) => ({
+        id: s.id,
+        computer_id: s.computerId,
+        computer_number: s.computer.number,
+        computer_location: s.computer.location,
+        user_id: s.userId,
+        start_time: toIso(s.startTime),
+        end_time: toIso(s.endTime) ?? null,
+        expected_end: toIso(s.expectedEnd),
+        renewal_count: s.renewalCount,
+        max_renewals: s.maxRenewals,
+        created_date: toIso(s.createdAt),
+        updated_date: toIso(s.updatedAt),
       })),
     );
   }
@@ -1089,6 +1193,26 @@ export async function POST(
       );
     }
 
+    // 🚫 Não permitir reservar se já tem um empréstimo ativo/atrasado do mesmo livro
+    const activeLoanSameBook = await prisma.loan.findFirst({
+      where: {
+        userId: user.id,
+        status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        copy: { bookId },
+      },
+      select: { id: true },
+    });
+
+    if (activeLoanSameBook) {
+      return NextResponse.json(
+        {
+          error:
+            "Já tens um empréstimo ativo deste livro. Devolve o exemplar antes de reservar outra cópia.",
+        },
+        { status: 400 },
+      );
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       const activeCount = await tx.reservation.count({
         where: { bookId, status: ReservationStatus.ACTIVE },
@@ -1258,6 +1382,7 @@ export async function POST(
     const loanCreateSchema = z.object({
       member_id: z.string().min(1),
       book_id: z.string().min(1),
+      reservation_id: z.string().optional(),
     });
     const parsed = loanCreateSchema.safeParse(body);
     if (!parsed.success) {
@@ -1269,105 +1394,156 @@ export async function POST(
 
     const memberId = parsed.data.member_id.trim();
     const bookId = parsed.data.book_id.trim();
+    const reservationId = parsed.data.reservation_id?.trim();
 
     try {
+      const member = await prisma.user.findUnique({
+        where: { email: memberId },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          activationStatus: true,
+          isBlocked: true,
+          totalFines: true,
+        },
+      });
+      const memberBlocked =
+        !member ||
+        member.isBlocked ||
+        member.status === UserStatus.BLOCKED ||
+        member.status === UserStatus.INACTIVE ||
+        member.activationStatus === AccountActivationStatus.BLOCKED;
+
+      // 🚦 Considerar ACTIVE se o fluxo de activação já estiver concluído, mesmo que status legacy esteja PENDING
+      const isActiveByActivation =
+        member?.activationStatus === AccountActivationStatus.ACTIVE;
+
+      if (
+        memberBlocked ||
+        (!isActiveByActivation && member?.status !== UserStatus.ACTIVE)
+      ) {
+        throw new Error("MEMBER_INVALID");
+      }
+      if (Number(member.totalFines) > 0) {
+        throw new Error("MEMBER_HAS_FINES");
+      }
+
+      const activeLoans = await prisma.loan.count({
+        where: {
+          userId: member.id,
+          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        },
+      });
+      const policyConfig = await getLoanPolicyConfig(member.type);
+      if (activeLoans >= policyConfig.maxBooks) {
+        throw new Error("LOAN_LIMIT");
+      }
+
+      // 📚 SGBU-007: Obter informações do livro (materialType, loanPolicy)
+      const book = await prisma.book.findUnique({
+        where: { id: bookId },
+        select: {
+          id: true,
+          title: true,
+          materialType: true,
+          loanPolicy: true,
+        },
+      });
+      if (!book) {
+        throw new Error("BOOK_NOT_FOUND");
+      }
+
+      if (reservationId) {
+        const reservation = await prisma.reservation.findUnique({
+          where: { id: reservationId },
+          select: { id: true, status: true, userId: true, bookId: true },
+        });
+        if (!reservation) {
+          throw new Error("RESERVATION_NOT_FOUND");
+        }
+        if (reservation.bookId !== bookId) {
+          throw new Error("RESERVATION_MISMATCH");
+        }
+        if (reservation.userId !== member.id) {
+          throw new Error("RESERVATION_MISMATCH");
+        }
+        if (reservation.status !== ReservationStatus.AVAILABLE) {
+          throw new Error("RESERVATION_NOT_AVAILABLE");
+        }
+      }
+
+      // 📚 SGBU-007: Validar se material permite empréstimo
+      if (book.loanPolicy === "NO_LOAN") {
+        throw new Error("NO_LOAN_REFERENCE");
+      }
+
+      // 📚 SGBU-007: Validar 1 obra por título (Artigo 10º)
+      const existingLoanSameTitle = await prisma.loan.findFirst({
+        where: {
+          userId: member.id,
+          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+          copy: {
+            bookId: book.id,
+          },
+        },
+        select: { id: true },
+      });
+      if (existingLoanSameTitle) {
+        throw new Error("ONE_COPY_PER_TITLE");
+      }
+
+      await expireReservationsIfNeeded(bookId);
+
+      const hasOtherReservations = await prisma.reservation.findFirst({
+        where: {
+          bookId,
+          status: ReservationStatus.ACTIVE,
+          NOT: { userId: member.id },
+        },
+        select: { id: true },
+      });
+      if (hasOtherReservations) {
+        throw new Error("HAS_RESERVATIONS");
+      }
+
+      // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
+      const dueDate = calculateDueDate(
+        member.type,
+        book.loanPolicy,
+        new Date(),
+        policyConfig.loanDays,
+      );
+
       const result = await prisma.$transaction(async (tx) => {
-        const member = await tx.user.findUnique({
-          where: { email: memberId },
-          select: {
-            id: true,
-            type: true,
-            status: true,
-            isBlocked: true,
-            totalFines: true,
-          },
-        });
-        if (
-          !member ||
-          member.status !== UserStatus.ACTIVE ||
-          member.isBlocked
-        ) {
-          throw new Error("MEMBER_INVALID");
-        }
-        if (Number(member.totalFines) > 0) {
-          throw new Error("MEMBER_HAS_FINES");
-        }
-
-        const activeLoans = await tx.loan.count({
-          where: {
-            userId: member.id,
-            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
-          },
-        });
-        const policyConfig = await getLoanPolicyConfig(member.type);
-        if (activeLoans >= policyConfig.maxBooks) {
-          throw new Error("LOAN_LIMIT");
-        }
-
-        // 📚 SGBU-007: Obter informações do livro (materialType, loanPolicy)
-        const book = await tx.book.findUnique({
-          where: { id: bookId },
-          select: {
-            id: true,
-            title: true,
-            materialType: true,
-            loanPolicy: true,
-          },
-        });
-        if (!book) {
-          throw new Error("BOOK_NOT_FOUND");
-        }
-
-        // 📚 SGBU-007: Validar se material permite empréstimo
-        if (book.loanPolicy === "NO_LOAN") {
-          throw new Error("NO_LOAN_REFERENCE");
-        }
-
-        // 📚 SGBU-007: Validar 1 obra por título (Artigo 10º)
-        const existingLoanSameTitle = await tx.loan.findFirst({
-          where: {
-            userId: member.id,
-            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
-            copy: {
-              bookId: book.id,
-            },
-          },
-          select: { id: true },
-        });
-        if (existingLoanSameTitle) {
-          throw new Error("ONE_COPY_PER_TITLE");
-        }
-
-        await expireReservationsIfNeeded(bookId);
-
-        const hasOtherReservations = await tx.reservation.findFirst({
-          where: {
-            bookId,
-            status: ReservationStatus.ACTIVE,
-            NOT: { userId: member.id },
-          },
-          select: { id: true },
-        });
-        if (hasOtherReservations) {
-          throw new Error("HAS_RESERVATIONS");
+        if (reservationId) {
+          const reservation = await tx.reservation.findUnique({
+            where: { id: reservationId },
+            select: { status: true, userId: true, bookId: true },
+          });
+          if (
+            !reservation ||
+            reservation.status !== ReservationStatus.AVAILABLE ||
+            reservation.userId !== member.id ||
+            reservation.bookId !== bookId
+          ) {
+            throw new Error("RESERVATION_NOT_AVAILABLE");
+          }
         }
 
         const copy = await tx.copy.findFirst({
-          where: { bookId, status: BookStatus.AVAILABLE },
+          where: {
+            bookId,
+            status: reservationId
+              ? { in: [BookStatus.RESERVED, BookStatus.AVAILABLE] }
+              : BookStatus.AVAILABLE,
+          },
           orderBy: { createdAt: "asc" },
           select: { id: true },
         });
         if (!copy) {
           throw new Error("NO_COPY");
         }
-
-        // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
-        const dueDate = calculateDueDate(
-          member.type,
-          book.loanPolicy,
-          new Date(),
-          policyConfig.loanDays,
-        );
 
         const loan = await tx.loan.create({
           data: {
@@ -1378,6 +1554,17 @@ export async function POST(
             status: LoanStatus.ACTIVE,
           },
         });
+
+        if (reservationId) {
+          await tx.reservation.update({
+            where: { id: reservationId },
+            data: {
+              status: ReservationStatus.COLLECTED,
+              collectionDate: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+        }
 
         await tx.copy.update({
           where: { id: copy.id },
@@ -1404,16 +1591,16 @@ export async function POST(
           },
         });
 
-        // ✅ SGBU-011: Log de atividade crítica (empréstimo criado)
-        await logLoanCreated({
-          userId: member.id,
-          loanId: loan.id,
-          bookTitle: book.title,
-          dueDate,
-        }).catch((err) => console.error("Erro ao logar empréstimo:", err));
-
         return loan;
       });
+
+      // ✅ SGBU-011: Log de atividade crítica (empréstimo criado)
+      await logLoanCreated({
+        userId: member.id,
+        loanId: result.id,
+        bookTitle: book.title,
+        dueDate,
+      }).catch((err) => console.error("Erro ao logar empréstimo:", err));
 
       return NextResponse.json({ id: result.id });
     } catch (error) {
@@ -1442,6 +1629,18 @@ export async function POST(
           status: 400,
         },
         NO_COPY: { message: "Nenhuma cópia disponível", status: 404 },
+        RESERVATION_NOT_FOUND: {
+          message: "Reserva não encontrada",
+          status: 404,
+        },
+        RESERVATION_MISMATCH: {
+          message: "Reserva não corresponde ao membro ou livro",
+          status: 400,
+        },
+        RESERVATION_NOT_AVAILABLE: {
+          message: "Reserva já não está disponível",
+          status: 409,
+        },
       };
 
       if (error instanceof Error) {

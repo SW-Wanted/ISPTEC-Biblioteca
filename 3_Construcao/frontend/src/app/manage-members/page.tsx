@@ -272,13 +272,13 @@ export default function ManageMembers() {
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="ACTIVE">Ativos</SelectItem>
                   <SelectItem value="PENDING">Pendentes</SelectItem>
-                  <SelectItem value="blocked">Bloqueados</SelectItem>
+                  <SelectItem value="BLOCKED">Bloqueados</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -292,7 +292,7 @@ export default function ManageMembers() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead>Cadastro</TableHead>
                 </TableRow>
               </TableHeader>
