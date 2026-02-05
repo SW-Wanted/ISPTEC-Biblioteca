@@ -1,9 +1,12 @@
 # SGBU-010 — Recomendações
 
-**Prioridade:** P2
+**Prioridade:** P2  
+**Status:** ✅ CONCLUÍDO
 
 ## Objetivo
+
 Implementar RF026:
+
 - recomendações com base em histórico (loans)
 - similares por categoria
 
