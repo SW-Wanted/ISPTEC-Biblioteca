@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Search,
   X,
   Check,
   Loader2,
@@ -50,13 +49,6 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { LOAN_LIMITS } from "@/lib/sgbu-rules";
-import {
-  DEFAULT_FINE_CONFIGS,
-  DEFAULT_SYSTEM_POLICIES,
-} from "@/lib/settings-config";
 import {
   formatUserType,
   formatFineType,
@@ -64,10 +56,8 @@ import {
   formatSystemPolicyKey,
   getSystemPolicyDescription,
   getSystemPolicyUnit,
-  formatAuditConfigKey,
-  formatCurrency,
-  formatDate,
 } from "@/lib/settings-labels";
+import { ConsolidatedAuditLogs } from "@/components/ConsolidatedAuditLogs";
 
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
@@ -140,17 +130,6 @@ function AdminSettingsPage() {
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch Audit Log
-  const { data: auditData, isLoading: auditLoading } = useQuery({
-    queryKey: ["audit-log"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings/audit-log?limit=20");
-      if (!res.ok) throw new Error("Erro ao carregar histórico");
-      return res.json();
-    },
-    staleTime: 2 * 60 * 1000,
   });
 
   // Fetch FAQs
@@ -520,20 +499,6 @@ function AdminSettingsPage() {
     "SUPERVISOR",
   ];
 
-  const defaultLoanPolicies: Record<
-    string,
-    { loanDays: number; maxBooks: number; maxRenewals: number }
-  > = {
-    STUDENT: { loanDays: 5, maxBooks: 2, maxRenewals: 2 },
-    TEACHER: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    STAFF: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    LIBRARIAN: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    CATALOGER: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    SUPERVISOR: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-  };
-
-  // Labels removidas - usando formatFineType() e getFineTypeDescription()
-
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -571,7 +536,7 @@ function AdminSettingsPage() {
             FAQs
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
-            Histórico
+            Auditoria
           </TabsTrigger>
         </TabsList>
 
@@ -1376,59 +1341,9 @@ function AdminSettingsPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Histórico Tab */}
+        {/* Tab de Auditoria Consolidada */}
         <TabsContent value="audit" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Alterações</CardTitle>
-              <CardDescription>
-                Registro de todas as alterações nas configurações
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {auditLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data/Hora</TableHead>
-                        <TableHead>Configuração</TableHead>
-                        <TableHead>Alterado Por</TableHead>
-                        <TableHead>Motivo</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(auditData?.audits || []).map((audit: any) => (
-                        <TableRow key={audit.id}>
-                          <TableCell className="text-sm">
-                            {formatDate(audit.changedAt)}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {formatAuditConfigKey(audit.configKey)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <p className="font-medium">
-                                {audit.changedBy.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {audit.changedBy.email}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {audit.reason}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ConsolidatedAuditLogs />
         </TabsContent>
       </Tabs>
     </div>

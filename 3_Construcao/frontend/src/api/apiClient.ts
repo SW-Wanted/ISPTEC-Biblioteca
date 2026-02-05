@@ -48,6 +48,7 @@ export type Loan = BaseEntity & {
   member_name?: string;
   book_id?: string;
   book_title?: string;
+  cover_url?: string | null;
   copy_id?: string;
   renewal_count?: number;
   max_renewals?: number;
@@ -59,12 +60,15 @@ export type Reservation = BaseEntity & {
   status?: string;
   user_id?: string;
   member_id?: string;
+  member_type?: string;
   book_id?: string;
   book_title?: string;
+  cover_url?: string | null;
   reservation_date?: string;
   queue_position?: number;
   available_date?: string | null;
   expiry_date?: string | null;
+  collection_date?: string | null;
 };
 
 export type Fine = BaseEntity & {

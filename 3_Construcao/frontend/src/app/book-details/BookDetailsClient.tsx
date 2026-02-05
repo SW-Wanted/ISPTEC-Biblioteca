@@ -55,6 +55,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
   const [showReserveDialog, setShowReserveDialog] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
@@ -68,6 +69,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
         setUser(userData);
       } catch {
         // ignore
+      } finally {
+        setIsUserLoading(false);
       }
     };
     loadUser();
@@ -94,7 +97,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     initialData: null,
   });
 
-  const { data: copies = [] } = useQuery({
+  const { data: copies = [], isLoading: isCopiesLoading } = useQuery({
     queryKey: ["copies", bookId],
     queryFn: () => api.entities.Copy.filter({ book_id: bookId }),
     enabled: !!bookId,
@@ -109,7 +112,10 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
   });
 
   // 🔒 SGBU-006: Verificar reservas duplicadas (ACTIVE ou AVAILABLE)
-  const { data: existingReservations = [] } = useQuery({
+  const {
+    data: existingReservations = [],
+    isLoading: isExistingReservationsLoading,
+  } = useQuery({
     queryKey: ["reservations", bookId, user?.email],
     queryFn: async () => {
       if (!user?.email) return [];
@@ -134,6 +140,24 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     queryFn: () =>
       api.entities.Reservation.filter({ book_id: bookId, status: "active" }),
     enabled: !!bookId,
+    initialData: [],
+  });
+
+  const { data: activeLoans = [], isLoading: isLoansLoading } = useQuery({
+    queryKey: ["loans", bookId, user?.email],
+    queryFn: async () => {
+      if (!user?.email) return [];
+      const active = await api.entities.Loan.filter({
+        member_id: user?.email,
+        status: "active",
+      });
+      const overdue = await api.entities.Loan.filter({
+        member_id: user?.email,
+        status: "overdue",
+      });
+      return [...active, ...overdue];
+    },
+    enabled: !!user?.email,
     initialData: [],
   });
 
@@ -189,6 +213,24 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     (c: { status?: string | null }) => c.status === "available",
   );
   const hasExistingReservation = existingReservations.length > 0;
+  const hasActiveLoanForBook = activeLoans.some(
+    (loan: { book_id?: string | null }) => loan.book_id === bookId,
+  );
+  const reserveButtonDisabled =
+    isLoading ||
+    isCopiesLoading ||
+    isExistingReservationsLoading ||
+    isLoansLoading ||
+    reserveMutation.isPending ||
+    !book ||
+    hasActiveLoanForBook;
+
+  const shouldShowReserveSkeleton =
+    isUserLoading ||
+    isLoading ||
+    isCopiesLoading ||
+    isExistingReservationsLoading ||
+    isLoansLoading;
 
   if (!bookId) {
     return (
@@ -404,13 +446,18 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                     </div>
                   </div>
                   {user ? (
-                    hasExistingReservation ? (
+                    hasActiveLoanForBook ? (
+                      <Badge className="bg-slate-100 text-slate-700 py-2 px-4">
+                        Já levantado
+                      </Badge>
+                    ) : hasExistingReservation ? (
                       <Badge className="bg-indigo-100 text-indigo-700 py-2 px-4">
                         Já reservado
                       </Badge>
                     ) : (
                       <Button
                         onClick={() => setShowReserveDialog(true)}
+                        disabled={reserveButtonDisabled}
                         className={
                           (book.available_copies ?? 0) > 0 ||
                           availableCopies.length > 0
@@ -424,6 +471,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                           : "Entrar na Fila de Espera"}
                       </Button>
                     )
+                  ) : shouldShowReserveSkeleton ? (
+                    <Skeleton className="h-10 w-56" />
                   ) : (
                     <Link to={createPageUrl("Home")}>
                       <Button variant="outline">

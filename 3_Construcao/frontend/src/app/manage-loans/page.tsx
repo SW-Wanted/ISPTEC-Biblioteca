@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Link } from "@/lib/router";
 import { createPageUrl } from "@/utils";
 import { api, type Loan, type Reservation } from "@/api/apiClient";
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   XCircle,
   ClipboardCheck,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +82,7 @@ export default function ManageLoans() {
     useState<Reservation | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
   // Sempre inicializar com "loans" para SSR
   const [activeTab, setActiveTab] = useState<"loans" | "process">("loans");
   const [loanSubTab, setLoanSubTab] = useState<
@@ -89,6 +92,14 @@ export default function ManageLoans() {
     ReturnType<typeof api.auth.me>
   > | null>(null);
   const queryClient = useQueryClient();
+  const maxBooksFallback: Record<string, number> = {
+    student: 2,
+    teacher: 4,
+    staff: 4,
+    librarian: 4,
+    cataloger: 4,
+    supervisor: 4,
+  };
 
   // Detectar hash da URL e query params após montagem
   useEffect(() => {
@@ -112,6 +123,18 @@ export default function ManageLoans() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    const subtab = activeTab === "loans" ? `?subtab=${loanSubTab}` : "";
+    const nextHash = `#${activeTab}${subtab}`;
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${nextHash}`,
+      );
+    }
+  }, [activeTab, loanSubTab]);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -141,9 +164,28 @@ export default function ManageLoans() {
       initialData: [],
     });
 
+  const { data: loanPolicies = [] } = useQuery({
+    queryKey: ["loan-policies"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/loan-policies");
+      if (!res.ok) throw new Error("Erro ao carregar políticas");
+      const data = await res.json();
+      return data.loanPolicies ?? [];
+    },
+    enabled: !!user,
+    initialData: [],
+  });
+
   // Filtrar reservas pendentes (AVAILABLE ou ACTIVE)
   const pendingReservations = allReservations.filter(
     (r) => r.status === "available" || r.status === "active",
+  );
+
+  const processedReservations = allReservations.filter(
+    (r) =>
+      r.status === "collected" ||
+      r.status === "expired" ||
+      r.status === "cancelled",
   );
 
   // Separar por disponibilidade
@@ -153,6 +195,23 @@ export default function ManageLoans() {
 
   const activeLoans = loans.filter(
     (l) => l.status === "active" || l.status === "overdue",
+  );
+  const activeLoansByMember = activeLoans.reduce((acc, loan) => {
+    const key = (loan.member_id ?? "").toLowerCase();
+    if (!key) return acc;
+    acc.set(key, (acc.get(key) ?? 0) + 1);
+    return acc;
+  }, new Map<string, number>());
+
+  const safeLoanPolicies = Array.isArray(loanPolicies) ? loanPolicies : [];
+  const maxBooksByType = safeLoanPolicies.reduce(
+    (acc: Map<string, number>, policy: any) => {
+      if (!policy?.userType) return acc;
+      const key = String(policy.userType).toLowerCase();
+      acc.set(key, Number(policy.maxBooks) || maxBooksFallback[key] || 2);
+      return acc;
+    },
+    new Map<string, number>(),
   );
   const overdueLoans = activeLoans.filter((l) =>
     l.due_date ? isPast(new Date(l.due_date)) : false,
@@ -190,23 +249,38 @@ export default function ManageLoans() {
       const loan = await api.entities.Loan.create({
         member_id: reservation.member_id,
         book_id: reservation.book_id,
-      });
-
-      await api.entities.Reservation.update(reservation.id, {
-        status: "collected",
+        reservation_id: reservation.id,
       });
 
       return { loan, reservation };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["available-reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["all-reservations"] });
       queryClient.invalidateQueries({ queryKey: ["manage-loans"] });
       setShowConfirmDialog(false);
       setSelectedReservation(null);
-      toast.success(`✅ Empréstimo aprovado! Notificação enviada ao membro.`);
+      toast.success(`Empréstimo aprovado! Notificação enviada ao membro.`);
     },
     onError: (error: Error) => {
       toast.error(error.message || "Erro ao processar empréstimo");
+    },
+  });
+
+  const processReservationMutation = useMutation({
+    mutationFn: async (reservation: Reservation) => {
+      await api.entities.Reservation.update(reservation.id, {
+        status: "available",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-loans"] });
+      setShowProcessDialog(false);
+      setSelectedReservation(null);
+      toast.success("Reserva processada! Utilizador será notificado.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao processar reserva");
     },
   });
 
@@ -217,7 +291,7 @@ export default function ManageLoans() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["available-reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["all-reservations"] });
       setShowRejectDialog(false);
       setSelectedReservation(null);
       toast.success("Reserva marcada como expirada");
@@ -271,6 +345,21 @@ export default function ManageLoans() {
         loan.member_id?.toLowerCase().includes(query),
     );
   };
+
+  const filteredReservations = (reservationsList: Reservation[]) => {
+    if (!searchQuery) return reservationsList;
+    const query = searchQuery.toLowerCase();
+    return reservationsList.filter(
+      (reservation) =>
+        reservation.book_title?.toLowerCase().includes(query) ||
+        reservation.member_id?.toLowerCase().includes(query),
+    );
+  };
+
+  const filteredPendingReservations = filteredReservations(pendingReservations);
+  const filteredProcessedReservations = filteredReservations(
+    processedReservations,
+  );
 
   const translateLoanStatus = (status: unknown) => {
     const s = String(status ?? "").toLowerCase();
@@ -418,9 +507,26 @@ export default function ManageLoans() {
     return (
       <TableRow className="group">
         <TableCell>
-          <div>
-            <p className="font-medium text-slate-800">{loan.book_title}</p>
-            <p className="text-xs text-slate-500">ID: {loan.copy_id}</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-14 rounded-md bg-slate-100 overflow-hidden shrink-0">
+              {loan.cover_url ? (
+                <Image
+                  src={loan.cover_url}
+                  alt={loan.book_title ?? "Capa do livro"}
+                  width={40}
+                  height={56}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 text-slate-300" />
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">{loan.book_title}</p>
+              <p className="text-xs text-slate-500">ID: {loan.copy_id}</p>
+            </div>
           </div>
         </TableCell>
         <TableCell>
@@ -477,6 +583,12 @@ export default function ManageLoans() {
 
   const ReservationCard = ({ reservation }: { reservation: Reservation }) => {
     const timeInfo = getTimeRemaining(reservation.expiry_date);
+    const memberKey = (reservation.member_id ?? "").toLowerCase();
+    const memberType = (reservation.member_type ?? "student").toLowerCase();
+    const memberLoans = activeLoansByMember.get(memberKey) ?? 0;
+    const maxBooks =
+      maxBooksByType.get(memberType) ?? maxBooksFallback[memberType] ?? 2;
+    const isLoanLimitReached = memberLoans >= maxBooks;
 
     return (
       <motion.div
@@ -493,7 +605,17 @@ export default function ManageLoans() {
           <CardContent className="p-5">
             <div className="flex gap-4">
               <div className="w-20 h-28 bg-linear-to-br from-indigo-100 to-indigo-200 rounded-lg shrink-0 overflow-hidden flex items-center justify-center">
-                <BookOpen className="w-10 h-10 text-indigo-400" />
+                {reservation.cover_url ? (
+                  <Image
+                    src={reservation.cover_url}
+                    alt={reservation.book_title ?? "Capa do livro"}
+                    width={80}
+                    height={112}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BookOpen className="w-10 h-10 text-indigo-400" />
+                )}
               </div>
 
               <div className="flex-1 min-w-0">
@@ -516,19 +638,26 @@ export default function ManageLoans() {
                     </div>
                   </div>
 
-                  {timeInfo && (
-                    <Badge
-                      className={cn(
-                        "shrink-0",
-                        timeInfo.urgent
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-emerald-100 text-emerald-700",
-                      )}
-                    >
-                      <Clock className="w-3 h-3 mr-1" />
-                      {timeInfo.text}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {timeInfo && (
+                      <Badge
+                        className={cn(
+                          "shrink-0",
+                          timeInfo.urgent
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700",
+                        )}
+                      >
+                        <Clock className="w-3 h-3 mr-1" />
+                        {timeInfo.text}
+                      </Badge>
+                    )}
+                    {isLoanLimitReached && (
+                      <Badge className="bg-red-100 text-red-700">
+                        Limite atingido ({memberLoans}/{maxBooks})
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4 text-sm text-slate-500 mb-4">
@@ -552,34 +681,86 @@ export default function ManageLoans() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      setSelectedReservation(reservation);
-                      setShowConfirmDialog(true);
-                    }}
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                    disabled={
-                      approveMutation.isPending ||
-                      rejectMutation.isPending ||
-                      reservation.status !== "available"
-                    }
-                  >
-                    {approveMutation.isPending &&
-                    selectedReservation?.id === reservation.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        {reservation.status === "available"
-                          ? "Aprovar"
-                          : "Aguardando Livro"}
-                      </>
-                    )}
-                  </Button>
+                  {reservation.status === "active" ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => {
+                              setSelectedReservation(reservation);
+                              setShowProcessDialog(true);
+                            }}
+                            size="sm"
+                            className="bg-blue-600 hover:bg-blue-700"
+                            disabled={
+                              isLoanLimitReached ||
+                              processReservationMutation.isPending ||
+                              rejectMutation.isPending
+                            }
+                          >
+                            {processReservationMutation.isPending &&
+                            selectedReservation?.id === reservation.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Processando...
+                              </>
+                            ) : (
+                              <>
+                                <Bell className="w-4 h-4 mr-2" />
+                                Disponibilizar Livro
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        {isLoanLimitReached && (
+                          <TooltipContent>
+                            <p>Limite de empréstimos atingido</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => {
+                              setSelectedReservation(reservation);
+                              setShowConfirmDialog(true);
+                            }}
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                            disabled={
+                              isLoanLimitReached ||
+                              approveMutation.isPending ||
+                              rejectMutation.isPending ||
+                              reservation.status !== "available"
+                            }
+                          >
+                            {approveMutation.isPending &&
+                            selectedReservation?.id === reservation.id ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Processando...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {reservation.status === "available"
+                                  ? "Aprovar"
+                                  : "Aguardando Livro"}
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        {isLoanLimitReached && (
+                          <TooltipContent>
+                            <p>Limite de empréstimos atingido</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
 
                   <TooltipProvider>
                     <Tooltip>
@@ -604,6 +785,93 @@ export default function ManageLoans() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
+
+  const ProcessedReservationCard = ({
+    reservation,
+  }: {
+    reservation: Reservation;
+  }) => {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        layout
+      >
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex gap-4">
+              <div className="w-16 h-22 bg-linear-to-br from-slate-100 to-slate-200 rounded-lg shrink-0 overflow-hidden flex items-center justify-center">
+                {reservation.cover_url ? (
+                  <Image
+                    src={reservation.cover_url}
+                    alt={reservation.book_title ?? "Capa do livro"}
+                    width={64}
+                    height={88}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BookOpen className="w-8 h-8 text-slate-400" />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      to={createPageUrl(
+                        `BookDetails?id=${reservation.book_id}`,
+                      )}
+                    >
+                      <h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">
+                        {reservation.book_title || "Título não disponível"}
+                      </h3>
+                    </Link>
+                    <div className="flex items-center gap-2 mt-2">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-600">
+                        {reservation.member_id}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Badge className="bg-slate-100 text-slate-700 shrink-0">
+                    {translateReservationStatus(reservation.status)}
+                  </Badge>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                  <span>
+                    Reservado em{" "}
+                    {reservation.reservation_date
+                      ? format(
+                          new Date(reservation.reservation_date),
+                          "dd/MM/yy",
+                        )
+                      : "-"}
+                  </span>
+                  <span>
+                    Atualizado em{" "}
+                    {reservation.updated_date
+                      ? format(new Date(reservation.updated_date), "dd/MM/yy")
+                      : "-"}
+                  </span>
+                  {reservation.collection_date && (
+                    <span>
+                      Levantado em{" "}
+                      {format(
+                        new Date(reservation.collection_date),
+                        "dd/MM/yy",
+                      )}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -907,7 +1175,7 @@ export default function ManageLoans() {
                 <Skeleton className="h-32" />
                 <Skeleton className="h-32" />
               </div>
-            ) : pendingReservations.length === 0 ? (
+            ) : filteredPendingReservations.length === 0 ? (
               <Card>
                 <CardContent className="p-12 text-center">
                   <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -915,13 +1183,15 @@ export default function ManageLoans() {
                     Nenhuma reserva pendente
                   </h3>
                   <p className="text-slate-500">
-                    Não há reservas aguardando aprovação no momento.
+                    {searchQuery
+                      ? "Nenhuma reserva corresponde a sua pesquisa."
+                      : "Não há reservas aguardando aprovação no momento."}
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-4">
-                {pendingReservations
+                {filteredPendingReservations
                   .sort((a, b) => {
                     // Prioridade: AVAILABLE primeiro, depois por data de expiração
                     if (a.status === "available" && b.status !== "available")
@@ -944,6 +1214,50 @@ export default function ManageLoans() {
                   ))}
               </div>
             )}
+
+            {/* Processed Reservations */}
+            <div className="mt-10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Reservas processadas
+                </h3>
+                <Badge className="bg-slate-100 text-slate-700">
+                  {processedReservations.length}
+                </Badge>
+              </div>
+
+              {filteredProcessedReservations.length === 0 ? (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-500">
+                      {searchQuery
+                        ? "Nenhuma reserva processada corresponde a sua pesquisa."
+                        : "Nenhuma reserva processada ainda."}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredProcessedReservations
+                    .sort((a, b) => {
+                      if (!a.updated_date) return 1;
+                      if (!b.updated_date) return -1;
+                      return (
+                        new Date(b.updated_date).getTime() -
+                        new Date(a.updated_date).getTime()
+                      );
+                    })
+                    .slice(0, 10)
+                    .map((reservation) => (
+                      <ProcessedReservationCard
+                        key={reservation.id}
+                        reservation={reservation}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -1077,6 +1391,36 @@ export default function ManageLoans() {
               className="bg-red-600 hover:bg-red-700"
             >
               Marcar como Expirada
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disponibilizar Livro</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja processar esta reserva e notificar o membro{" "}
+              <strong>{selectedReservation?.member_id}</strong> que o livro{" "}
+              <strong>&quot;{selectedReservation?.book_title}&quot;</strong>{" "}
+              está disponível para levantamento?
+              <br />
+              <br />O membro terá <strong>48 horas</strong> para comparecer e
+              levantar o livro. Uma cópia será automaticamente reservada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedReservation) {
+                  processReservationMutation.mutate(selectedReservation);
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Notificar e Disponibilizar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

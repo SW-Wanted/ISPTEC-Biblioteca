@@ -56,6 +56,7 @@ export async function getLoanPolicyConfig(userType: UserType): Promise<{
   maxBooks: number;
   maxRenewals: number;
 }> {
+  const fallbackMaxRenewals = await getSystemPolicyNumber("MAX_RENEWALS", 2);
   try {
     const config = await prisma.loanPolicyConfig.findUnique({
       where: { userType },
@@ -66,7 +67,7 @@ export async function getLoanPolicyConfig(userType: UserType): Promise<{
       return {
         loanDays: fallback.loanDays,
         maxBooks: fallback.maxBooks,
-        maxRenewals: 2,
+        maxRenewals: fallbackMaxRenewals,
       };
     }
     return config;
@@ -79,7 +80,7 @@ export async function getLoanPolicyConfig(userType: UserType): Promise<{
       return {
         loanDays: fallback.loanDays,
         maxBooks: fallback.maxBooks,
-        maxRenewals: 2,
+        maxRenewals: fallbackMaxRenewals,
       };
     }
     throw error;

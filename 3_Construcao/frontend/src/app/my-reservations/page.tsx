@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Link } from "@/lib/router";
 import { createPageUrl } from "@/utils";
 import { api, type Reservation } from "@/api/apiClient";
@@ -95,24 +96,7 @@ export default function MyReservations() {
     },
   });
 
-  // 📦 SGBU-006: Mutation para marcar reserva como levantada
-  const collectMutation = useMutation<void, Error, Reservation>({
-    mutationFn: async (reservation) => {
-      await api.entities.Reservation.update(reservation.id, {
-        status: "collected",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["my-reservations", user?.email],
-      });
-      toast.success("Livro marcado como levantado! Aproveite a leitura 📚");
-    },
-    onError: (error) => {
-      const errorMsg = error.message || "Erro ao marcar como levantado";
-      toast.error(errorMsg);
-    },
-  });
+  // 🔒 SGBU-006: Apenas staff marca levantamento. Removido do self-service para evitar 403.
 
   const getReservationStatus = (reservation: Reservation) => {
     switch (reservation.status) {
@@ -184,7 +168,17 @@ export default function MyReservations() {
           <CardContent className="p-4">
             <div className="flex gap-4">
               <div className="w-20 h-28 bg-linear-to-br from-slate-100 to-slate-200 rounded-lg shrink-0 overflow-hidden">
-                <BookOpen className="w-full h-full p-6 text-slate-300" />
+                {reservation.cover_url ? (
+                  <Image
+                    src={reservation.cover_url}
+                    alt={reservation.book_title || "Capa do livro"}
+                    width={80}
+                    height={112}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <BookOpen className="w-full h-full p-6 text-slate-300" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
@@ -260,21 +254,7 @@ export default function MyReservations() {
                   </div>
                 )}
                 <div className="flex gap-2 mt-4">
-                  {reservation.status === "available" && (
-                    <Button
-                      size="sm"
-                      onClick={() => collectMutation.mutate(reservation)}
-                      disabled={collectMutation.isPending}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      {collectMutation.isPending ? (
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                      )}
-                      Levantar agora
-                    </Button>
-                  )}
+                  {/* Levantamento é feito pelo staff na biblioteca; botão oculto para estudantes */}
                   {(reservation.status === "active" ||
                     reservation.status === "available") && (
                     <Button
