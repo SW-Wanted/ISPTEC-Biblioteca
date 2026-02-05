@@ -115,12 +115,14 @@ export default function Services() {
   const reserveLockerMutation = useMutation({
     mutationFn: async (locker: LockerRow) => {
       if (!user) return;
-      await api.entities.Locker.update(locker.id, {
-        status: "occupied",
-        current_user_id: user.email,
-        occupied_at: new Date().toISOString(),
-        expected_end: addHours(new Date(), 3).toISOString(),
+      const res = await fetch(`/api/lockers/${locker.id}/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao reservar cacifo");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lockers"] });
