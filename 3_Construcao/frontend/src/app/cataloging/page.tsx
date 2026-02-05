@@ -138,8 +138,10 @@ export default function Cataloging() {
         folder: "ocr",
       });
       setUploadedImageUrl(file_url); // Save the Cloudinary URL
-      const extracted =
-        await api.integrations.Core.InvokeLLM<ExtractedBookData>({
+      
+      let extracted: ExtractedBookData;
+      try {
+        extracted = await api.integrations.Core.InvokeLLM<ExtractedBookData>({
           prompt: `Você é um especialista em catalogação de livros. Analise CUIDADOSAMENTE esta imagem de livro e extraia informações bibliográficas.
 
 🔍 PRIORIDADE MÁXIMA - ISBN:
@@ -201,6 +203,30 @@ Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
             },
           },
         });
+
+        // Verificar se a resposta é válida (não é uma string de erro)
+        if (typeof extracted === "string") {
+          console.warn("⚠️ OCR retornou string em vez de objeto:", extracted);
+          throw new Error("OCR falhou");
+        }
+      } catch (ocrError) {
+        console.error("❌ Erro no OCR:", ocrError);
+        toast.warning("OCR falhou. Preencha os campos manualmente.");
+        extracted = {
+          title: "",
+          subtitle: "",
+          isbn: "",
+          authors: "",
+          publisher: "",
+          publication_year: "",
+          edition: "",
+          suggested_category: "",
+          language: "pt",
+          description: "",
+          confidence: 0,
+        };
+      }
+      
       console.log("📸 Imagem carregada:", file_url);
       console.log("📖 Dados extraídos:", extracted);
 
