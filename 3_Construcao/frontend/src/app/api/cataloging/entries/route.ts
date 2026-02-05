@@ -3,22 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { UserType } from "@prisma/client";
+import { UserType, CatalogStatus } from "@prisma/client";
 
 /**
  * POST /api/cataloging/entries
  * Cria uma nova entrada de catalogação
  */
-
-const createEntrySchema = z.object({
-  imageUrl: z.string(),
-  extractedTitle: z.string().optional(),
-  extractedAuthor: z.string().optional(),
-  extractedISBN: z.string().optional(),
-  extractedPublisher: z.string().optional(),
-  extractedYear: z.number().optional(),
-  enrichedData: z.record(z.unknown()).optional(),
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +43,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const data = createEntrySchema.parse(body);
+    console.log("📥 Body recebido:", JSON.stringify(body, null, 2));
+
+    // Schema de validação Zod
+    const entrySchema = z.object({
+      imageUrl: z.string(),
+      extractedTitle: z.string().optional(),
+      extractedAuthor: z.string().optional(),
+      extractedISBN: z.string().optional(),
+      extractedPublisher: z.string().optional(),
+      extractedYear: z.number().optional(),
+      enrichedData: z.any().optional(), // Usar z.any() para evitar problemas com JSON complexo
+    });
+
+    const data = entrySchema.parse(body);
+
+    console.log("✅ Dados validados:", JSON.stringify(data, null, 2));
 
     // Criar entrada de catalogação
     const entry = await prisma.catalogEntry.create({
@@ -66,22 +71,34 @@ export async function POST(request: NextRequest) {
         extractedPublisher: data.extractedPublisher,
         extractedYear: data.extractedYear,
         enrichedData: data.enrichedData as any,
-        status: "PENDING",
+        status: CatalogStatus.PENDING,
       },
     });
 
+    console.log("✅ Entrada criada com ID:", entry.id);
     return NextResponse.json({ id: entry.id }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("❌ Erro de validação:", error.errors);
       return NextResponse.json(
         { error: "Dados inválidos", details: error.errors },
         { status: 400 },
       );
     }
 
-    console.error("Erro ao criar entrada de catalogação:", error);
+    console.error("❌ Erro ao criar entrada de catalogação:", error);
+
+    // Log detalhado para debugging
+    if (error instanceof Error) {
+      console.error("Mensagem:", error.message);
+      console.error("Stack:", error.stack);
+    }
+
     return NextResponse.json(
-      { error: "Erro ao criar entrada de catalogação" },
+      {
+        error: "Erro ao criar entrada de catalogação",
+        message: error instanceof Error ? error.message : "Erro desconhecido",
+      },
       { status: 500 },
     );
   }
@@ -134,7 +151,7 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
-        reviewer: {
+        supervisor: {
           select: {
             id: true,
             name: true,

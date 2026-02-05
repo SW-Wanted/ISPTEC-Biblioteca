@@ -142,7 +142,7 @@ export default function Cataloging() {
       console.log("📸 Imagem carregada:", file_url);
 
       let extracted: ExtractedBookData;
-      
+
       // 2. Converter imagem para base64 para análise Gemini Vision
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();

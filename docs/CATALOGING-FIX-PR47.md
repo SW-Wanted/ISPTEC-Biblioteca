@@ -3,6 +3,7 @@
 ## 📋 Problema Identificado
 
 A funcionalidade de catalogação parou de funcionar após a PR #47. Os erros eram:
+
 - ❌ POST `/api/ai/invoke` retornando **500 (Internal Server Error)**
 - ❌ POST `/api/cataloging/entries` retornando **500 (Internal Server Error)**
 - ❌ OCR não extraindo dados (fallback para objeto vazio)
@@ -11,23 +12,29 @@ A funcionalidade de catalogação parou de funcionar após a PR #47. Os erros er
 ## 🔍 Causa Raiz
 
 ### 1. **Modelo Gemini Experimental**
+
 **Problema:**
+
 - Código atual usava `gemini-2.0-flash-exp` (modelo **experimental**)
 - Modelo experimental = instável, quotas baixas, pode falhar
 - `/api/ai/invoke` é **genérico**, não otimizado para catalogação
 
 **PR #47 (funcionava):**
+
 - Usava `gemini-1.5-flash` (modelo **estável**)
 - Tinha endpoint **dedicado** `/api/cataloging/analyze-image`
 - Prompt especializado para extração bibliográfica
 
 ### 2. **apiClient Incompleto**
+
 **Problema:**
+
 - Faltava método `api.cataloging.analyzeImage()`
 - Código tentava usar `api.integrations.Core.InvokeLLM()` (genérico)
 - Não havia namespace completo `api.cataloging.*`
 
 **PR #47 (funcionava):**
+
 - `api.cataloging.analyzeImage()` → `/api/cataloging/analyze-image`
 - `api.cataloging.enrichData()` → `/api/cataloging/enrich`
 - `api.cataloging.createEntry()` → `/api/cataloging/entries`
@@ -67,6 +74,7 @@ Retorne JSON:
 ```
 
 **Melhorias:**
+
 - ✅ Modelo estável (`gemini-1.5-flash`)
 - ✅ Prompt especializado (melhor extração)
 - ✅ Foco em ISBN (crítico para enriquecimento)
@@ -119,6 +127,7 @@ cataloging: {
 ## 📊 Fluxo Corrigido
 
 ### Antes (Quebrado)
+
 ```
 1. Upload imagem
    ↓
@@ -134,6 +143,7 @@ cataloging: {
 ```
 
 ### Depois (Restaurado)
+
 ```
 1. Upload imagem
    ↓
@@ -154,16 +164,19 @@ cataloging: {
 ## 🎯 Benefícios da Solução
 
 ### Performance
+
 - ⚡ Modelo `1.5-flash` mais rápido que `2.0-exp`
 - ⚡ Endpoint dedicado (sem overhead genérico)
 - ⚡ Prompt otimizado (menos tokens)
 
 ### Confiabilidade
+
 - 🛡️ Modelo estável (não experimental)
 - 🛡️ Melhor quota (menos 429 errors)
 - 🛡️ Error handling robusto
 
 ### Qualidade
+
 - 📈 Prompt especializado em livros
 - 📈 Melhor extração de ISBN
 - 📈 Maior confidence score
@@ -171,6 +184,7 @@ cataloging: {
 ## 🧪 Como Testar
 
 1. **Acesse a catalogação:**
+
    ```
    http://localhost:3000/cataloging
    ```
@@ -180,6 +194,7 @@ cataloging: {
    - Alternativa: Contracapa com ISBN visível
 
 3. **Verifique o console do navegador:**
+
    ```
    📸 Imagem carregada: https://res.cloudinary.com/...
    🤖 Analisando imagem com Gemini Vision...
@@ -202,27 +217,30 @@ cataloging: {
 ## 📝 Arquivos Modificados
 
 ### Novos
+
 - ✅ `src/app/api/cataloging/analyze-image/route.ts` (168 linhas)
 
 ### Alterados
+
 - ✅ `src/api/apiClient.ts` (+120 linhas no namespace `cataloging`)
 
 ### Mantidos (já funcionavam)
+
 - ✅ `src/app/api/cataloging/enrich/route.ts`
 - ✅ `src/app/api/cataloging/entries/route.ts`
 - ✅ `src/app/api/cataloging/entries/[id]/approve/route.ts`
 
 ## 🔄 Comparação com PR #47
 
-| Aspecto                   | PR #47 (Original)    | Fix Atual            | Status |
-| ------------------------- | -------------------- | -------------------- | ------ |
-| Endpoint `/analyze-image` | ✅ Criado            | ✅ Restaurado        | ✅     |
-| Modelo Gemini             | `1.5-flash`          | `1.5-flash`          | ✅     |
-| Prompt especializado      | ✅ Bibliográfico     | ✅ Idêntico          | ✅     |
-| `api.cataloging.*`        | ✅ Completo          | ✅ Completo          | ✅     |
-| Enriquecimento Google     | ✅ Auto-trigger      | ✅ Auto-trigger      | ✅     |
-| Error handling            | ✅ Robusto           | ✅ Robusto           | ✅     |
-| Fluxo end-to-end          | ✅ Funcionava        | ✅ Restaurado        | ✅     |
+| Aspecto                   | PR #47 (Original) | Fix Atual       | Status |
+| ------------------------- | ----------------- | --------------- | ------ |
+| Endpoint `/analyze-image` | ✅ Criado         | ✅ Restaurado   | ✅     |
+| Modelo Gemini             | `1.5-flash`       | `1.5-flash`     | ✅     |
+| Prompt especializado      | ✅ Bibliográfico  | ✅ Idêntico     | ✅     |
+| `api.cataloging.*`        | ✅ Completo       | ✅ Completo     | ✅     |
+| Enriquecimento Google     | ✅ Auto-trigger   | ✅ Auto-trigger | ✅     |
+| Error handling            | ✅ Robusto        | ✅ Robusto      | ✅     |
+| Fluxo end-to-end          | ✅ Funcionava     | ✅ Restaurado   | ✅     |
 
 ## 🚀 Próximos Passos
 

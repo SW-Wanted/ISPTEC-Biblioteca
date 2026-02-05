@@ -56,9 +56,9 @@ export async function POST(request: NextRequest) {
 
     // 3. Usar Gemini Vision (modelo ESTÁVEL)
     // Nota: Usar 'gemini-1.5-flash-latest' ou 'gemini-1.5-pro-latest' para sempre pegar a versão mais recente
-    console.log("🤖 Criando modelo Gemini: gemini-1.5-flash-latest");
+    console.log("🤖 Criando modelo Gemini: gemini-2.5-flash-lite");
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest", // Versão sempre atualizada do Flash
+      model: "gemini-2.5-flash-lite", // Versão sempre atualizada do Flash
     });
 
     const prompt = `Você é um especialista em catalogação bibliográfica. Analise esta imagem de um livro (capa, contracapa ou folha de rosto) e extraia APENAS as informações que estão CLARAMENTE VISÍVEIS.
