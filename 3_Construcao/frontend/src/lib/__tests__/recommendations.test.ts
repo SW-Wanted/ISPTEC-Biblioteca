@@ -3,12 +3,12 @@
  * SGBU-010: Recomendações
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getRecommendations, getSimilarBooks } from '@/lib/recommendations';
-import { prisma } from '@/lib/prisma';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { getRecommendations, getSimilarBooks } from "@/lib/recommendations";
+import { prisma } from "@/lib/prisma";
 
 // Mock do Prisma
-vi.mock('@/lib/prisma', () => ({
+vi.mock("@/lib/prisma", () => ({
   prisma: {
     loan: {
       findMany: vi.fn(),
@@ -25,32 +25,30 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
-describe('Sistema de Recomendações - RF026', () => {
+describe("Sistema de Recomendações - RF026", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('getRecommendations', () => {
-    it('deve retornar mínimo 5 recomendações quando requisitado', async () => {
+  describe("getRecommendations", () => {
+    it("deve retornar mínimo 5 recomendações quando requisitado", async () => {
       // Mock de empréstimos do utilizador
       vi.mocked(prisma.loan.findMany).mockResolvedValue([
         {
-          id: '1',
-          userId: 'user1',
-          copyId: 'copy1',
-          status: 'RETURNED',
+          id: "1",
+          userId: "user1",
+          copyId: "copy1",
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
           copy: {
             book: {
-              id: 'book1',
-              title: 'Programação em Python',
-              categoryId: 'cat1',
-              category: { id: 'cat1', name: 'Programação' },
-              authors: [
-                { author: { name: 'João Silva' } },
-              ],
+              id: "book1",
+              title: "Programação em Python",
+              categoryId: "cat1",
+              category: { id: "cat1", name: "Programação" },
+              authors: [{ author: { name: "João Silva" } }],
             },
           },
         } as any,
@@ -59,90 +57,90 @@ describe('Sistema de Recomendações - RF026', () => {
       // Mock de livros recomendados
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Python Avançado',
+          id: "book2",
+          title: "Python Avançado",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 3,
-          category: { name: 'Programação' },
-          authors: [{ author: { name: 'Maria Santos' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Programação" },
+          authors: [{ author: { name: "Maria Santos" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
         {
-          id: 'book3',
-          title: 'JavaScript Moderno',
+          id: "book3",
+          title: "JavaScript Moderno",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 2,
-          category: { name: 'Programação' },
-          authors: [{ author: { name: 'Pedro Costa' } }],
-          copies: [{ id: 'copy3', loans: [] }],
+          category: { name: "Programação" },
+          authors: [{ author: { name: "Pedro Costa" } }],
+          copies: [{ id: "copy3", loans: [] }],
         },
         {
-          id: 'book4',
-          title: 'Estruturas de Dados',
+          id: "book4",
+          title: "Estruturas de Dados",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 1,
-          category: { name: 'Programação' },
-          authors: [{ author: { name: 'Ana Lima' } }],
-          copies: [{ id: 'copy4', loans: [] }],
+          category: { name: "Programação" },
+          authors: [{ author: { name: "Ana Lima" } }],
+          copies: [{ id: "copy4", loans: [] }],
         },
         {
-          id: 'book5',
-          title: 'Algoritmos',
+          id: "book5",
+          title: "Algoritmos",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 4,
-          category: { name: 'Programação' },
-          authors: [{ author: { name: 'Carlos Mendes' } }],
-          copies: [{ id: 'copy5', loans: [] }],
+          category: { name: "Programação" },
+          authors: [{ author: { name: "Carlos Mendes" } }],
+          copies: [{ id: "copy5", loans: [] }],
         },
         {
-          id: 'book6',
-          title: 'Inteligência Artificial',
+          id: "book6",
+          title: "Inteligência Artificial",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 2,
-          category: { name: 'Programação' },
-          authors: [{ author: { name: 'Sofia Rodrigues' } }],
-          copies: [{ id: 'copy6', loans: [] }],
+          category: { name: "Programação" },
+          authors: [{ author: { name: "Sofia Rodrigues" } }],
+          copies: [{ id: "copy6", loans: [] }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       expect(result.recommendations.length).toBeGreaterThanOrEqual(5);
       expect(result.totalRecommendations).toBeGreaterThanOrEqual(5);
       expect(result.algorithm).toBeDefined();
     });
 
-    it('não deve recomendar livros já lidos pelo utilizador', async () => {
-      const readBookId = 'book1';
+    it("não deve recomendar livros já lidos pelo utilizador", async () => {
+      const readBookId = "book1";
 
       vi.mocked(prisma.loan.findMany).mockResolvedValue([
         {
-          id: '1',
-          userId: 'user1',
-          copyId: 'copy1',
-          status: 'RETURNED',
+          id: "1",
+          userId: "user1",
+          copyId: "copy1",
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
           copy: {
             book: {
               id: readBookId,
-              title: 'Livro Já Lido',
-              categoryId: 'cat1',
-              category: { id: 'cat1', name: 'Ficção' },
-              authors: [{ author: { name: 'Autor Teste' } }],
+              title: "Livro Já Lido",
+              categoryId: "cat1",
+              category: { id: "cat1", name: "Ficção" },
+              authors: [{ author: { name: "Autor Teste" } }],
             },
           },
         } as any,
@@ -150,43 +148,43 @@ describe('Sistema de Recomendações - RF026', () => {
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Livro Recomendado',
+          id: "book2",
+          title: "Livro Recomendado",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 3,
-          category: { name: 'Ficção' },
-          authors: [{ author: { name: 'Outro Autor' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Ficção" },
+          authors: [{ author: { name: "Outro Autor" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       const recommendedIds = result.recommendations.map((r) => r.id);
       expect(recommendedIds).not.toContain(readBookId);
     });
 
-    it('deve priorizar livros da mesma categoria', async () => {
+    it("deve priorizar livros da mesma categoria", async () => {
       vi.mocked(prisma.loan.findMany).mockResolvedValue([
         {
-          id: '1',
-          userId: 'user1',
-          copyId: 'copy1',
-          status: 'RETURNED',
+          id: "1",
+          userId: "user1",
+          copyId: "copy1",
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
           copy: {
             book: {
-              id: 'book1',
-              title: 'Ficção Científica 1',
-              categoryId: 'sci-fi',
-              category: { id: 'sci-fi', name: 'Ficção Científica' },
-              authors: [{ author: { name: 'Isaac Asimov' } }],
+              id: "book1",
+              title: "Ficção Científica 1",
+              categoryId: "sci-fi",
+              category: { id: "sci-fi", name: "Ficção Científica" },
+              authors: [{ author: { name: "Isaac Asimov" } }],
             },
           },
         } as any,
@@ -194,87 +192,85 @@ describe('Sistema de Recomendações - RF026', () => {
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Ficção Científica 2',
+          id: "book2",
+          title: "Ficção Científica 2",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'sci-fi',
+          categoryId: "sci-fi",
           availableCopies: 3,
-          category: { name: 'Ficção Científica' },
-          authors: [{ author: { name: 'Arthur C. Clarke' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Ficção Científica" },
+          authors: [{ author: { name: "Arthur C. Clarke" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
         {
-          id: 'book3',
-          title: 'Romance',
+          id: "book3",
+          title: "Romance",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'romance',
+          categoryId: "romance",
           availableCopies: 2,
-          category: { name: 'Romance' },
-          authors: [{ author: { name: 'Jane Austen' } }],
-          copies: [{ id: 'copy3', loans: [] }],
+          category: { name: "Romance" },
+          authors: [{ author: { name: "Jane Austen" } }],
+          copies: [{ id: "copy3", loans: [] }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       // Livro da mesma categoria deve ter maior confiança
-      const sciFiBook = result.recommendations.find((r) => r.id === 'book2');
-      const romanceBook = result.recommendations.find((r) => r.id === 'book3');
+      const sciFiBook = result.recommendations.find((r) => r.id === "book2");
+      const romanceBook = result.recommendations.find((r) => r.id === "book3");
 
       if (sciFiBook && romanceBook) {
         expect(sciFiBook.confidence).toBeGreaterThan(romanceBook.confidence);
       }
     });
 
-    it('deve retornar livros populares quando não há histórico', async () => {
+    it("deve retornar livros populares quando não há histórico", async () => {
       vi.mocked(prisma.loan.findMany).mockResolvedValue([]);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'popular1',
-          title: 'Livro Popular 1',
+          id: "popular1",
+          title: "Livro Popular 1",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 5,
           totalCopies: 10,
-          category: { name: 'Geral' },
-          authors: [{ author: { name: 'Autor Popular' } }],
-          copies: [
-            { id: 'copy1', loans: Array(20).fill({ id: 'loan' }) },
-          ],
+          category: { name: "Geral" },
+          authors: [{ author: { name: "Autor Popular" } }],
+          copies: [{ id: "copy1", loans: Array(20).fill({ id: "loan" }) }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       expect(result.recommendations.length).toBeGreaterThan(0);
-      expect(result.algorithm).toBe('CONTENT_BASED');
+      expect(result.algorithm).toBe("CONTENT_BASED");
     });
 
-    it('deve apenas recomendar livros disponíveis (availableCopies > 0)', async () => {
+    it("deve apenas recomendar livros disponíveis (availableCopies > 0)", async () => {
       vi.mocked(prisma.loan.findMany).mockResolvedValue([
         {
-          id: '1',
-          userId: 'user1',
-          copyId: 'copy1',
-          status: 'RETURNED',
+          id: "1",
+          userId: "user1",
+          copyId: "copy1",
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
           copy: {
             book: {
-              id: 'book1',
-              title: 'Livro Base',
-              categoryId: 'cat1',
-              category: { id: 'cat1', name: 'Categoria Teste' },
-              authors: [{ author: { name: 'Autor' } }],
+              id: "book1",
+              title: "Livro Base",
+              categoryId: "cat1",
+              category: { id: "cat1", name: "Categoria Teste" },
+              authors: [{ author: { name: "Autor" } }],
             },
           },
         } as any,
@@ -282,21 +278,21 @@ describe('Sistema de Recomendações - RF026', () => {
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Livro Disponível',
+          id: "book2",
+          title: "Livro Disponível",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 2,
-          category: { name: 'Categoria Teste' },
-          authors: [{ author: { name: 'Autor' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Categoria Teste" },
+          authors: [{ author: { name: "Autor" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       result.recommendations.forEach((rec) => {
         expect(rec.availableCopies).toBeGreaterThan(0);
@@ -304,61 +300,61 @@ describe('Sistema de Recomendações - RF026', () => {
     });
   });
 
-  describe('getSimilarBooks', () => {
-    it('deve retornar livros similares baseados em categoria', async () => {
-      const baseBookId = 'book1';
+  describe("getSimilarBooks", () => {
+    it("deve retornar livros similares baseados em categoria", async () => {
+      const baseBookId = "book1";
 
       vi.mocked(prisma.book.findUnique).mockResolvedValue({
         id: baseBookId,
-        title: 'Livro Base',
-        categoryId: 'cat1',
-        category: { id: 'cat1', name: 'Ficção' },
-        authors: [{ author: { name: 'Autor Base' } }],
+        title: "Livro Base",
+        categoryId: "cat1",
+        category: { id: "cat1", name: "Ficção" },
+        authors: [{ author: { name: "Autor Base" } }],
       } as any);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Livro Similar',
+          id: "book2",
+          title: "Livro Similar",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 3,
-          category: { name: 'Ficção' },
-          authors: [{ author: { name: 'Outro Autor' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Ficção" },
+          authors: [{ author: { name: "Outro Autor" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
       ] as any);
 
       const result = await getSimilarBooks(baseBookId, 5);
 
       expect(result.length).toBeGreaterThan(0);
-      expect(result[0].category).toBe('Ficção');
+      expect(result[0].category).toBe("Ficção");
       expect(result[0].id).not.toBe(baseBookId);
     });
 
-    it('não deve retornar o próprio livro como similar', async () => {
-      const baseBookId = 'book1';
+    it("não deve retornar o próprio livro como similar", async () => {
+      const baseBookId = "book1";
 
       vi.mocked(prisma.book.findUnique).mockResolvedValue({
         id: baseBookId,
-        title: 'Livro Base',
-        categoryId: 'cat1',
-        category: { id: 'cat1', name: 'Categoria' },
-        authors: [{ author: { name: 'Autor' } }],
+        title: "Livro Base",
+        categoryId: "cat1",
+        category: { id: "cat1", name: "Categoria" },
+        authors: [{ author: { name: "Autor" } }],
       } as any);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book2',
-          title: 'Outro Livro',
+          id: "book2",
+          title: "Outro Livro",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 2,
-          category: { name: 'Categoria' },
-          authors: [{ author: { name: 'Autor' } }],
-          copies: [{ id: 'copy2', loans: [] }],
+          category: { name: "Categoria" },
+          authors: [{ author: { name: "Autor" } }],
+          copies: [{ id: "copy2", loans: [] }],
         },
       ] as any);
 
@@ -368,33 +364,33 @@ describe('Sistema de Recomendações - RF026', () => {
       expect(similarIds).not.toContain(baseBookId);
     });
 
-    it('deve retornar array vazio se livro não existe', async () => {
+    it("deve retornar array vazio se livro não existe", async () => {
       vi.mocked(prisma.book.findUnique).mockResolvedValue(null);
 
-      const result = await getSimilarBooks('nonexistent', 5);
+      const result = await getSimilarBooks("nonexistent", 5);
 
       expect(result).toEqual([]);
     });
   });
 
-  describe('Critérios de Aceitação RF026', () => {
-    it('✓ Utilizador vê recomendações personalizadas (mínimo 5)', async () => {
+  describe("Critérios de Aceitação RF026", () => {
+    it("✓ Utilizador vê recomendações personalizadas (mínimo 5)", async () => {
       vi.mocked(prisma.loan.findMany).mockResolvedValue([
         {
-          id: '1',
-          userId: 'user1',
-          copyId: 'copy1',
-          status: 'RETURNED',
+          id: "1",
+          userId: "user1",
+          copyId: "copy1",
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
           copy: {
             book: {
-              id: 'book1',
-              title: 'Livro',
-              categoryId: 'cat1',
-              category: { id: 'cat1', name: 'Cat' },
-              authors: [{ author: { name: 'A' } }],
+              id: "book1",
+              title: "Livro",
+              categoryId: "cat1",
+              category: { id: "cat1", name: "Cat" },
+              authors: [{ author: { name: "A" } }],
             },
           },
         } as any,
@@ -408,31 +404,31 @@ describe('Sistema de Recomendações - RF026', () => {
             title: `Livro ${i + 2}`,
             subtitle: null,
             coverUrl: null,
-            categoryId: 'cat1',
+            categoryId: "cat1",
             availableCopies: 2,
-            category: { name: 'Cat' },
-            authors: [{ author: { name: 'A' } }],
+            category: { name: "Cat" },
+            authors: [{ author: { name: "A" } }],
             copies: [{ id: `copy${i + 2}`, loans: [] }],
-          })) as any
+          })) as any,
       );
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 8);
+      const result = await getRecommendations("user1", 8);
 
       expect(result.recommendations.length).toBeGreaterThanOrEqual(5);
       expect(result.totalRecommendations).toBeGreaterThanOrEqual(5);
     });
 
-    it('✓ Não recomendar livros já lidos', async () => {
-      const readBooks = ['book1', 'book2', 'book3'];
+    it("✓ Não recomendar livros já lidos", async () => {
+      const readBooks = ["book1", "book2", "book3"];
 
       vi.mocked(prisma.loan.findMany).mockResolvedValue(
         readBooks.map((bookId, i) => ({
           id: `loan${i}`,
-          userId: 'user1',
+          userId: "user1",
           copyId: `copy${i}`,
-          status: 'RETURNED',
+          status: "RETURNED",
           loanDate: new Date(),
           dueDate: new Date(),
           returnDate: new Date(),
@@ -440,31 +436,31 @@ describe('Sistema de Recomendações - RF026', () => {
             book: {
               id: bookId,
               title: `Livro ${i}`,
-              categoryId: 'cat1',
-              category: { id: 'cat1', name: 'Cat' },
-              authors: [{ author: { name: 'A' } }],
+              categoryId: "cat1",
+              category: { id: "cat1", name: "Cat" },
+              authors: [{ author: { name: "A" } }],
             },
           },
-        })) as any
+        })) as any,
       );
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
-          id: 'book4',
-          title: 'Novo Livro',
+          id: "book4",
+          title: "Novo Livro",
           subtitle: null,
           coverUrl: null,
-          categoryId: 'cat1',
+          categoryId: "cat1",
           availableCopies: 3,
-          category: { name: 'Cat' },
-          authors: [{ author: { name: 'A' } }],
-          copies: [{ id: 'copy4', loans: [] }],
+          category: { name: "Cat" },
+          authors: [{ author: { name: "A" } }],
+          copies: [{ id: "copy4", loans: [] }],
         },
       ] as any);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
-      const result = await getRecommendations('user1', 5);
+      const result = await getRecommendations("user1", 5);
 
       const recommendedIds = result.recommendations.map((r) => r.id);
       readBooks.forEach((readBookId) => {
