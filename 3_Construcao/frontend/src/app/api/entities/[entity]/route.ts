@@ -822,6 +822,7 @@ export async function GET(
       take: limit,
       include: {
         locker: { select: { number: true, location: true } },
+        user: { select: { email: true, name: true } },
       },
     });
 
@@ -832,6 +833,8 @@ export async function GET(
         locker_number: r.locker.number,
         locker_location: r.locker.location,
         user_id: r.userId,
+        user_email: r.user.email,
+        user_name: r.user.name,
         start_time: toIso(r.startTime),
         end_time: toIso(r.endTime) ?? null,
         expected_end: toIso(r.expectedEnd),
