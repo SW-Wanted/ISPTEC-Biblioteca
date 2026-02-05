@@ -42,6 +42,10 @@ const bookPatchSchema = z
     category: z.string().optional(),
     publisher: z.string().nullable().optional(),
     location: z.string().optional(),
+    total_copies: z.number().int().min(1).optional(),
+    available_copies: z.number().int().min(0).optional(),
+    material_type: z.string().optional(),
+    loan_policy: z.string().optional(),
   })
   .partial();
 
@@ -291,6 +295,22 @@ export async function PATCH(
         where: { bookId: id },
         data: { location: loc },
       });
+    }
+
+    // Atualizar total_copies e available_copies
+    if (typeof parsed.total_copies === "number") {
+      data.totalCopies = parsed.total_copies;
+    }
+    if (typeof parsed.available_copies === "number") {
+      data.availableCopies = parsed.available_copies;
+    }
+
+    // Atualizar material_type e loan_policy
+    if (typeof parsed.material_type === "string") {
+      data.materialType = parsed.material_type as any;
+    }
+    if (typeof parsed.loan_policy === "string") {
+      data.loanPolicy = parsed.loan_policy as any;
     }
 
     await prisma.book.update({ where: { id }, data });

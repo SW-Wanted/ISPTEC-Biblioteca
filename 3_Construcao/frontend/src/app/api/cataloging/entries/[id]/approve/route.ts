@@ -28,11 +28,17 @@ const approveSchema = z.object({
   edition: z.string().optional(),
   language: z.string().default("pt"),
   pages: z.number().int().optional(),
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1), // Aceita CUID ou nome de categoria
   description: z.string().optional(),
-  coverUrl: z.string().url().optional(),
+  coverUrl: z.string().optional(), // URL pode ser opcional
   location: z.string().optional(),
   totalCopies: z.number().int().min(1).default(1),
+  materialType: z
+    .enum(["BOOK", "DAILY_LOAN", "REFERENCE", "CD_DVD", "MAGAZINE", "THESIS"])
+    .default("BOOK"),
+  loanPolicy: z
+    .enum(["STANDARD", "DAILY", "SHORT_TERM", "NO_LOAN", "EXTENDED"])
+    .default("STANDARD"),
   reviewNotes: z.string().optional(),
 });
 
@@ -71,6 +77,8 @@ export async function POST(
 
     // 3. Validar input
     const body = await request.json();
+    console.log("📥 Dados para aprovação:", JSON.stringify(body, null, 2));
+
     const data = approveSchema.parse(body);
 
     // 4. Buscar entry
@@ -86,7 +94,10 @@ export async function POST(
       );
     }
 
-    if (entry.status !== "PENDING_REVIEW" && entry.status !== "DRAFT") {
+    console.log("📋 Status da entrada:", entry.status);
+
+    // Aceitar PENDING ou PENDING_REVIEW (modo simplificado para catalogação direta)
+    if (!["PENDING", "PENDING_REVIEW", "DRAFT"].includes(entry.status)) {
       return NextResponse.json(
         { error: `Entrada já foi processada (status: ${entry.status})` },
         { status: 400 },
@@ -96,7 +107,23 @@ export async function POST(
     // 5. Transaction: criar Book + Authors + Publisher + Copies
     const result = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-        // 5a. Criar/conectar Publisher (se fornecido)
+        // 5a. Buscar ou criar categoria
+        let finalCategoryId = data.categoryId;
+
+        // Se não for um CUID válido, buscar ou criar por nome
+        if (!/^c[a-z0-9]{24,25}$/i.test(data.categoryId)) {
+          const category = await tx.category.upsert({
+            where: { name: data.categoryId },
+            create: { name: data.categoryId },
+            update: {},
+          });
+          finalCategoryId = category.id;
+          console.log(
+            `📁 Categoria '${data.categoryId}' → ID: ${finalCategoryId}`,
+          );
+        }
+
+        // 5b. Criar/conectar Publisher (se fornecido)
         let publisherId: string | undefined;
         if (data.publisher) {
           const publisher = await tx.publisher.upsert({
@@ -107,7 +134,7 @@ export async function POST(
           publisherId = publisher.id;
         }
 
-        // 5b. Processar autores (split por vírgula)
+        // 5c. Processar autores (split por vírgula)
         const authorNames = data.authors
           .split(",")
           .map((name) => name.trim())
@@ -123,11 +150,11 @@ export async function POST(
             edition: data.edition,
             language: data.language,
             pages: data.pages,
-            categoryId: data.categoryId,
+            categoryId: finalCategoryId,
             description: data.description,
             coverUrl: data.coverUrl || entry.imageUrl,
-            materialType: MaterialType.BOOK,
-            loanPolicy: LoanPolicy.STANDARD,
+            materialType: data.materialType as MaterialType,
+            loanPolicy: data.loanPolicy as LoanPolicy,
             totalCopies: data.totalCopies,
             availableCopies: data.totalCopies,
             publisherId,
@@ -155,21 +182,18 @@ export async function POST(
           },
         });
 
-        // 5d. Criar cópias físicas com barcode único
-        const copies = [];
-        for (let i = 0; i < data.totalCopies; i++) {
-          const barcode = `${book.isbn || book.id}-${String(i + 1).padStart(3, "0")}`;
-          const copy = await tx.copy.create({
-            data: {
-              bookId: book.id,
-              barcode,
-              status: "AVAILABLE",
-              location: data.location || "Acervo Geral",
-              condition: "GOOD",
-            },
-          });
-          copies.push(copy);
-        }
+        // 5d. Criar cópias físicas com barcode único (bulk insert para performance)
+        const copiesData = Array.from({ length: data.totalCopies }, (_, i) => ({
+          bookId: book.id,
+          barcode: `${book.isbn || book.id}-${String(i + 1).padStart(3, "0")}`,
+          status: "AVAILABLE" as const,
+          location: data.location || "Acervo Geral",
+          condition: "GOOD",
+        }));
+
+        await tx.copy.createMany({
+          data: copiesData,
+        });
 
         // 5e. Atualizar entry para APPROVED
         const updatedEntry = await tx.catalogEntry.update({
@@ -223,22 +247,35 @@ export async function POST(
           },
         });
 
-        return { entry: updatedEntry, book, copies };
+        return {
+          entry: updatedEntry,
+          book,
+          copiesCount: data.totalCopies,
+        };
       },
     );
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("❌ Erro de validação:", error.errors);
       return NextResponse.json(
         { error: "Dados inválidos", details: error.issues },
         { status: 400 },
       );
     }
 
-    console.error("Erro ao aprovar catalogação:", error);
+    console.error("❌ Erro ao aprovar catalogação:", error);
+    if (error instanceof Error) {
+      console.error("Mensagem:", error.message);
+      console.error("Stack:", error.stack);
+    }
+
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      {
+        error: "Erro interno do servidor",
+        message: error instanceof Error ? error.message : "Erro desconhecido",
+      },
       { status: 500 },
     );
   }
