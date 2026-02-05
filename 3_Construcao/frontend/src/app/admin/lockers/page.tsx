@@ -77,6 +77,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export default function AdminLockersPage() {
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingLocker, setEditingLocker] = useState<LockerRow | null>(null);
@@ -120,6 +121,26 @@ export default function AdminLockersPage() {
     }
     return map;
   }, [rentals]);
+
+  const filteredLockers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return lockers;
+    return lockers.filter((locker) => {
+      const rental = locker.id ? rentalsByLocker.get(locker.id) : undefined;
+      const haystack = [
+        locker.number,
+        locker.location,
+        locker.status,
+        rental?.user_name,
+        rental?.user_email,
+        rental?.user_id,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(" ");
+      return haystack.includes(query);
+    });
+  }, [lockers, searchQuery, rentalsByLocker]);
 
   const releaseMutation = useMutation({
     mutationFn: async (lockerId: string) => {
@@ -258,10 +279,20 @@ export default function AdminLockersPage() {
               • {summary.maintenance} em manutencao
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar cacifo
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="w-full sm:w-64">
+              <Label>Pesquisar</Label>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Numero, localizacao ou utilizador"
+              />
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar cacifo
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-sm">
@@ -300,23 +331,27 @@ export default function AdminLockersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoadingLockers && lockers.length === 0 && (
+                {!isLoadingLockers && filteredLockers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-6">
-                      Nenhum cacifo encontrado
-                      <div className="mt-3">
-                        <Button
-                          size="sm"
-                          onClick={() => setShowCreateDialog(true)}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Adicionar cacifo
-                        </Button>
-                      </div>
+                      {lockers.length === 0
+                        ? "Nenhum cacifo encontrado"
+                        : "Nenhum resultado para a pesquisa"}
+                      {lockers.length === 0 && (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => setShowCreateDialog(true)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Adicionar cacifo
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
-                {lockers.map((locker) => {
+                {filteredLockers.map((locker) => {
                   const rental = locker.id
                     ? rentalsByLocker.get(locker.id)
                     : undefined;
