@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Search,
   X,
   Check,
   Loader2,
@@ -50,13 +49,6 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { LOAN_LIMITS } from "@/lib/sgbu-rules";
-import {
-  DEFAULT_FINE_CONFIGS,
-  DEFAULT_SYSTEM_POLICIES,
-} from "@/lib/settings-config";
 import {
   formatUserType,
   formatFineType,
@@ -64,10 +56,8 @@ import {
   formatSystemPolicyKey,
   getSystemPolicyDescription,
   getSystemPolicyUnit,
-  formatAuditConfigKey,
-  formatCurrency,
-  formatDate,
 } from "@/lib/settings-labels";
+import { ConsolidatedAuditLogs } from "@/components/ConsolidatedAuditLogs";
 
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
@@ -78,15 +68,9 @@ function AdminSettingsPage() {
     const hash = window.location.hash.replace("#", "");
     if (
       hash &&
-      [
-        "fines",
-        "policies",
-        "system",
-        "categories",
-        "faqs",
-        "audit",
-        "activity",
-      ].includes(hash)
+      ["fines", "policies", "system", "categories", "faqs", "audit"].includes(
+        hash,
+      )
     ) {
       setActiveTab(hash);
     }
@@ -146,35 +130,6 @@ function AdminSettingsPage() {
       return res.json();
     },
     staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch Audit Log
-  const { data: auditData, isLoading: auditLoading } = useQuery({
-    queryKey: ["audit-log"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings/audit-log?limit=20");
-      if (!res.ok) throw new Error("Erro ao carregar histórico");
-      return res.json();
-    },
-    staleTime: 2 * 60 * 1000,
-  });
-
-  // Fetch Activity Logs (SGBU-011)
-  const [activityType, setActivityType] = useState<string>("");
-  const [activityUserId, setActivityUserId] = useState<string>("");
-
-  const { data: activityLogsData, isLoading: activityLogsLoading } = useQuery({
-    queryKey: ["activity-logs", activityType, activityUserId],
-    queryFn: async () => {
-      const params = new URLSearchParams({ limit: "50" });
-      if (activityType) params.append("type", activityType);
-      if (activityUserId) params.append("userId", activityUserId);
-
-      const res = await fetch(`/api/activity-logs?${params.toString()}`);
-      if (!res.ok) throw new Error("Erro ao carregar logs de atividade");
-      return res.json();
-    },
-    staleTime: 1 * 60 * 1000, // 1 minuto
   });
 
   // Fetch FAQs
@@ -544,20 +499,6 @@ function AdminSettingsPage() {
     "SUPERVISOR",
   ];
 
-  const defaultLoanPolicies: Record<
-    string,
-    { loanDays: number; maxBooks: number; maxRenewals: number }
-  > = {
-    STUDENT: { loanDays: 5, maxBooks: 2, maxRenewals: 2 },
-    TEACHER: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    STAFF: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    LIBRARIAN: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    CATALOGER: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-    SUPERVISOR: { loanDays: 15, maxBooks: 4, maxRenewals: 2 },
-  };
-
-  // Labels removidas - usando formatFineType() e getFineTypeDescription()
-
   return (
     <div className="container mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -578,7 +519,7 @@ function AdminSettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-4"
       >
-        <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-7">
+        <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-6">
           <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
             Multas
           </TabsTrigger>
@@ -595,10 +536,7 @@ function AdminSettingsPage() {
             FAQs
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
-            Histórico
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="flex-1 min-w-[120px]">
-            Atividade
+            Auditoria
           </TabsTrigger>
         </TabsList>
 
@@ -1403,204 +1341,9 @@ function AdminSettingsPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Histórico Tab */}
+        {/* Tab de Auditoria Consolidada */}
         <TabsContent value="audit" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Alterações</CardTitle>
-              <CardDescription>
-                Registro de todas as alterações nas configurações
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {auditLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data/Hora</TableHead>
-                        <TableHead>Configuração</TableHead>
-                        <TableHead>Alterado Por</TableHead>
-                        <TableHead>Motivo</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(auditData?.audits || []).map((audit: any) => (
-                        <TableRow key={audit.id}>
-                          <TableCell className="text-sm">
-                            {formatDate(audit.changedAt)}
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {formatAuditConfigKey(audit.configKey)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <p className="font-medium">
-                                {audit.changedBy.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {audit.changedBy.email}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm">
-                            {audit.reason}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Activity Logs Tab (SGBU-011) */}
-        <TabsContent value="activity" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Logs de Atividade do Sistema</CardTitle>
-              <CardDescription>
-                Auditoria completa de operações críticas (empréstimos,
-                devoluções, renovações, reservas, multas)
-              </CardDescription>
-
-              {/* Filtros */}
-              <div className="flex gap-4 mt-4">
-                <div className="flex-1">
-                  <Label htmlFor="activity-type-filter">
-                    Tipo de Atividade
-                  </Label>
-                  <Input
-                    id="activity-type-filter"
-                    placeholder="Ex: LOAN_CREATED, FINE_PAID..."
-                    value={activityType}
-                    onChange={(e) => setActivityType(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="activity-user-filter">ID do Utilizador</Label>
-                  <Input
-                    id="activity-user-filter"
-                    placeholder="CUID do utilizador..."
-                    value={activityUserId}
-                    onChange={(e) => setActivityUserId(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="self-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setActivityType("");
-                      setActivityUserId("");
-                    }}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Limpar
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {activityLogsLoading ? (
-                <Skeleton className="h-64 w-full" />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data/Hora</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Ação</TableHead>
-                        <TableHead>Utilizador</TableHead>
-                        <TableHead>Entidade</TableHead>
-                        <TableHead>Metadados</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(activityLogsData?.logs || []).length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={6}
-                            className="text-center text-muted-foreground py-8"
-                          >
-                            Nenhum log de atividade encontrado
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        (activityLogsData?.logs || []).map((log: any) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="text-sm whitespace-nowrap">
-                              {formatDate(log.createdAt)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {log.type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-sm font-medium">
-                              {log.action}
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                <p className="font-medium">{log.userName}</p>
-                                <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                  {log.userEmail}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">
-                              {log.entityType ? (
-                                <div>
-                                  <p className="font-mono text-xs">
-                                    {log.entityType}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground truncate max-w-[100px]">
-                                    {log.entityId}
-                                  </p>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {log.metadata &&
-                              Object.keys(log.metadata).length > 0 ? (
-                                <details className="cursor-pointer">
-                                  <summary className="text-primary hover:underline">
-                                    Ver detalhes
-                                  </summary>
-                                  <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-w-[300px]">
-                                    {JSON.stringify(log.metadata, null, 2)}
-                                  </pre>
-                                </details>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-
-                  {/* Info sobre paginação */}
-                  {activityLogsData?.meta && (
-                    <div className="mt-4 text-sm text-muted-foreground text-center">
-                      A mostrar {activityLogsData.meta.count} registros
-                      {activityLogsData.meta.hasMore &&
-                        " (pode haver mais resultados)"}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ConsolidatedAuditLogs />
         </TabsContent>
       </Tabs>
     </div>
