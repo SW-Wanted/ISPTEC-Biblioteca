@@ -100,6 +100,8 @@ export function ActiveReservationsCard() {
                 session.expected_end ?? session.expectedEnd ?? null;
               const startTimeRaw =
                 session.start_time ?? session.startTime ?? null;
+              const startTimeRaw =
+                session.start_time ?? session.startTime ?? null;
               const now = new Date();
               const expectedEnd = expectedEndRaw
                 ? new Date(expectedEndRaw)
@@ -116,6 +118,7 @@ export function ActiveReservationsCard() {
                 resourceId: session.computer_id ?? session.computerId,
                 number: session.computer_number || "N/A",
                 location: session.computer_location || "Sala de Informatica",
+                startTime: startTimeRaw
                 startTime: startTimeRaw
                   ? String(startTimeRaw)
                   : new Date().toISOString(),
@@ -263,6 +266,7 @@ export function ActiveReservationsCard() {
               )}
 
               {reservation.type === "locker" && reservation.resourceId && (
+              {reservation.type === "locker" && reservation.resourceId && (
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
@@ -281,6 +285,33 @@ export function ActiveReservationsCard() {
                     onClick={() =>
                       void postAction(
                         `/api/lockers/${reservation.resourceId}/release`,
+                      )
+                    }
+                  >
+                    Libertar
+                  </button>
+                </div>
+              )}
+
+              {reservation.type === "computer" && reservation.resourceId && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/computers/${reservation.resourceId}/renew`,
+                      )
+                    }
+                  >
+                    Renovar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/computers/${reservation.resourceId}/release`,
                       )
                     }
                   >

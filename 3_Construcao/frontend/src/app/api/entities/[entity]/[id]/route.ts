@@ -85,6 +85,14 @@ const lockerAdminPatchSchema = z
   })
   .partial();
 
+const computerAdminPatchSchema = z
+  .object({
+    number: z.string().min(1).optional(),
+    location: z.string().optional(),
+    status: z.string().optional(),
+  })
+  .partial();
+
 function isEnumValue<T extends Record<string, string>>(
   enumObj: T,
   value: unknown,
@@ -951,13 +959,9 @@ export async function PATCH(
   }
 
   if (entity === "Computer") {
-    const statusParsed = statusSchema.safeParse(body);
-    if (!statusParsed.success)
-      return NextResponse.json(
-        { error: "status é obrigatório" },
-        { status: 400 },
-      );
-    const status = normalizeEnum(statusParsed.data.status);
+    const hasStatus = typeof body.status === "string";
+    const status = hasStatus ? normalizeEnum(body.status) : "";
+
     if (status === ComputerStatus.OCCUPIED) {
       await prisma.$transaction(async (tx) => {
         // Verificar se usuário já tem sessão de computador ativa
@@ -1008,10 +1012,56 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    return NextResponse.json(
-      { error: "Operação não suportada" },
-      { status: 400 },
-    );
+    if (!canManageMembers(user.type)) {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
+
+    const parsed = computerAdminPatchSchema.parse(body);
+    const data: Prisma.ComputerUpdateInput = {};
+
+    if (typeof parsed.number === "string") {
+      data.number = parsed.number.trim();
+    }
+    if (parsed.location !== undefined) {
+      const location =
+        typeof parsed.location === "string" ? parsed.location.trim() : "";
+      data.location = location || "Sala de Informatica";
+    }
+
+    if (typeof parsed.status === "string") {
+      const s = normalizeEnum(parsed.status);
+      if (!isEnumValue(ComputerStatus, s)) {
+        return NextResponse.json({ error: "status inválido" }, { status: 400 });
+      }
+      if (s === ComputerStatus.OCCUPIED) {
+        return NextResponse.json(
+          { error: "Use a reserva para ocupar" },
+          { status: 400 },
+        );
+      }
+
+      const activeSession = await prisma.computerSession.findFirst({
+        where: { computerId: id, endTime: null },
+        select: { id: true },
+      });
+      if (activeSession) {
+        return NextResponse.json(
+          { error: "Computador em uso" },
+          { status: 409 },
+        );
+      }
+
+      data.status = s;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+    }
+
+    await prisma.computer.update({ where: { id }, data });
+    return NextResponse.json({ ok: true });
+
+    return NextResponse.json({ ok: true });
   }
 
   if (entity === "Member") {
@@ -1220,6 +1270,22 @@ export async function DELETE(
     }
 
     await prisma.locker.delete({ where: { id } });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (entity === "Computer") {
+    if (!canManageMembers(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const activeSession = await prisma.computerSession.findFirst({
+      where: { computerId: id, endTime: null },
+      select: { id: true },
+    });
+    if (activeSession) {
+      return NextResponse.json({ error: "Computador em uso" }, { status: 409 });
+    }
+
+    await prisma.computer.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   }
 

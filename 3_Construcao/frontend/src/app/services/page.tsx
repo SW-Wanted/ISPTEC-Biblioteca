@@ -146,12 +146,14 @@ export default function Services() {
   const reserveComputerMutation = useMutation({
     mutationFn: async (computer: ComputerRow) => {
       if (!user) return;
-      await api.entities.Computer.update(computer.id, {
-        status: "occupied",
-        current_user_id: user.email,
-        session_start: new Date().toISOString(),
-        session_end: addHours(new Date(), 2).toISOString(),
+      const res = await fetch(`/api/computers/${computer.id}/reserve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao reservar computador");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["computers"] });
