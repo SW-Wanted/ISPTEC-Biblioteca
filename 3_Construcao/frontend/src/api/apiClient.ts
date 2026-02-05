@@ -400,4 +400,125 @@ export const api = {
       },
     },
   },
+  cataloging: {
+    /**
+     * Analisa imagem de livro usando Gemini Vision (API dedicada para catalogação)
+     * Muito mais preciso que OCR puro
+     */
+    analyzeImage: async (imageBase64: string, mimeType: string) => {
+      const res = await fetch("/api/cataloging/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, mimeType }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao analisar imagem (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Enriquece dados via Google Books API
+     */
+    enrichData: async (params: {
+      isbn?: string;
+      title?: string;
+      author?: string;
+      publisher?: string;
+      publishedYear?: number;
+    }) => {
+      const res = await fetch("/api/cataloging/enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao enriquecer dados (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Cria uma entrada de catalogação
+     */
+    createEntry: async (data: {
+      imageUrl: string;
+      extractedTitle?: string;
+      extractedAuthor?: string;
+      extractedISBN?: string;
+      extractedPublisher?: string;
+      extractedYear?: number;
+      enrichedData?: Record<string, unknown>;
+    }) => {
+      const res = await fetch("/api/cataloging/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao criar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Aprova uma entrada de catalogação (cria Book + Copies)
+     */
+    approveEntry: async (
+      entryId: string,
+      data: {
+        title: string;
+        subtitle?: string;
+        isbn?: string;
+        authors: string;
+        publisher?: string;
+        publicationYear?: number;
+        edition?: string;
+        language?: string;
+        pages?: number;
+        categoryId: string;
+        description?: string;
+        coverUrl?: string;
+        location?: string;
+        totalCopies?: number;
+        reviewNotes?: string;
+        materialType?: string;
+        loanPolicy?: string;
+      },
+    ) => {
+      const res = await fetch(`/api/cataloging/entries/${entryId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao aprovar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+  },
 };
