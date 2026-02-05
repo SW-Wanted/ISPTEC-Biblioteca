@@ -829,23 +829,29 @@ Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
                         <Input
                           type="number"
                           min="1"
-                          value={formData.total_copies || "1"}
+                          value={formData.total_copies}
                           onChange={(e) => {
-                            const newTotal = parseInt(e.target.value) || 1;
+                            const newValue = e.target.value;
+                            const newTotal = parseInt(newValue) || 0;
                             setFormData({
                               ...formData,
-                              total_copies: e.target.value,
-                              available_copies: Math.min(
-                                parseInt(formData.available_copies) || 1,
-                                newTotal,
-                              ).toString(),
+                              total_copies: newValue,
+                              available_copies:
+                                newTotal > 0
+                                  ? Math.min(
+                                      parseInt(formData.available_copies) || 0,
+                                      newTotal,
+                                    ).toString()
+                                  : formData.available_copies,
                             });
                           }}
                           className={
+                            !formData.total_copies ||
                             parseInt(formData.total_copies) < 1
                               ? "border-red-300"
                               : ""
                           }
+                          placeholder="1"
                         />
                       </div>
                       <div>
@@ -856,31 +862,39 @@ Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
                         <Input
                           type="number"
                           min="0"
-                          max={formData.total_copies}
-                          value={formData.available_copies || "1"}
+                          max={formData.total_copies || undefined}
+                          value={formData.available_copies}
                           onChange={(e) => {
-                            const newAvail = parseInt(e.target.value) || 0;
+                            const newValue = e.target.value;
+                            const newAvail = parseInt(newValue) || 0;
+                            const maxTotal =
+                              parseInt(formData.total_copies) || 999;
                             setFormData({
                               ...formData,
-                              available_copies: Math.min(
-                                newAvail,
-                                parseInt(formData.total_copies) || 1,
-                              ).toString(),
+                              available_copies:
+                                newAvail <= maxTotal
+                                  ? newValue
+                                  : maxTotal.toString(),
                             });
                           }}
                           className={
-                            parseInt(formData.available_copies) >
-                            parseInt(formData.total_copies)
+                            !formData.available_copies ||
+                            parseInt(formData.available_copies) < 0 ||
+                            (formData.total_copies &&
+                              parseInt(formData.available_copies) >
+                                parseInt(formData.total_copies))
                               ? "border-red-300"
                               : ""
                           }
+                          placeholder="1"
                         />
-                        {parseInt(formData.available_copies) >
-                          parseInt(formData.total_copies) && (
-                          <p className="text-xs text-red-600 mt-1">
-                            Não pode exceder {formData.total_copies}
-                          </p>
-                        )}
+                        {formData.total_copies &&
+                          parseInt(formData.available_copies) >
+                            parseInt(formData.total_copies) && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Não pode exceder {formData.total_copies}
+                            </p>
+                          )}
                       </div>
                       <div className="md:col-span-2">
                         <Label>Localização</Label>

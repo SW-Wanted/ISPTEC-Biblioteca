@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     console.log("📥 Request body recebido:", JSON.stringify(body, null, 2));
-    
+
     const { prompt, file_urls, response_json_schema } =
       invokeSchema.parse(body);
 
@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("🔑 API Key encontrada (primeiros 10 chars):", apiKey.substring(0, 10));
+    console.log(
+      "🔑 API Key encontrada (primeiros 10 chars):",
+      apiKey.substring(0, 10),
+    );
     console.log("🖼️ File URLs:", file_urls);
     console.log("📝 Prompt length:", prompt.length);
 
@@ -52,12 +55,16 @@ export async function POST(request: NextRequest) {
           console.log(`  Fetching imagem ${index + 1}: ${url}`);
           const response = await fetch(url);
           if (!response.ok) {
-            throw new Error(`Falha ao carregar imagem ${index + 1}: ${response.status}`);
+            throw new Error(
+              `Falha ao carregar imagem ${index + 1}: ${response.status}`,
+            );
           }
           const buffer = await response.arrayBuffer();
           const base64 = Buffer.from(buffer).toString("base64");
           const mimeType = response.headers.get("content-type") || "image/jpeg";
-          console.log(`  ✅ Imagem ${index + 1} carregada: ${(buffer.byteLength / 1024).toFixed(2)}KB`);
+          console.log(
+            `  ✅ Imagem ${index + 1} carregada: ${(buffer.byteLength / 1024).toFixed(2)}KB`,
+          );
 
           return {
             inlineData: {
@@ -80,7 +87,10 @@ export async function POST(request: NextRequest) {
 
     const response = result.response;
     const text = response.text();
-    console.log("📄 Texto da resposta (primeiros 200 chars):", text.substring(0, 200));
+    console.log(
+      "📄 Texto da resposta (primeiros 200 chars):",
+      text.substring(0, 200),
+    );
 
     // Se esperamos JSON, fazer parse
     let parsedResult = text;

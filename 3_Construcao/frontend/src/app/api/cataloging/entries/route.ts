@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { UserType } from "@prisma/client";
 
 /**
@@ -22,13 +23,34 @@ const createEntrySchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    const user = await requireActiveUser(request, {
-      allowedTypes: [
-        UserType.LIBRARIAN,
-        UserType.CATALOGER,
-        UserType.SUPERVISOR,
-      ],
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, type: true, status: true },
     });
+
+    if (!user || user.status !== "ACTIVE") {
+      return NextResponse.json(
+        { error: "Utilizador inválido" },
+        { status: 403 },
+      );
+    }
+
+    const allowedTypes = [
+      UserType.LIBRARIAN,
+      UserType.CATALOGER,
+      UserType.SUPERVISOR,
+    ];
+    if (!allowedTypes.includes(user.type)) {
+      return NextResponse.json(
+        { error: "Sem permissão para catalogar" },
+        { status: 403 },
+      );
+    }
 
     const body = await request.json();
     const data = createEntrySchema.parse(body);
@@ -71,13 +93,31 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireActiveUser(request, {
-      allowedTypes: [
-        UserType.LIBRARIAN,
-        UserType.CATALOGER,
-        UserType.SUPERVISOR,
-      ],
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, type: true, status: true },
     });
+
+    if (!user || user.status !== "ACTIVE") {
+      return NextResponse.json(
+        { error: "Utilizador inválido" },
+        { status: 403 },
+      );
+    }
+
+    const allowedTypes = [
+      UserType.LIBRARIAN,
+      UserType.CATALOGER,
+      UserType.SUPERVISOR,
+    ];
+    if (!allowedTypes.includes(user.type)) {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status") || "PENDING";
