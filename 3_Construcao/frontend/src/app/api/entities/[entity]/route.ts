@@ -9,6 +9,7 @@ import {
   BookStatus,
   FineStatus,
   FineType,
+  LockerStatus,
   LoanStatus,
   LoanPolicy,
   MaterialType,
@@ -1309,6 +1310,60 @@ export async function POST(
         status: NotificationStatus.PENDING,
         title,
         message,
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ id: created.id });
+  }
+
+  if (entity === "Locker") {
+    if (!canManageMembers(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const lockerCreateSchema = z.object({
+      number: z.union([z.string(), z.number()]),
+      location: z.string().optional(),
+      status: z.string().optional(),
+    });
+
+    const parsed = lockerCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const number = String(parsed.data.number).trim();
+    if (!number) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const location = parsed.data.location
+      ? parsed.data.location.trim()
+      : "Biblioteca";
+
+    let status = LockerStatus.AVAILABLE;
+    if (typeof parsed.data.status === "string") {
+      const s = normalizeEnum(parsed.data.status);
+      if (!isEnumValue(LockerStatus, s)) {
+        return NextResponse.json(
+          { error: "status inválido" },
+          { status: 400 },
+        );
+      }
+      status = s;
+    }
+
+    const created = await prisma.locker.create({
+      data: {
+        number,
+        location,
+        status,
       },
       select: { id: true },
     });

@@ -7,7 +7,7 @@ import type { Fine as FineBase } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  DollarSign,
+  KeyRound,
   Search,
   CheckCircle,
   XCircle,
@@ -428,7 +428,7 @@ export default function ManageFines() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <DollarSign className="w-7 h-7 text-indigo-600" />
+              <KeyRound className="w-7 h-7 text-indigo-600" />
               Gestão de Multas
             </h1>
             <p className="text-slate-500 mt-1">

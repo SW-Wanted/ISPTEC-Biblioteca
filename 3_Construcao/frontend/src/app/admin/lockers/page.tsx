@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -13,6 +15,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { KeyRound, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 type LockerRow = {
@@ -59,6 +77,19 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export default function AdminLockersPage() {
   const queryClient = useQueryClient();
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingLocker, setEditingLocker] = useState<LockerRow | null>(null);
+  const [createForm, setCreateForm] = useState({
+    number: "",
+    location: "",
+    status: "available",
+  });
+  const [editForm, setEditForm] = useState({
+    number: "",
+    location: "",
+    status: "available",
+  });
 
   const { data: lockers = [], isLoading: isLoadingLockers } = useQuery<
     LockerRow[]
@@ -139,13 +170,101 @@ export default function AdminLockersPage() {
     return { total, available, occupied, maintenance };
   }, [lockers]);
 
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/entities/Locker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: createForm.number,
+          location: createForm.location,
+          status: createForm.status,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao adicionar cacifo");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
+      setShowCreateDialog(false);
+      setCreateForm({ number: "", location: "", status: "available" });
+      toast.success("Cacifo adicionado");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao adicionar cacifo");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingLocker?.id) return;
+      const res = await fetch(`/api/entities/Locker/${editingLocker.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number: editForm.number,
+          location: editForm.location,
+          status: editForm.status,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao actualizar cacifo");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
+      setShowEditDialog(false);
+      setEditingLocker(null);
+      toast.success("Cacifo actualizado");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao actualizar cacifo");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (lockerId: string) => {
+      const res = await fetch(`/api/entities/Locker/${lockerId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao eliminar cacifo");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
+      toast.success("Cacifo eliminado");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao eliminar cacifo");
+    },
+  });
+
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+              <KeyRound className="w-7 h-7 text-indigo-600" />
+              Gestao de Cacifos
+            </h1>
+            <p className="text-slate-500 mt-1">
+              {summary.occupied} ocupado(s) • {summary.available} disponivel(is)
+              • {summary.maintenance} em manutencao
+            </p>
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar cacifo
+          </Button>
+        </div>
+
         <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Cacifos</CardTitle>
-          </CardHeader>
           <CardContent className="flex flex-wrap gap-2 text-sm">
             <Badge variant="outline">Total: {summary.total}</Badge>
             <Badge className="bg-emerald-100 text-emerald-700">
@@ -185,6 +304,15 @@ export default function AdminLockersPage() {
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-6">
                       Nenhum cacifo encontrado
+                      <div className="mt-3">
+                        <Button
+                          size="sm"
+                          onClick={() => setShowCreateDialog(true)}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Adicionar cacifo
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -193,6 +321,8 @@ export default function AdminLockersPage() {
                     ? rentalsByLocker.get(locker.id)
                     : undefined;
                   const canAct = locker.status === "occupied" && rental;
+                  const canEdit = locker.status !== "occupied";
+                  const canDelete = locker.status !== "occupied";
                   const userLabel =
                     rental?.user_name ||
                     rental?.user_email ||
@@ -238,6 +368,40 @@ export default function AdminLockersPage() {
                           >
                             Libertar
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!canEdit}
+                            onClick={() => {
+                              setEditingLocker(locker);
+                              setEditForm({
+                                number: String(locker.number ?? ""),
+                                location: String(locker.location ?? ""),
+                                status: locker.status ?? "available",
+                              });
+                              setShowEditDialog(true);
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={!canDelete || deleteMutation.isPending}
+                            onClick={() => {
+                              if (!locker.id) return;
+                              if (
+                                !window.confirm(
+                                  "Eliminar este cacifo? Esta acao nao pode ser desfeita.",
+                                )
+                              ) {
+                                return;
+                              }
+                              deleteMutation.mutate(locker.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -248,6 +412,150 @@ export default function AdminLockersPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={showCreateDialog}
+        onOpenChange={(open) => setShowCreateDialog(open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar cacifo</DialogTitle>
+            <DialogDescription>
+              Registe um novo cacifo para a biblioteca.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Numero</Label>
+              <Input
+                value={createForm.number}
+                onChange={(e) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    number: e.target.value,
+                  }))
+                }
+                placeholder="Ex: 12"
+              />
+            </div>
+            <div>
+              <Label>Localizacao</Label>
+              <Input
+                value={createForm.location}
+                onChange={(e) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    location: e.target.value,
+                  }))
+                }
+                placeholder="Ex: Biblioteca principal"
+              />
+            </div>
+            <div>
+              <Label>Estado</Label>
+              <Select
+                value={createForm.status}
+                onValueChange={(value) =>
+                  setCreateForm((prev) => ({ ...prev, status: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Disponivel</SelectItem>
+                  <SelectItem value="maintenance">Manutencao</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !createForm.number}
+            >
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) setEditingLocker(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar cacifo</DialogTitle>
+            <DialogDescription>
+              Actualize os dados do cacifo seleccionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Numero</Label>
+              <Input
+                value={editForm.number}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    number: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <Label>Localizacao</Label>
+              <Input
+                value={editForm.location}
+                onChange={(e) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    location: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div>
+              <Label>Estado</Label>
+              <Select
+                value={editForm.status}
+                onValueChange={(value) =>
+                  setEditForm((prev) => ({ ...prev, status: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Disponivel</SelectItem>
+                  <SelectItem value="maintenance">Manutencao</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => updateMutation.mutate()}
+              disabled={updateMutation.isPending || !editForm.number}
+            >
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
