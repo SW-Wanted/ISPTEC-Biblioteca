@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 /**
  * POST /api/cataloging/analyze-image
  * Analisa imagem de livro usando Gemini Vision (versão PR #47)
- * 
+ *
  * Este endpoint é especializado para catalogação de livros
  * Usa modelo estável gemini-1.5-flash
  */

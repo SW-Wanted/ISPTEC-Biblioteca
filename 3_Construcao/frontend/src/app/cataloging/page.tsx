@@ -133,82 +133,57 @@ export default function Cataloging() {
     reader.readAsDataURL(file);
     setIsExtracting(true);
     try {
+      // 1. Upload da imagem para Cloudinary
       const { file_url } = await api.integrations.Core.UploadFile({
         file,
         folder: "ocr",
       });
       setUploadedImageUrl(file_url); // Save the Cloudinary URL
+      console.log("📸 Imagem carregada:", file_url);
 
       let extracted: ExtractedBookData;
+      
+      // 2. Converter imagem para base64 para análise Gemini Vision
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Remover prefixo data:image/...;base64,
+          const base64Data = result.split(",")[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
       try {
-        extracted = await api.integrations.Core.InvokeLLM<ExtractedBookData>({
-          prompt: `Você é um especialista em catalogação de livros. Analise CUIDADOSAMENTE esta imagem de livro e extraia informações bibliográficas.
+        // 3. Analisar com Gemini Vision (endpoint dedicado da PR #47)
+        const result = await api.cataloging.analyzeImage(base64, file.type);
 
-🔍 PRIORIDADE MÁXIMA - ISBN:
-Procure intensivamente pelo código ISBN (10 ou 13 dígitos):
-- Na CONTRACAPA (parte de trás)
-- Na FOLHA DE ROSTO (primeiras páginas)
-- Junto ao código de barras
-- Perto das informações da editora
-- Formato: ISBN 978-X-XXXX-XXXX-X ou ISBN-13: 978XXXXXXXXXX
-
-EXTRAIA:
-1. ⭐ ISBN: BUSQUE INTENSIVAMENTE - código de 10 ou 13 dígitos (ESSENCIAL para busca automática)
-2. Título: Título principal do livro
-3. Subtítulo: Se houver
-4. Autores: Lista separada por vírgula
-5. Editora: Nome da publisher
-6. Ano: Ano de publicação (AAAA)
-7. Edição: Número (ex: "2ª", "3rd")
-8. Categoria Sugerida: Baseado no conteúdo (Engenharia, Ciências, Medicina, Direito, Economia, Informática, Literatura, História)
-9. Idioma: pt, en, es, fr
-10. Descrição: Sinopse se visível
-
-⚠️ IMPORTANTE: Mesmo que outros dados estejam parciais, SEMPRE tente extrair o ISBN! Ele permite buscar automaticamente todas as outras informações.
-
-Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
-          file_urls: [file_url],
-          response_json_schema: {
-            type: "object",
-            properties: {
-              title: { type: "string", description: "Título do livro" },
-              subtitle: { type: "string", description: "Subtítulo se houver" },
-              isbn: { type: "string", description: "ISBN do livro" },
-              authors: {
-                type: "string",
-                description: "Autores separados por vírgula",
-              },
-              publisher: { type: "string", description: "Editora" },
-              publication_year: {
-                type: "string",
-                description: "Ano de publicação",
-              },
-              edition: { type: "string", description: "Edição" },
-              suggested_category: {
-                type: "string",
-                description: "Categoria sugerida",
-              },
-              language: {
-                type: "string",
-                description: "Código do idioma: pt, en, es, fr",
-              },
-              description: {
-                type: "string",
-                description: "Sinopse ou descrição breve",
-              },
-              confidence: {
-                type: "number",
-                description: "Nível de confiança 0.0 a 1.0",
-              },
-            },
-          },
-        });
-
-        // Verificar se a resposta é válida (não é uma string de erro)
-        if (typeof extracted === "string") {
-          console.warn("⚠️ OCR retornou string em vez de objeto:", extracted);
-          throw new Error("OCR falhou");
+        if (result.error) {
+          throw new Error(result.error);
         }
+
+        const data = result.extractedData;
+
+        // 4. Mapear para formato ExtractedBookData
+        extracted = {
+          title: data.title || "",
+          subtitle: data.subtitle || "",
+          isbn: data.isbn || "",
+          authors: data.authors || "",
+          publisher: data.publisher || "",
+          publication_year: data.publishedYear?.toString() || "",
+          edition: data.edition || "",
+          suggested_category: null,
+          language: data.language || "pt",
+          description: null,
+          confidence: result.confidence || 0,
+        };
+
+        toast.success(
+          `Dados extraídos com ${Math.round(result.confidence * 100)}% de confiança!`,
+        );
       } catch (ocrError) {
         console.error("❌ Erro no OCR:", ocrError);
         toast.warning("OCR falhou. Preencha os campos manualmente.");
