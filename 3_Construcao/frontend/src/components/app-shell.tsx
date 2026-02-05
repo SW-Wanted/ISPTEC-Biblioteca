@@ -67,6 +67,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Documentos", href: "/verify-documents", icon: FileCheck },
   { name: "Formações", href: "/admin/training", icon: CheckCircle },
   { name: "Empréstimos", href: "/manage-loans", icon: BookMarked },
+  { name: "Computadores", href: "/admin/computers", icon: Computer },
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
   { name: "Solicitações", href: "/admin/special-requests", icon: HelpCircle },
