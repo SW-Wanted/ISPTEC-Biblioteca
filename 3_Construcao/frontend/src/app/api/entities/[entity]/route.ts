@@ -1351,10 +1351,7 @@ export async function POST(
     if (typeof parsed.data.status === "string") {
       const s = normalizeEnum(parsed.data.status);
       if (!isEnumValue(LockerStatus, s)) {
-        return NextResponse.json(
-          { error: "status inválido" },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: "status inválido" }, { status: 400 });
       }
       status = s;
     }

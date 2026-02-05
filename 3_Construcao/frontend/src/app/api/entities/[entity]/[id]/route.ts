@@ -920,10 +920,7 @@ export async function PATCH(
     if (typeof parsed.status === "string") {
       const s = normalizeEnum(parsed.status);
       if (!isEnumValue(LockerStatus, s)) {
-        return NextResponse.json(
-          { error: "status inválido" },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: "status inválido" }, { status: 400 });
       }
       if (s === LockerStatus.OCCUPIED) {
         return NextResponse.json(
@@ -937,20 +934,14 @@ export async function PATCH(
         select: { id: true },
       });
       if (activeRental) {
-        return NextResponse.json(
-          { error: "Cacifo em uso" },
-          { status: 409 },
-        );
+        return NextResponse.json({ error: "Cacifo em uso" }, { status: 409 });
       }
 
       data.status = s;
     }
 
     if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { error: "Dados inválidos" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
 
     await prisma.locker.update({ where: { id }, data });
@@ -1225,10 +1216,7 @@ export async function DELETE(
       select: { id: true },
     });
     if (activeRental) {
-      return NextResponse.json(
-        { error: "Cacifo em uso" },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: "Cacifo em uso" }, { status: 409 });
     }
 
     await prisma.locker.delete({ where: { id } });
