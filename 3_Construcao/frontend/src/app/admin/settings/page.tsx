@@ -78,9 +78,15 @@ function AdminSettingsPage() {
     const hash = window.location.hash.replace("#", "");
     if (
       hash &&
-      ["fines", "policies", "system", "categories", "faqs", "audit"].includes(
-        hash,
-      )
+      [
+        "fines",
+        "policies",
+        "system",
+        "categories",
+        "faqs",
+        "audit",
+        "activity",
+      ].includes(hash)
     ) {
       setActiveTab(hash);
     }
@@ -554,7 +560,7 @@ function AdminSettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-4"
       >
-        <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-6">
+        <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-7">
           <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
             Multas
           </TabsTrigger>
@@ -572,6 +578,9 @@ function AdminSettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
             Histórico
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex-1 min-w-[120px]">
+            Atividade
           </TabsTrigger>
         </TabsList>
 
