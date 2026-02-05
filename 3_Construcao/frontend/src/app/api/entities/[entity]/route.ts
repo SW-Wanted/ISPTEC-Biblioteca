@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import {
   AccountActivationStatus,
   BookStatus,
+  ComputerStatus,
   FineStatus,
   FineType,
   LoanStatus,
@@ -885,6 +886,7 @@ export async function GET(
       take: limit,
       include: {
         computer: { select: { number: true, location: true } },
+        user: { select: { email: true, name: true } },
       },
     });
 
@@ -895,6 +897,8 @@ export async function GET(
         computer_number: s.computer.number,
         computer_location: s.computer.location,
         user_id: s.userId,
+        user_email: s.user.email,
+        user_name: s.user.name,
         start_time: toIso(s.startTime),
         end_time: toIso(s.endTime) ?? null,
         expected_end: toIso(s.expectedEnd),
@@ -1306,6 +1310,57 @@ export async function POST(
         status: NotificationStatus.PENDING,
         title,
         message,
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ id: created.id });
+  }
+
+  if (entity === "Computer") {
+    if (!canManageMembers(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const computerCreateSchema = z.object({
+      number: z.union([z.string(), z.number()]),
+      location: z.string().optional(),
+      status: z.string().optional(),
+    });
+
+    const parsed = computerCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const number = String(parsed.data.number).trim();
+    if (!number) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const location = parsed.data.location
+      ? parsed.data.location.trim()
+      : "Sala de Informatica";
+
+    let status = ComputerStatus.AVAILABLE;
+    if (typeof parsed.data.status === "string") {
+      const s = normalizeEnum(parsed.data.status);
+      if (!isEnumValue(ComputerStatus, s)) {
+        return NextResponse.json({ error: "status inválido" }, { status: 400 });
+      }
+      status = s;
+    }
+
+    const created = await prisma.computer.create({
+      data: {
+        number,
+        location,
+        status,
       },
       select: { id: true },
     });
