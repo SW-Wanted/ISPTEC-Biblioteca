@@ -69,6 +69,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Empréstimos", href: "/manage-loans", icon: BookMarked },
   { name: "Multas", href: "/manage-fines", icon: KeyRound },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
+  { name: "Solicitações", href: "/admin/special-requests", icon: HelpCircle },
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
   { name: "Políticas", href: "/admin/settings", icon: Settings },
 ];

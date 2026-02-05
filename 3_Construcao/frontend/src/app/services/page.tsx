@@ -174,12 +174,9 @@ export default function Services() {
     mutationFn: async () => {
       if (!user) return;
       await api.entities.SpecialRequest.create({
-        user_id: user.email,
-        user_name: user.full_name,
         type: requestForm.type,
         title: requestForm.title,
         description: requestForm.description,
-        status: "pending",
         scheduled_date: requestForm.scheduled_date || null,
       });
     },

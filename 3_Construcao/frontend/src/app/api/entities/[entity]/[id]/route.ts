@@ -16,6 +16,7 @@ import {
   NotificationStatus,
   NotificationType,
   Prisma,
+  RequestStatus,
   ReservationStatus,
   UserStatus,
   UserType,
@@ -74,6 +75,14 @@ const finePatchSchema = z
     payment_reference: z.string().nullable().optional(),
     waived_by: z.string().nullable().optional(),
     waiver_reason: z.string().nullable().optional(),
+  })
+  .partial();
+
+const specialRequestPatchSchema = z
+  .object({
+    status: z.string().optional(),
+    response: z.string().nullable().optional(),
+    scheduled_date: z.string().nullable().optional(),
   })
   .partial();
 
@@ -965,6 +974,74 @@ export async function PATCH(
       { error: "Operação não suportada" },
       { status: 400 },
     );
+  }
+
+  if (entity === "SpecialRequest") {
+    if (!canManageMembers(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const parsed = specialRequestPatchSchema.parse(body);
+    const data: Prisma.SpecialRequestUpdateInput = {};
+
+    if (typeof parsed.status === "string") {
+      const s = normalizeEnum(parsed.status);
+      if (isEnumValue(RequestStatus, s)) data.status = s;
+    }
+
+    if (parsed.response !== undefined) {
+      const responseText =
+        typeof parsed.response === "string" ? parsed.response.trim() : null;
+      data.response =
+        responseText && responseText.length > 0 ? responseText : null;
+    }
+
+    if (parsed.scheduled_date !== undefined) {
+      data.scheduledDate = parsed.scheduled_date
+        ? new Date(String(parsed.scheduled_date))
+        : null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
+    }
+
+    const updated = await prisma.specialRequest.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        status: true,
+        response: true,
+        updatedAt: true,
+      },
+    });
+
+    const statusLabel = updated.status
+      .toString()
+      .replace("_", " ")
+      .toLowerCase();
+
+    await prisma.notification.create({
+      data: {
+        userId: updated.userId,
+        type: NotificationType.IN_APP,
+        status: NotificationStatus.PENDING,
+        title: "Solicitação actualizada",
+        message: updated.response
+          ? `A sua solicitação "${updated.title}" foi actualizada para ${statusLabel}. Resposta: ${updated.response}`
+          : `A sua solicitação "${updated.title}" foi actualizada para ${statusLabel}.`,
+        metadata: { actionType: "view_services" },
+      },
+    });
+
+    return NextResponse.json({
+      id: updated.id,
+      status: lowerEnum(updated.status),
+      response: updated.response ?? null,
+      updated_date: toIso(updated.updatedAt),
+    });
   }
 
   if (entity === "Member") {
