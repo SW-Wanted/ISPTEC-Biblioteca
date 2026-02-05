@@ -78,7 +78,7 @@ export async function POST(
       }
 
       if (session.renewalCount >= session.maxRenewals) {
-        throw new Error("RENEWAL_LIMIT");
+        throw new Error("Limite máximo de renovação do computador atingido!");
       }
 
       const newExpectedEnd = new Date(
