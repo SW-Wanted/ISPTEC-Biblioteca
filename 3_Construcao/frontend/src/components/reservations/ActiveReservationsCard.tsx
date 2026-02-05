@@ -41,13 +41,19 @@ export function ActiveReservationsCard() {
           const lockersData = await lockersRes.json();
 
           // Processar cacifos
-          if (lockersData.data) {
-            for (const rental of lockersData.data) {
-              const locker = await fetch(
-                `/api/entities/Locker/${rental.lockerId}`,
-              ).then((r) => r.json());
+          const rentals = Array.isArray(lockersData)
+            ? lockersData
+            : (lockersData.data ?? []);
+          if (rentals.length > 0) {
+            for (const rental of rentals) {
+              const expectedEndRaw =
+                rental.expected_end ?? rental.expectedEnd ?? null;
+              const startTimeRaw =
+                rental.start_time ?? rental.startTime ?? null;
               const now = new Date();
-              const expectedEnd = new Date(rental.expectedEnd);
+              const expectedEnd = expectedEndRaw
+                ? new Date(expectedEndRaw)
+                : new Date();
               const remainingMs = expectedEnd.getTime() - now.getTime();
               const remainingMinutes = Math.max(
                 0,
@@ -57,10 +63,15 @@ export function ActiveReservationsCard() {
               reservations.push({
                 type: "locker",
                 id: rental.id,
-                number: locker.data?.number || "N/A",
-                location: locker.data?.location || "Biblioteca",
-                startTime: rental.startTime,
-                expectedEnd: rental.expectedEnd,
+                resourceId: rental.locker_id ?? rental.lockerId,
+                number: rental.locker_number || "N/A",
+                location: rental.locker_location || "Biblioteca",
+                startTime: startTimeRaw
+                  ? String(startTimeRaw)
+                  : new Date().toISOString(),
+                expectedEnd: expectedEndRaw
+                  ? String(expectedEndRaw)
+                  : new Date().toISOString(),
                 remainingMinutes,
               });
             }
@@ -82,12 +93,15 @@ export function ActiveReservationsCard() {
           // Processar computadores
           const sessions = Array.isArray(computersData)
             ? computersData
-            : computersData.data ?? [];
+            : (computersData.data ?? []);
           if (sessions.length > 0) {
             for (const session of sessions) {
               const expectedEndRaw =
                 session.expected_end ?? session.expectedEnd ?? null;
-              const startTimeRaw = session.start_time ?? session.startTime ?? null;
+              const startTimeRaw =
+                session.start_time ?? session.startTime ?? null;
+              const startTimeRaw =
+                session.start_time ?? session.startTime ?? null;
               const now = new Date();
               const expectedEnd = expectedEndRaw
                 ? new Date(expectedEndRaw)
@@ -104,7 +118,10 @@ export function ActiveReservationsCard() {
                 resourceId: session.computer_id ?? session.computerId,
                 number: session.computer_number || "N/A",
                 location: session.computer_location || "Sala de Informatica",
-                startTime: startTimeRaw ? String(startTimeRaw) : new Date().toISOString(),
+                startTime: startTimeRaw
+                startTime: startTimeRaw
+                  ? String(startTimeRaw)
+                  : new Date().toISOString(),
                 expectedEnd: expectedEndRaw
                   ? String(expectedEndRaw)
                   : new Date().toISOString(),
@@ -246,6 +263,34 @@ export function ActiveReservationsCard() {
                 <p className="text-xs text-destructive mt-2">
                   ⚠️ Multa aplicada! Devolva o mais rápido possível.
                 </p>
+              )}
+
+              {reservation.type === "locker" && reservation.resourceId && (
+              {reservation.type === "locker" && reservation.resourceId && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/lockers/${reservation.resourceId}/renew`,
+                      )
+                    }
+                  >
+                    Renovar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/lockers/${reservation.resourceId}/release`,
+                      )
+                    }
+                  >
+                    Libertar
+                  </button>
+                </div>
               )}
 
               {reservation.type === "computer" && reservation.resourceId && (

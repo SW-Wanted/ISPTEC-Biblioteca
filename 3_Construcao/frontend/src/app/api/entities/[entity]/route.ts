@@ -10,6 +10,7 @@ import {
   ComputerStatus,
   FineStatus,
   FineType,
+  LockerStatus,
   LoanStatus,
   LoanPolicy,
   MaterialType,
@@ -823,6 +824,7 @@ export async function GET(
       take: limit,
       include: {
         locker: { select: { number: true, location: true } },
+        user: { select: { email: true, name: true } },
       },
     });
 
@@ -833,6 +835,8 @@ export async function GET(
         locker_number: r.locker.number,
         locker_location: r.locker.location,
         user_id: r.userId,
+        user_email: r.user.email,
+        user_name: r.user.name,
         start_time: toIso(r.startTime),
         end_time: toIso(r.endTime) ?? null,
         expected_end: toIso(r.expectedEnd),
@@ -1310,6 +1314,57 @@ export async function POST(
         status: NotificationStatus.PENDING,
         title,
         message,
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ id: created.id });
+  }
+
+  if (entity === "Locker") {
+    if (!canManageMembers(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const lockerCreateSchema = z.object({
+      number: z.union([z.string(), z.number()]),
+      location: z.string().optional(),
+      status: z.string().optional(),
+    });
+
+    const parsed = lockerCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const number = String(parsed.data.number).trim();
+    if (!number) {
+      return NextResponse.json(
+        { error: "number é obrigatório" },
+        { status: 400 },
+      );
+    }
+
+    const location = parsed.data.location
+      ? parsed.data.location.trim()
+      : "Biblioteca";
+
+    let status = LockerStatus.AVAILABLE;
+    if (typeof parsed.data.status === "string") {
+      const s = normalizeEnum(parsed.data.status);
+      if (!isEnumValue(LockerStatus, s)) {
+        return NextResponse.json({ error: "status inválido" }, { status: 400 });
+      }
+      status = s;
+    }
+
+    const created = await prisma.locker.create({
+      data: {
+        number,
+        location,
+        status,
       },
       select: { id: true },
     });
