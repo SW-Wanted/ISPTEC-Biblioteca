@@ -9,11 +9,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface ActiveReservation {
   type: "locker" | "computer";
   id: string;
+  resourceId?: string;
   number: string;
   location: string;
   startTime: string;
   expectedEnd: string;
   remainingMinutes: number;
+}
+
+async function postAction(url: string): Promise<void> {
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? "Erro ao processar acao");
+  }
 }
 
 export function ActiveReservationsCard() {
@@ -32,13 +41,19 @@ export function ActiveReservationsCard() {
           const lockersData = await lockersRes.json();
 
           // Processar cacifos
-          if (lockersData.data) {
-            for (const rental of lockersData.data) {
-              const locker = await fetch(
-                `/api/entities/Locker/${rental.lockerId}`,
-              ).then((r) => r.json());
+          const rentals = Array.isArray(lockersData)
+            ? lockersData
+            : (lockersData.data ?? []);
+          if (rentals.length > 0) {
+            for (const rental of rentals) {
+              const expectedEndRaw =
+                rental.expected_end ?? rental.expectedEnd ?? null;
+              const startTimeRaw =
+                rental.start_time ?? rental.startTime ?? null;
               const now = new Date();
-              const expectedEnd = new Date(rental.expectedEnd);
+              const expectedEnd = expectedEndRaw
+                ? new Date(expectedEndRaw)
+                : new Date();
               const remainingMs = expectedEnd.getTime() - now.getTime();
               const remainingMinutes = Math.max(
                 0,
@@ -48,10 +63,15 @@ export function ActiveReservationsCard() {
               reservations.push({
                 type: "locker",
                 id: rental.id,
-                number: locker.data?.number || "N/A",
-                location: locker.data?.location || "Biblioteca",
-                startTime: rental.startTime,
-                expectedEnd: rental.expectedEnd,
+                resourceId: rental.locker_id ?? rental.lockerId,
+                number: rental.locker_number || "N/A",
+                location: rental.locker_location || "Biblioteca",
+                startTime: startTimeRaw
+                  ? String(startTimeRaw)
+                  : new Date().toISOString(),
+                expectedEnd: expectedEndRaw
+                  ? String(expectedEndRaw)
+                  : new Date().toISOString(),
                 remainingMinutes,
               });
             }
@@ -71,13 +91,19 @@ export function ActiveReservationsCard() {
           const computersData = await computersRes.json();
 
           // Processar computadores
-          if (computersData.data) {
-            for (const session of computersData.data) {
-              const computer = await fetch(
-                `/api/entities/Computer/${session.computerId}`,
-              ).then((r) => r.json());
+          const sessions = Array.isArray(computersData)
+            ? computersData
+            : (computersData.data ?? []);
+          if (sessions.length > 0) {
+            for (const session of sessions) {
+              const expectedEndRaw =
+                session.expected_end ?? session.expectedEnd ?? null;
+              const startTimeRaw =
+                session.start_time ?? session.startTime ?? null;
               const now = new Date();
-              const expectedEnd = new Date(session.expectedEnd);
+              const expectedEnd = expectedEndRaw
+                ? new Date(expectedEndRaw)
+                : new Date();
               const remainingMs = expectedEnd.getTime() - now.getTime();
               const remainingMinutes = Math.max(
                 0,
@@ -87,10 +113,15 @@ export function ActiveReservationsCard() {
               reservations.push({
                 type: "computer",
                 id: session.id,
-                number: computer.data?.identifier || "N/A",
-                location: computer.data?.location || "Sala de Informática",
-                startTime: session.startTime,
-                expectedEnd: session.expectedEnd,
+                resourceId: session.computer_id ?? session.computerId,
+                number: session.computer_number || "N/A",
+                location: session.computer_location || "Sala de Informatica",
+                startTime: startTimeRaw
+                  ? String(startTimeRaw)
+                  : new Date().toISOString(),
+                expectedEnd: expectedEndRaw
+                  ? String(expectedEndRaw)
+                  : new Date().toISOString(),
                 remainingMinutes,
               });
             }
@@ -229,6 +260,33 @@ export function ActiveReservationsCard() {
                 <p className="text-xs text-destructive mt-2">
                   ⚠️ Multa aplicada! Devolva o mais rápido possível.
                 </p>
+              )}
+
+              {reservation.type === "locker" && reservation.resourceId && (
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/lockers/${reservation.resourceId}/renew`,
+                      )
+                    }
+                  >
+                    Renovar
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      void postAction(
+                        `/api/lockers/${reservation.resourceId}/release`,
+                      )
+                    }
+                  >
+                    Libertar
+                  </button>
+                </div>
               )}
             </div>
           );
