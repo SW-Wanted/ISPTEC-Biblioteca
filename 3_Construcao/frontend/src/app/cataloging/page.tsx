@@ -138,7 +138,7 @@ export default function Cataloging() {
         folder: "ocr",
       });
       setUploadedImageUrl(file_url); // Save the Cloudinary URL
-      
+
       let extracted: ExtractedBookData;
       try {
         extracted = await api.integrations.Core.InvokeLLM<ExtractedBookData>({
@@ -226,7 +226,7 @@ Nível de confiança (0.0-1.0) baseado na qualidade da imagem.`,
           confidence: 0,
         };
       }
-      
+
       console.log("📸 Imagem carregada:", file_url);
       console.log("📖 Dados extraídos:", extracted);
 

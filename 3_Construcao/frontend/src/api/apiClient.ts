@@ -375,25 +375,27 @@ export const api = {
         }
 
         // Fallback: retornar estrutura vazia mas válida
-        const wantsJson =
-          /\{[\s\S]*\}/.test(String(prompt)) || /json/i.test(String(prompt));
-        if (wantsJson) {
+        // Se pediu um JSON schema, retornar objeto vazio estruturado
+        if (response_json_schema) {
           const obj = {
-            title: null,
-            subtitle: null,
-            isbn: null,
-            authors: null,
-            publisher: null,
-            publication_year: null,
-            edition: null,
+            title: "",
+            subtitle: "",
+            isbn: "",
+            authors: "",
+            publisher: "",
+            publication_year: "",
+            edition: "",
+            suggested_category: "",
             language: "pt",
-            pages: null,
-            category: null,
-            description: null,
+            description: "",
+            pages: "",
             confidence: 0,
           };
+          console.log("📦 Fallback: retornando objeto vazio estruturado");
           return obj as unknown as TResponse;
         }
+
+        // Para perguntas de texto simples
         return "Neste momento o assistente funciona em modo offline. Posso ajudar com regras de empréstimos, renovações, reservas e horário da biblioteca." as unknown as TResponse;
       },
     },
