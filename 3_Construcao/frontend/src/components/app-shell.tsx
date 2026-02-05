@@ -72,6 +72,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: "Computadores", href: "/admin/computers", icon: Computer },
   { name: "Multas", href: "/manage-fines", icon: DollarSign },
   { name: "Catalogação", href: "/cataloging", icon: FileText },
+  { name: "Solicitações", href: "/admin/special-requests", icon: HelpCircle },
   { name: "Relatórios", href: "/reports", icon: BarChart3 },
   { name: "Políticas", href: "/admin/settings", icon: Settings },
 ];

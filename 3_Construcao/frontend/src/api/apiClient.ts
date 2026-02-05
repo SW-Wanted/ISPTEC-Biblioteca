@@ -91,7 +91,17 @@ export type Notification = BaseEntity & {
 
 export type Locker = BaseEntity;
 export type Computer = BaseEntity;
-export type SpecialRequest = BaseEntity;
+export type SpecialRequest = BaseEntity & {
+  user_id?: string;
+  user_name?: string;
+  type?: string;
+  title?: string;
+  description?: string;
+  status?: string;
+  requested_at?: string;
+  scheduled_date?: string | null;
+  response?: string | null;
+};
 export type BookReview = BaseEntity;
 export type ChatConversation = BaseEntity;
 
