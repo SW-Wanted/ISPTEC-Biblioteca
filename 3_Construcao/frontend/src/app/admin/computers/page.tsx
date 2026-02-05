@@ -77,6 +77,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 
 export default function AdminComputersPage() {
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingComputer, setEditingComputer] = useState<ComputerRow | null>(
@@ -122,6 +123,28 @@ export default function AdminComputersPage() {
     }
     return map;
   }, [sessions]);
+
+  const filteredComputers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return computers;
+    return computers.filter((computer) => {
+      const session = computer.id
+        ? sessionsByComputer.get(computer.id)
+        : undefined;
+      const haystack = [
+        computer.number,
+        computer.location,
+        computer.status,
+        session?.user_name,
+        session?.user_email,
+        session?.user_id,
+      ]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase())
+        .join(" ");
+      return haystack.includes(query);
+    });
+  }, [computers, searchQuery, sessionsByComputer]);
 
   const releaseMutation = useMutation({
     mutationFn: async (computerId: string) => {
@@ -260,10 +283,20 @@ export default function AdminComputersPage() {
               • {summary.maintenance} em manutencao
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar computador
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="w-full sm:w-64">
+              <Label>Pesquisar</Label>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Numero, localizacao ou utilizador"
+              />
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar computador
+            </Button>
+          </div>
         </div>
 
         <Card className="border-0 shadow-sm">
@@ -302,23 +335,27 @@ export default function AdminComputersPage() {
                     </TableCell>
                   </TableRow>
                 )}
-                {!isLoadingComputers && computers.length === 0 && (
+                {!isLoadingComputers && filteredComputers.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-6">
-                      Nenhum computador encontrado
-                      <div className="mt-3">
-                        <Button
-                          size="sm"
-                          onClick={() => setShowCreateDialog(true)}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Adicionar computador
-                        </Button>
-                      </div>
+                      {computers.length === 0
+                        ? "Nenhum computador encontrado"
+                        : "Nenhum resultado para a pesquisa"}
+                      {computers.length === 0 && (
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            onClick={() => setShowCreateDialog(true)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Adicionar computador
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
-                {computers.map((computer) => {
+                {filteredComputers.map((computer) => {
                   const session = computer.id
                     ? sessionsByComputer.get(computer.id)
                     : undefined;
