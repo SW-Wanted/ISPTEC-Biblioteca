@@ -54,7 +54,9 @@ function statusBadge(status?: string) {
     case "in_progress":
       return <Badge className="bg-blue-100 text-blue-700">Em andamento</Badge>;
     case "completed":
-      return <Badge className="bg-emerald-100 text-emerald-700">Concluida</Badge>;
+      return (
+        <Badge className="bg-emerald-100 text-emerald-700">Concluida</Badge>
+      );
     case "cancelled":
       return <Badge className="bg-slate-100 text-slate-700">Cancelada</Badge>;
     default:
