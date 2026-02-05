@@ -64,6 +64,10 @@ function statusBadge(status?: string) {
   }
 }
 
+function normalizeStatus(status?: string): string {
+  return (status ?? "").toLowerCase();
+}
+
 export default function SpecialRequestsAdminPage() {
   const queryClient = useQueryClient();
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -202,45 +206,73 @@ export default function SpecialRequestsAdminPage() {
                     </TableCell>
                     <TableCell>{statusBadge(req.status)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            updateMutation.mutate({
-                              id: req.id,
-                              status: "in_progress",
-                            })
-                          }
-                          disabled={updateMutation.isPending}
-                        >
-                          Aceitar
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setResponseText(req.response ?? "");
-                            setResponseDialogOpen(true);
-                          }}
-                          disabled={updateMutation.isPending}
-                        >
-                          Concluir
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            updateMutation.mutate({
-                              id: req.id,
-                              status: "cancelled",
-                            })
-                          }
-                          disabled={updateMutation.isPending}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
+                      {(() => {
+                        const status = normalizeStatus(req.status);
+                        const canAccept = status === "pending";
+                        const canComplete = status === "in_progress";
+                        const canCancel =
+                          status === "pending" || status === "in_progress";
+                        const canReopen = status === "cancelled";
+
+                        return (
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                updateMutation.mutate({
+                                  id: req.id,
+                                  status: "in_progress",
+                                })
+                              }
+                              disabled={!canAccept || updateMutation.isPending}
+                            >
+                              Aceitar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setResponseText(req.response ?? "");
+                                setResponseDialogOpen(true);
+                              }}
+                              disabled={
+                                !canComplete || updateMutation.isPending
+                              }
+                            >
+                              Concluir
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                updateMutation.mutate({
+                                  id: req.id,
+                                  status: "cancelled",
+                                })
+                              }
+                              disabled={!canCancel || updateMutation.isPending}
+                            >
+                              Cancelar
+                            </Button>
+                            {canReopen && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  updateMutation.mutate({
+                                    id: req.id,
+                                    status: "pending",
+                                  })
+                                }
+                                disabled={updateMutation.isPending}
+                              >
+                                Reabrir
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                 ))}
