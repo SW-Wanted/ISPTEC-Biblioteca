@@ -153,6 +153,7 @@ export default function ManageLoans() {
     queryKey: ["manage-loans"],
     queryFn: () => api.entities.Loan.list("-loan_date", 200),
     initialData: [],
+    refetchInterval: 30000,
   });
 
   const { data: allReservations = [], isLoading: isLoadingReservations } =
@@ -174,6 +175,7 @@ export default function ManageLoans() {
     },
     enabled: !!user,
     initialData: [],
+    refetchInterval: 60000,
   });
 
   // Filtrar reservas pendentes (AVAILABLE ou ACTIVE)

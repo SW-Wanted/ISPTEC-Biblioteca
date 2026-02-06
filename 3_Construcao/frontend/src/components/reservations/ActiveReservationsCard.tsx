@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Monitor, Clock, MapPin, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface ActiveReservation {
   type: "locker" | "computer";
@@ -12,9 +13,11 @@ interface ActiveReservation {
   resourceId?: string;
   number: string;
   location: string;
-  startTime: string;
-  expectedEnd: string;
-  remainingMinutes: number;
+  status: "pending" | "active";
+  requestedAt?: string;
+  startTime?: string;
+  expectedEnd?: string;
+  remainingMinutes?: number;
 }
 
 async function postAction(url: string): Promise<void> {
@@ -26,10 +29,42 @@ async function postAction(url: string): Promise<void> {
 }
 
 export function ActiveReservationsCard() {
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["active-reservations"],
     queryFn: async () => {
       const reservations: ActiveReservation[] = [];
+
+      try {
+        // Buscar reservas pendentes de cacifos
+        const lockerReservationsRes = await fetch(
+          "/api/entities/LockerReservation?filter=" +
+            encodeURIComponent(JSON.stringify({ status: "pending" })),
+        );
+        if (lockerReservationsRes.ok) {
+          const lockerReservationsData = await lockerReservationsRes.json();
+          const pendingLockers = Array.isArray(lockerReservationsData)
+            ? lockerReservationsData
+            : (lockerReservationsData.data ?? []);
+          for (const reservation of pendingLockers) {
+            const requestedAtRaw =
+              reservation.requested_at ?? reservation.requestedAt ?? null;
+            reservations.push({
+              type: "locker",
+              id: reservation.id,
+              resourceId: reservation.locker_id ?? reservation.lockerId,
+              number: reservation.locker_number || "N/A",
+              location: reservation.locker_location || "Biblioteca",
+              status: "pending",
+              requestedAt: requestedAtRaw
+                ? String(requestedAtRaw)
+                : new Date().toISOString(),
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("LockerReservation API nao disponivel:", error);
+      }
 
       try {
         // Buscar cacifos ativos
@@ -66,6 +101,7 @@ export function ActiveReservationsCard() {
                 resourceId: rental.locker_id ?? rental.lockerId,
                 number: rental.locker_number || "N/A",
                 location: rental.locker_location || "Biblioteca",
+                status: "active",
                 startTime: startTimeRaw
                   ? String(startTimeRaw)
                   : new Date().toISOString(),
@@ -79,6 +115,37 @@ export function ActiveReservationsCard() {
         }
       } catch (error) {
         console.warn("LockerRental API não disponível:", error);
+      }
+
+      try {
+        // Buscar reservas pendentes de computadores
+        const computerReservationsRes = await fetch(
+          "/api/entities/ComputerReservation?filter=" +
+            encodeURIComponent(JSON.stringify({ status: "pending" })),
+        );
+        if (computerReservationsRes.ok) {
+          const computerReservationsData = await computerReservationsRes.json();
+          const pendingComputers = Array.isArray(computerReservationsData)
+            ? computerReservationsData
+            : (computerReservationsData.data ?? []);
+          for (const reservation of pendingComputers) {
+            const requestedAtRaw =
+              reservation.requested_at ?? reservation.requestedAt ?? null;
+            reservations.push({
+              type: "computer",
+              id: reservation.id,
+              resourceId: reservation.computer_id ?? reservation.computerId,
+              number: reservation.computer_number || "N/A",
+              location: reservation.computer_location || "Sala de Informatica",
+              status: "pending",
+              requestedAt: requestedAtRaw
+                ? String(requestedAtRaw)
+                : new Date().toISOString(),
+            });
+          }
+        }
+      } catch (error) {
+        console.warn("ComputerReservation API nao disponivel:", error);
       }
 
       try {
@@ -100,8 +167,6 @@ export function ActiveReservationsCard() {
                 session.expected_end ?? session.expectedEnd ?? null;
               const startTimeRaw =
                 session.start_time ?? session.startTime ?? null;
-              const startTimeRaw =
-                session.start_time ?? session.startTime ?? null;
               const now = new Date();
               const expectedEnd = expectedEndRaw
                 ? new Date(expectedEndRaw)
@@ -118,7 +183,7 @@ export function ActiveReservationsCard() {
                 resourceId: session.computer_id ?? session.computerId,
                 number: session.computer_number || "N/A",
                 location: session.computer_location || "Sala de Informatica",
-                startTime: startTimeRaw
+                status: "active",
                 startTime: startTimeRaw
                   ? String(startTimeRaw)
                   : new Date().toISOString(),
@@ -136,7 +201,7 @@ export function ActiveReservationsCard() {
 
       return reservations;
     },
-    refetchInterval: 60000, // Atualizar a cada minuto
+    refetchInterval: 10000, // Atualizar a cada 10 segundos
   });
 
   if (isLoading) {
@@ -184,8 +249,10 @@ export function ActiveReservationsCard() {
       </CardHeader>
       <CardContent className="space-y-3">
         {reservations.map((reservation) => {
-          const isOvertime = reservation.remainingMinutes <= 0;
-          const isClosing = reservation.remainingMinutes <= 30 && !isOvertime;
+          const isActive = reservation.status === "active";
+          const remainingMinutes = reservation.remainingMinutes ?? 0;
+          const isOvertime = isActive && remainingMinutes <= 0;
+          const isClosing = isActive && remainingMinutes <= 30 && !isOvertime;
 
           return (
             <div
@@ -224,100 +291,99 @@ export function ActiveReservationsCard() {
                         : "default"
                   }
                 >
-                  {isOvertime
-                    ? "Tempo esgotado!"
-                    : `${reservation.remainingMinutes}min restantes`}
+                  {reservation.status === "pending"
+                    ? "Aguardando aceite"
+                    : isOvertime
+                      ? "Tempo esgotado!"
+                      : `${remainingMinutes}min restantes`}
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span>
-                    Início:{" "}
-                    {new Date(reservation.startTime).toLocaleTimeString(
-                      "pt-AO",
-                      {
+              {reservation.status === "pending" ? (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span>
+                      Pedido:{" "}
+                      {new Date(
+                        reservation.requestedAt ?? new Date().toISOString(),
+                      ).toLocaleTimeString("pt-AO", {
                         hour: "2-digit",
                         minute: "2-digit",
-                      },
-                    )}
-                  </span>
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    <span>Aguardando confirmacao</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span>
-                    Término:{" "}
-                    {new Date(reservation.expectedEnd).toLocaleTimeString(
-                      "pt-AO",
-                      {
+              ) : (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span>
+                      Início:{" "}
+                      {new Date(
+                        reservation.startTime ?? new Date().toISOString(),
+                      ).toLocaleTimeString("pt-AO", {
                         hour: "2-digit",
                         minute: "2-digit",
-                      },
-                    )}
-                  </span>
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    <span>
+                      Término:{" "}
+                      {new Date(
+                        reservation.expectedEnd ?? new Date().toISOString(),
+                      ).toLocaleTimeString("pt-AO", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {isOvertime && (
                 <p className="text-xs text-destructive mt-2">
                   ⚠️ Multa aplicada! Devolva o mais rápido possível.
                 </p>
               )}
-
-              {reservation.type === "locker" && reservation.resourceId && (
-              {reservation.type === "locker" && reservation.resourceId && (
+              {reservation.status === "pending" && reservation.resourceId && (
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={() =>
-                      void postAction(
-                        `/api/lockers/${reservation.resourceId}/renew`,
-                      )
-                    }
+                    className="text-xs px-2 py-1 rounded-md border border-red-200 text-red-700 hover:bg-red-50"
+                    onClick={async () => {
+                      try {
+                        const prefix =
+                          reservation.type === "locker"
+                            ? "lockers"
+                            : "computers";
+                        await postAction(
+                          `/api/${prefix}/${reservation.resourceId}/cancel`,
+                        );
+                        toast.success("Reserva cancelada");
+                        queryClient.invalidateQueries({
+                          queryKey: ["active-reservations"],
+                        });
+                      } catch (e: any) {
+                        toast.error(e?.message ?? "Erro ao cancelar");
+                      }
+                    }}
                   >
-                    Renovar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={() =>
-                      void postAction(
-                        `/api/lockers/${reservation.resourceId}/release`,
-                      )
-                    }
-                  >
-                    Libertar
+                    Cancelar pedido
                   </button>
                 </div>
               )}
 
-              {reservation.type === "computer" && reservation.resourceId && (
-                <div className="mt-3 flex gap-2">
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={() =>
-                      void postAction(
-                        `/api/computers/${reservation.resourceId}/renew`,
-                      )
-                    }
-                  >
-                    Renovar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs px-2 py-1 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={() =>
-                      void postAction(
-                        `/api/computers/${reservation.resourceId}/release`,
-                      )
-                    }
-                  >
-                    Libertar
-                  </button>
-                </div>
+              {reservation.status === "active" && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Gerido pela administracao da biblioteca.
+                </p>
               )}
             </div>
           );

@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Computer, Plus, Pencil, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 type ComputerRow = {
@@ -51,6 +52,16 @@ type ComputerSessionRow = {
   end_time?: string | null;
 };
 
+type ComputerReservationRow = {
+  id: string;
+  computer_id?: string | null;
+  user_id?: string | null;
+  user_email?: string | null;
+  user_name?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+};
+
 function statusBadge(status?: string) {
   switch (status) {
     case "available":
@@ -59,6 +70,8 @@ function statusBadge(status?: string) {
       );
     case "occupied":
       return <Badge className="bg-blue-100 text-blue-700">Ocupado</Badge>;
+    case "reserved":
+      return <Badge className="bg-amber-100 text-amber-700">Reservado</Badge>;
     case "maintenance":
       return <Badge className="bg-slate-100 text-slate-700">Manutencao</Badge>;
     default:
@@ -100,6 +113,7 @@ export default function AdminComputersPage() {
     queryKey: ["admin-computers"],
     queryFn: () => fetchJson<ComputerRow[]>("/api/entities/Computer"),
     initialData: [],
+    refetchInterval: 10000,
   });
 
   const { data: sessions = [], isLoading: isLoadingSessions } = useQuery<
@@ -112,7 +126,20 @@ export default function AdminComputersPage() {
           encodeURIComponent(JSON.stringify({ endTime: null })),
       ),
     initialData: [],
+    refetchInterval: 10000,
   });
+
+  const { data: reservations = [], isLoading: isLoadingReservations } =
+    useQuery<ComputerReservationRow[]>({
+      queryKey: ["admin-computer-reservations"],
+      queryFn: () =>
+        fetchJson<ComputerReservationRow[]>(
+          "/api/entities/ComputerReservation?filter=" +
+            encodeURIComponent(JSON.stringify({ status: "pending" })),
+        ),
+      initialData: [],
+      refetchInterval: 10000,
+    });
 
   const sessionsByComputer = useMemo(() => {
     const map = new Map<string, ComputerSessionRow>();
@@ -124,12 +151,25 @@ export default function AdminComputersPage() {
     return map;
   }, [sessions]);
 
+  const reservationsByComputer = useMemo(() => {
+    const map = new Map<string, ComputerReservationRow>();
+    for (const reservation of reservations) {
+      if (reservation.computer_id) {
+        map.set(reservation.computer_id, reservation);
+      }
+    }
+    return map;
+  }, [reservations]);
+
   const filteredComputers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return computers;
     return computers.filter((computer) => {
       const session = computer.id
         ? sessionsByComputer.get(computer.id)
+        : undefined;
+      const reservation = computer.id
+        ? reservationsByComputer.get(computer.id)
         : undefined;
       const haystack = [
         computer.number,
@@ -138,13 +178,16 @@ export default function AdminComputersPage() {
         session?.user_name,
         session?.user_email,
         session?.user_id,
+        reservation?.user_name,
+        reservation?.user_email,
+        reservation?.user_id,
       ]
         .filter(Boolean)
         .map((value) => String(value).toLowerCase())
         .join(" ");
       return haystack.includes(query);
     });
-  }, [computers, searchQuery, sessionsByComputer]);
+  }, [computers, searchQuery, sessionsByComputer, reservationsByComputer]);
 
   const releaseMutation = useMutation({
     mutationFn: async (computerId: string) => {
@@ -182,6 +225,51 @@ export default function AdminComputersPage() {
     },
     onError: (error: any) => {
       toast.error(error?.message ?? "Erro ao renovar sessao");
+    },
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: async (computerId: string) => {
+      const res = await fetch(`/api/computers/${computerId}/accept`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao aceitar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-computers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-computer-sessions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-computer-reservations"],
+      });
+      toast.success("Reserva aceite");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao aceitar reserva");
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (computerId: string) => {
+      const res = await fetch(`/api/computers/${computerId}/reject`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao rejeitar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-computers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-computer-reservations"],
+      });
+      toast.success("Reserva rejeitada");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao rejeitar reserva");
     },
   });
 
@@ -262,11 +350,12 @@ export default function AdminComputersPage() {
   const summary = useMemo(() => {
     const total = computers.length;
     const available = computers.filter((c) => c.status === "available").length;
+    const reserved = computers.filter((c) => c.status === "reserved").length;
     const occupied = computers.filter((c) => c.status === "occupied").length;
     const maintenance = computers.filter(
       (c) => c.status === "maintenance",
     ).length;
-    return { total, available, occupied, maintenance };
+    return { total, available, reserved, occupied, maintenance };
   }, [computers]);
 
   return (
@@ -279,8 +368,9 @@ export default function AdminComputersPage() {
               Gestao de Computadores
             </h1>
             <p className="text-slate-500 mt-1">
-              {summary.occupied} ocupado(s) • {summary.available} disponivel(is)
-              • {summary.maintenance} em manutencao
+              {summary.occupied} ocupado(s) • {summary.reserved} reservado(s) •{" "}
+              {summary.available} disponivel(is) • {summary.maintenance} em
+              manutencao
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -305,6 +395,9 @@ export default function AdminComputersPage() {
             <Badge className="bg-emerald-100 text-emerald-700">
               Disponiveis: {summary.available}
             </Badge>
+            <Badge className="bg-amber-100 text-amber-700">
+              Reservados: {summary.reserved}
+            </Badge>
             <Badge className="bg-blue-100 text-blue-700">
               Ocupados: {summary.occupied}
             </Badge>
@@ -328,12 +421,38 @@ export default function AdminComputersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(isLoadingComputers || isLoadingSessions) && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6">
-                      A carregar...
-                    </TableCell>
-                  </TableRow>
+                {(isLoadingComputers ||
+                  isLoadingSessions ||
+                  isLoadingReservations) && (
+                  <>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={`skel-${i}`}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-14" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
                 {!isLoadingComputers && filteredComputers.length === 0 && (
                   <TableRow>
@@ -359,13 +478,23 @@ export default function AdminComputersPage() {
                   const session = computer.id
                     ? sessionsByComputer.get(computer.id)
                     : undefined;
+                  const reservation = computer.id
+                    ? reservationsByComputer.get(computer.id)
+                    : undefined;
                   const canAct = computer.status === "occupied" && session;
-                  const canEdit = computer.status !== "occupied";
-                  const canDelete = computer.status !== "occupied";
+                  const canAccept =
+                    computer.status === "reserved" && reservation;
+                  const canEdit =
+                    computer.status === "available" ||
+                    computer.status === "maintenance";
+                  const canDelete = canEdit;
                   const userLabel =
                     session?.user_name ||
                     session?.user_email ||
                     session?.user_id ||
+                    reservation?.user_name ||
+                    reservation?.user_email ||
+                    reservation?.user_id ||
                     "—";
                   const endLabel = session?.expected_end
                     ? new Date(session.expected_end).toLocaleTimeString(
@@ -375,7 +504,9 @@ export default function AdminComputersPage() {
                           minute: "2-digit",
                         },
                       )
-                    : "—";
+                    : reservation
+                      ? "Aguardando"
+                      : "—";
 
                   return (
                     <TableRow key={computer.id}>
@@ -390,6 +521,30 @@ export default function AdminComputersPage() {
                       <TableCell>{endLabel}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {canAccept && computer.id && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={acceptMutation.isPending}
+                                onClick={() =>
+                                  acceptMutation.mutate(computer.id)
+                                }
+                              >
+                                Aceitar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={rejectMutation.isPending}
+                                onClick={() =>
+                                  rejectMutation.mutate(computer.id)
+                                }
+                              >
+                                Rejeitar
+                              </Button>
+                            </>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"

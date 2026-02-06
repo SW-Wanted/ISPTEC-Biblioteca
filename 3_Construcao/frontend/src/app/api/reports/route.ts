@@ -7,6 +7,8 @@ import {
   LoanStatus,
   Prisma,
   ReservationStatus,
+  ServiceReservationStatus,
+  TrainingStatus,
   UserType,
 } from "@prisma/client";
 
@@ -16,6 +18,9 @@ type ReportType =
   | "members"
   | "fines"
   | "reservations"
+  | "lockers"
+  | "computers"
+  | "training"
   | "statistics";
 
 type DateFilter = Prisma.DateTimeFilter;
@@ -97,6 +102,41 @@ type ReservationsReportRow = {
   expiryDate: Date | null;
 };
 
+type LockersReportRow = {
+  id: string;
+  lockerNumber: string;
+  lockerLocation: string;
+  memberName: string;
+  memberEmail: string;
+  status: ServiceReservationStatus;
+  requestedAt: Date;
+  approvedAt: Date | null;
+};
+
+type ComputersReportRow = {
+  id: string;
+  computerNumber: string;
+  computerLocation: string;
+  memberName: string;
+  memberEmail: string;
+  status: ServiceReservationStatus;
+  requestedAt: Date;
+  approvedAt: Date | null;
+};
+
+type TrainingReportRow = {
+  id: string;
+  title: string;
+  location: string;
+  scheduledDate: Date;
+  duration: number;
+  status: TrainingStatus;
+  trainerName: string;
+  maxParticipants: number;
+  participantCount: number;
+  attendedCount: number;
+};
+
 type StatisticsReport = {
   type: "statistics";
   filters: { dateFilter: DateFilter };
@@ -141,6 +181,9 @@ type ReportsResponse =
   | ListReport<"members", MembersReportRow>
   | FinesReport
   | ListReport<"reservations", ReservationsReportRow>
+  | ListReport<"lockers", LockersReportRow>
+  | ListReport<"computers", ComputersReportRow>
+  | ListReport<"training", TrainingReportRow>
   | StatisticsReport;
 
 const REPORT_TYPES: readonly ReportType[] = [
@@ -149,6 +192,9 @@ const REPORT_TYPES: readonly ReportType[] = [
   "members",
   "fines",
   "reservations",
+  "lockers",
+  "computers",
+  "training",
   "statistics",
 ];
 
@@ -289,6 +335,18 @@ export async function GET(request: NextRequest) {
 
       case "reservations":
         data = await generateReservationsReport(filters);
+        break;
+
+      case "lockers":
+        data = await generateLockersReport(filters);
+        break;
+
+      case "computers":
+        data = await generateComputersReport(filters);
+        break;
+
+      case "training":
+        data = await generateTrainingReport(filters);
         break;
 
       case "statistics":
@@ -673,6 +731,148 @@ async function generateReservationsReport(
   };
 }
 
+async function generateLockersReport(
+  filters: ReportFilters,
+): Promise<ListReport<"lockers", LockersReportRow>> {
+  const { dateFilter, status } = filters;
+
+  const where: Prisma.LockerReservationWhereInput = {};
+
+  if (Object.keys(dateFilter).length > 0) {
+    where.requestedAt = dateFilter;
+  }
+
+  if (
+    status &&
+    isOneOf(status, ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const)
+  ) {
+    where.status = status as ServiceReservationStatus;
+  }
+
+  const reservations = await prisma.lockerReservation.findMany({
+    where,
+    include: {
+      locker: { select: { number: true, location: true } },
+      user: { select: { name: true, email: true } },
+    },
+    orderBy: { requestedAt: "desc" },
+    take: 1000,
+  });
+
+  return {
+    type: "lockers",
+    total: reservations.length,
+    filters,
+    data: reservations.map((r) => ({
+      id: r.id,
+      lockerNumber: r.locker.number,
+      lockerLocation: r.locker.location,
+      memberName: r.user.name,
+      memberEmail: r.user.email,
+      status: r.status,
+      requestedAt: r.requestedAt,
+      approvedAt: r.approvedAt,
+    })),
+  };
+}
+
+async function generateComputersReport(
+  filters: ReportFilters,
+): Promise<ListReport<"computers", ComputersReportRow>> {
+  const { dateFilter, status } = filters;
+
+  const where: Prisma.ComputerReservationWhereInput = {};
+
+  if (Object.keys(dateFilter).length > 0) {
+    where.requestedAt = dateFilter;
+  }
+
+  if (
+    status &&
+    isOneOf(status, ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const)
+  ) {
+    where.status = status as ServiceReservationStatus;
+  }
+
+  const reservations = await prisma.computerReservation.findMany({
+    where,
+    include: {
+      computer: { select: { number: true, location: true } },
+      user: { select: { name: true, email: true } },
+    },
+    orderBy: { requestedAt: "desc" },
+    take: 1000,
+  });
+
+  return {
+    type: "computers",
+    total: reservations.length,
+    filters,
+    data: reservations.map((r) => ({
+      id: r.id,
+      computerNumber: r.computer.number,
+      computerLocation: r.computer.location,
+      memberName: r.user.name,
+      memberEmail: r.user.email,
+      status: r.status,
+      requestedAt: r.requestedAt,
+      approvedAt: r.approvedAt,
+    })),
+  };
+}
+
+async function generateTrainingReport(
+  filters: ReportFilters,
+): Promise<ListReport<"training", TrainingReportRow>> {
+  const { dateFilter, status } = filters;
+
+  const where: Prisma.TrainingSessionWhereInput = {};
+
+  if (Object.keys(dateFilter).length > 0) {
+    where.scheduledDate = dateFilter;
+  }
+
+  if (
+    status &&
+    isOneOf(status, [
+      "SCHEDULED",
+      "IN_PROGRESS",
+      "COMPLETED",
+      "CANCELLED",
+    ] as const)
+  ) {
+    where.status = status as TrainingStatus;
+  }
+
+  const sessions = await prisma.trainingSession.findMany({
+    where,
+    include: {
+      trainer: { select: { name: true } },
+      participants: { select: { attended: true } },
+    },
+    orderBy: { scheduledDate: "desc" },
+    take: 1000,
+  });
+
+  return {
+    type: "training",
+    total: sessions.length,
+    filters,
+    data: sessions.map((s) => ({
+      id: s.id,
+      title: s.title,
+      location: s.location,
+      scheduledDate: s.scheduledDate,
+      duration: s.duration,
+      status: s.status,
+      trainerName: s.trainer.name,
+      maxParticipants: s.maxParticipants,
+      participantCount: s.participants.length,
+      attendedCount: s.participants.filter((p) => p.attended).length,
+    })),
+  };
+}
+
 async function generateStatisticsReport(filters: {
   dateFilter: DateFilter;
 }): Promise<StatisticsReport> {
@@ -956,6 +1156,82 @@ function convertDataToCSV(
       ]);
       break;
 
+    case "lockers":
+      if (data.type !== "lockers") return "";
+      headers = [
+        "ID",
+        "Cacifo",
+        "Localização",
+        "Membro",
+        "Email",
+        "Estado",
+        "Data Pedido",
+        "Data Aprovação",
+      ];
+      rows = data.data.map((r) => [
+        r.id,
+        r.lockerNumber,
+        escapeCSV(r.lockerLocation),
+        escapeCSV(r.memberName),
+        r.memberEmail,
+        translateStatusCSV(r.status),
+        formatDateCSV(r.requestedAt),
+        r.approvedAt ? formatDateCSV(r.approvedAt) : "",
+      ]);
+      break;
+
+    case "computers":
+      if (data.type !== "computers") return "";
+      headers = [
+        "ID",
+        "Computador",
+        "Localização",
+        "Membro",
+        "Email",
+        "Estado",
+        "Data Pedido",
+        "Data Aprovação",
+      ];
+      rows = data.data.map((r) => [
+        r.id,
+        r.computerNumber,
+        escapeCSV(r.computerLocation),
+        escapeCSV(r.memberName),
+        r.memberEmail,
+        translateStatusCSV(r.status),
+        formatDateCSV(r.requestedAt),
+        r.approvedAt ? formatDateCSV(r.approvedAt) : "",
+      ]);
+      break;
+
+    case "training":
+      if (data.type !== "training") return "";
+      headers = [
+        "ID",
+        "Título",
+        "Local",
+        "Data Agendada",
+        "Duração (min)",
+        "Estado",
+        "Formador",
+        "Vagas",
+        "Inscritos",
+        "Presentes",
+      ];
+      rows = data.data.map((s) => [
+        s.id,
+        escapeCSV(s.title),
+        escapeCSV(s.location),
+        formatDateCSV(s.scheduledDate),
+        s.duration.toString(),
+        translateStatusCSV(s.status),
+        escapeCSV(s.trainerName),
+        s.maxParticipants.toString(),
+        s.participantCount.toString(),
+        s.attendedCount.toString(),
+      ]);
+      break;
+
     case "statistics":
       if (data.type !== "statistics") return "";
       // Para estatísticas, criar CSV com resumo
@@ -1027,6 +1303,14 @@ function translateStatusCSV(status: string): string {
     RESERVED: "Reservado",
     MAINTENANCE: "Manutenção",
     LOST: "Perdido",
+    APPROVED: "Aprovado",
+    REJECTED: "Rejeitado",
+    SCHEDULED: "Agendada",
+    IN_PROGRESS: "Em Andamento",
+    COMPLETED: "Concluída",
+    WAIVED: "Dispensada",
+    COLLECTED: "Recolhido",
+    EXPIRED: "Expirado",
   };
   return map[status] || status;
 }

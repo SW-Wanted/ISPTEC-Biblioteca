@@ -6,11 +6,11 @@ import { authOptions } from "@/lib/auth";
 import {
   AccountActivationStatus,
   ComputerStatus,
+  ServiceReservationStatus,
   NotificationStatus,
   NotificationType,
   UserStatus,
 } from "@prisma/client";
-import { getSystemPolicyNumber } from "@/lib/settings-config";
 
 async function requireUser() {
   const session = await getServerSession(authOptions);
@@ -51,8 +51,6 @@ export async function POST(
     return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
   }
 
-  const sessionHours = await getSystemPolicyNumber("COMPUTER_SESSION_HOURS", 2);
-
   try {
     await prisma.$transaction(async (tx) => {
       const existingSession = await tx.computerSession.findFirst({
@@ -61,6 +59,14 @@ export async function POST(
       });
       if (existingSession) {
         throw new Error("USER_HAS_ACTIVE_SESSION");
+      }
+
+      const existingReservation = await tx.computerReservation.findFirst({
+        where: { userId: user.id, status: ServiceReservationStatus.PENDING },
+        select: { id: true },
+      });
+      if (existingReservation) {
+        throw new Error("USER_HAS_PENDING_SESSION");
       }
 
       const computer = await tx.computer.findUnique({
@@ -72,19 +78,28 @@ export async function POST(
         throw new Error("NOT_AVAILABLE");
       }
 
-      const expectedEnd = new Date(Date.now() + sessionHours * 60 * 60 * 1000);
+      const computerReserved = await tx.computerReservation.findFirst({
+        where: {
+          computerId: computer.id,
+          status: ServiceReservationStatus.PENDING,
+        },
+        select: { id: true },
+      });
+      if (computerReserved) {
+        throw new Error("COMPUTER_ALREADY_RESERVED");
+      }
 
-      await tx.computerSession.create({
+      await tx.computerReservation.create({
         data: {
           computerId: computer.id,
           userId: user.id,
-          expectedEnd,
+          status: ServiceReservationStatus.PENDING,
         },
       });
 
       await tx.computer.update({
         where: { id: computer.id },
-        data: { status: ComputerStatus.OCCUPIED },
+        data: { status: ComputerStatus.RESERVED },
       });
 
       await tx.notification.create({
@@ -93,7 +108,7 @@ export async function POST(
           type: NotificationType.IN_APP,
           status: NotificationStatus.PENDING,
           title: "Computador reservado!",
-          message: `Computador ${computer.number} no ${computer.location} reservado por ${sessionHours} horas. Faca check-in no balcao.`,
+          message: `Reserva do computador ${computer.number} enviada. Aguarde a confirmacao do bibliotecario.`,
           metadata: { actionType: "view_services" },
         },
       });
@@ -108,8 +123,20 @@ export async function POST(
         { status: 409 },
       );
     }
+    if (message.includes("USER_HAS_PENDING_SESSION")) {
+      return NextResponse.json(
+        { error: "USER_HAS_PENDING_SESSION" },
+        { status: 409 },
+      );
+    }
     if (message.includes("NOT_AVAILABLE")) {
       return NextResponse.json({ error: "NOT_AVAILABLE" }, { status: 409 });
+    }
+    if (message.includes("COMPUTER_ALREADY_RESERVED")) {
+      return NextResponse.json(
+        { error: "COMPUTER_ALREADY_RESERVED" },
+        { status: 409 },
+      );
     }
     if (message.includes("NOT_FOUND")) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

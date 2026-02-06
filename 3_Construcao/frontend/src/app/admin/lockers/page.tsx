@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { KeyRound, Plus, Pencil, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 type LockerRow = {
@@ -51,6 +52,16 @@ type LockerRentalRow = {
   end_time?: string | null;
 };
 
+type LockerReservationRow = {
+  id: string;
+  locker_id?: string | null;
+  user_id?: string | null;
+  user_email?: string | null;
+  user_name?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+};
+
 function statusBadge(status?: string) {
   switch (status) {
     case "available":
@@ -59,6 +70,8 @@ function statusBadge(status?: string) {
       );
     case "occupied":
       return <Badge className="bg-blue-100 text-blue-700">Ocupado</Badge>;
+    case "reserved":
+      return <Badge className="bg-amber-100 text-amber-700">Reservado</Badge>;
     case "maintenance":
       return <Badge className="bg-slate-100 text-slate-700">Manutencao</Badge>;
     default:
@@ -98,6 +111,7 @@ export default function AdminLockersPage() {
     queryKey: ["admin-lockers"],
     queryFn: () => fetchJson<LockerRow[]>("/api/entities/Locker"),
     initialData: [],
+    refetchInterval: 10000,
   });
 
   const { data: rentals = [], isLoading: isLoadingRentals } = useQuery<
@@ -110,7 +124,20 @@ export default function AdminLockersPage() {
           encodeURIComponent(JSON.stringify({ endTime: null })),
       ),
     initialData: [],
+    refetchInterval: 10000,
   });
+
+  const { data: reservations = [], isLoading: isLoadingReservations } =
+    useQuery<LockerReservationRow[]>({
+      queryKey: ["admin-locker-reservations"],
+      queryFn: () =>
+        fetchJson<LockerReservationRow[]>(
+          "/api/entities/LockerReservation?filter=" +
+            encodeURIComponent(JSON.stringify({ status: "pending" })),
+        ),
+      initialData: [],
+      refetchInterval: 10000,
+    });
 
   const rentalsByLocker = useMemo(() => {
     const map = new Map<string, LockerRentalRow>();
@@ -122,11 +149,24 @@ export default function AdminLockersPage() {
     return map;
   }, [rentals]);
 
+  const reservationsByLocker = useMemo(() => {
+    const map = new Map<string, LockerReservationRow>();
+    for (const reservation of reservations) {
+      if (reservation.locker_id) {
+        map.set(reservation.locker_id, reservation);
+      }
+    }
+    return map;
+  }, [reservations]);
+
   const filteredLockers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return lockers;
     return lockers.filter((locker) => {
       const rental = locker.id ? rentalsByLocker.get(locker.id) : undefined;
+      const reservation = locker.id
+        ? reservationsByLocker.get(locker.id)
+        : undefined;
       const haystack = [
         locker.number,
         locker.location,
@@ -134,13 +174,16 @@ export default function AdminLockersPage() {
         rental?.user_name,
         rental?.user_email,
         rental?.user_id,
+        reservation?.user_name,
+        reservation?.user_email,
+        reservation?.user_id,
       ]
         .filter(Boolean)
         .map((value) => String(value).toLowerCase())
         .join(" ");
       return haystack.includes(query);
     });
-  }, [lockers, searchQuery, rentalsByLocker]);
+  }, [lockers, searchQuery, rentalsByLocker, reservationsByLocker]);
 
   const releaseMutation = useMutation({
     mutationFn: async (lockerId: string) => {
@@ -181,14 +224,60 @@ export default function AdminLockersPage() {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: async (lockerId: string) => {
+      const res = await fetch(`/api/lockers/${lockerId}/accept`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao aceitar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-locker-rentals"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-locker-reservations"],
+      });
+      toast.success("Reserva aceite");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao aceitar reserva");
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (lockerId: string) => {
+      const res = await fetch(`/api/lockers/${lockerId}/reject`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao rejeitar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-locker-reservations"],
+      });
+      toast.success("Reserva rejeitada");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao rejeitar reserva");
+    },
+  });
+
   const summary = useMemo(() => {
     const total = lockers.length;
     const available = lockers.filter((l) => l.status === "available").length;
+    const reserved = lockers.filter((l) => l.status === "reserved").length;
     const occupied = lockers.filter((l) => l.status === "occupied").length;
     const maintenance = lockers.filter(
       (l) => l.status === "maintenance",
     ).length;
-    return { total, available, occupied, maintenance };
+    return { total, available, reserved, occupied, maintenance };
   }, [lockers]);
 
   const createMutation = useMutation({
@@ -275,8 +364,9 @@ export default function AdminLockersPage() {
               Gestao de Cacifos
             </h1>
             <p className="text-slate-500 mt-1">
-              {summary.occupied} ocupado(s) • {summary.available} disponivel(is)
-              • {summary.maintenance} em manutencao
+              {summary.occupied} ocupado(s) • {summary.reserved} reservado(s) •{" "}
+              {summary.available} disponivel(is) • {summary.maintenance} em
+              manutencao
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -301,6 +391,9 @@ export default function AdminLockersPage() {
             <Badge className="bg-emerald-100 text-emerald-700">
               Disponiveis: {summary.available}
             </Badge>
+            <Badge className="bg-amber-100 text-amber-700">
+              Reservados: {summary.reserved}
+            </Badge>
             <Badge className="bg-blue-100 text-blue-700">
               Ocupados: {summary.occupied}
             </Badge>
@@ -324,12 +417,38 @@ export default function AdminLockersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(isLoadingLockers || isLoadingRentals) && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6">
-                      A carregar...
-                    </TableCell>
-                  </TableRow>
+                {(isLoadingLockers ||
+                  isLoadingRentals ||
+                  isLoadingReservations) && (
+                  <>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={`skel-${i}`}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-32" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-14" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-8" />
+                            <Skeleton className="h-8 w-8" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
                 {!isLoadingLockers && filteredLockers.length === 0 && (
                   <TableRow>
@@ -355,13 +474,22 @@ export default function AdminLockersPage() {
                   const rental = locker.id
                     ? rentalsByLocker.get(locker.id)
                     : undefined;
+                  const reservation = locker.id
+                    ? reservationsByLocker.get(locker.id)
+                    : undefined;
                   const canAct = locker.status === "occupied" && rental;
-                  const canEdit = locker.status !== "occupied";
-                  const canDelete = locker.status !== "occupied";
+                  const canAccept = locker.status === "reserved" && reservation;
+                  const canEdit =
+                    locker.status === "available" ||
+                    locker.status === "maintenance";
+                  const canDelete = canEdit;
                   const userLabel =
                     rental?.user_name ||
                     rental?.user_email ||
                     rental?.user_id ||
+                    reservation?.user_name ||
+                    reservation?.user_email ||
+                    reservation?.user_id ||
                     "—";
                   const endLabel = rental?.expected_end
                     ? new Date(rental.expected_end).toLocaleTimeString(
@@ -371,7 +499,9 @@ export default function AdminLockersPage() {
                           minute: "2-digit",
                         },
                       )
-                    : "—";
+                    : reservation
+                      ? "Aguardando"
+                      : "—";
 
                   return (
                     <TableRow key={locker.id}>
@@ -384,6 +514,26 @@ export default function AdminLockersPage() {
                       <TableCell>{endLabel}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {canAccept && locker.id && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={acceptMutation.isPending}
+                                onClick={() => acceptMutation.mutate(locker.id)}
+                              >
+                                Aceitar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={rejectMutation.isPending}
+                                onClick={() => rejectMutation.mutate(locker.id)}
+                              >
+                                Rejeitar
+                              </Button>
+                            </>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"

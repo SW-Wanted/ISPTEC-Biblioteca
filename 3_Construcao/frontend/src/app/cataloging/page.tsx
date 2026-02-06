@@ -119,6 +119,7 @@ export default function Cataloging() {
     queryKey: ["categories"],
     queryFn: () => api.entities.Category.list(),
     initialData: [],
+    refetchInterval: 60000,
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

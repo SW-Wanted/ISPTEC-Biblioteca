@@ -109,26 +109,31 @@ export default function AdminDashboard() {
     queryKey: ["admin-books"],
     queryFn: () => api.entities.Book.list(),
     initialData: [],
+    refetchInterval: 30000,
   });
   const { data: members = [] } = useQuery({
     queryKey: ["admin-members"],
     queryFn: () => api.entities.Member.list(),
     initialData: [],
+    refetchInterval: 30000,
   });
   const { data: loans = [] } = useQuery({
     queryKey: ["admin-loans"],
     queryFn: () => api.entities.Loan.list(),
     initialData: [],
+    refetchInterval: 30000,
   });
   const { data: reservations = [] } = useQuery({
     queryKey: ["admin-reservations"],
     queryFn: () => api.entities.Reservation.list(),
     initialData: [],
+    refetchInterval: 30000,
   });
   const { data: fines = [] } = useQuery({
     queryKey: ["admin-fines"],
     queryFn: () => api.entities.Fine.list(),
     initialData: [],
+    refetchInterval: 30000,
   });
 
   const activeLoans = loans.filter((l) => l.status === "active");

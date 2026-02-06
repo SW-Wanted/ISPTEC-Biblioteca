@@ -94,14 +94,23 @@ enum CatalogStatus {
 
 enum LockerStatus {
   AVAILABLE
+  RESERVED
   OCCUPIED
   MAINTENANCE
 }
 
 enum ComputerStatus {
   AVAILABLE
+  RESERVED
   OCCUPIED
   MAINTENANCE
+}
+
+enum ServiceReservationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 enum RequestStatus {
@@ -194,7 +203,9 @@ model User {
   approvedEntries   CatalogEntry[]  @relation("SupervisorApprovals")
   classroomLoans    ClassroomLoan[]
   lockerRentals     LockerRental[]
+  lockerReservations LockerReservation[]
   computerSessions  ComputerSession[]
+  computerReservations ComputerReservation[]
   specialRequests   SpecialRequest[]
   userDocuments     UserDocument[]
   activityLogs      ActivityLog[]
@@ -593,9 +604,33 @@ model LockerRental {
   
   locker          Locker       @relation(fields: [lockerId], references: [id])
   user            User         @relation(fields: [userId], references: [id])
+  reservations    LockerReservation[]
   
   @@index([userId])
   @@index([lockerId])
+}
+
+model LockerReservation {
+  id            String                   @id @default(cuid())
+  lockerId      String
+  userId        String
+  status        ServiceReservationStatus @default(PENDING)
+  requestedAt   DateTime                 @default(now())
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  cancelledAt   DateTime?
+  rentalId      String?
+
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  locker        Locker                   @relation(fields: [lockerId], references: [id])
+  user          User                     @relation(fields: [userId], references: [id])
+  rental        LockerRental?            @relation(fields: [rentalId], references: [id])
+
+  @@index([lockerId])
+  @@index([userId])
+  @@index([status])
 }
 
 model Locker {
@@ -608,6 +643,7 @@ model Locker {
   updatedAt       DateTime      @updatedAt
   
   rentals         LockerRental[]
+  reservations    LockerReservation[]
   
   @@index([status])
 }
@@ -629,9 +665,33 @@ model ComputerSession {
   
   computer        Computer       @relation(fields: [computerId], references: [id])
   user            User           @relation(fields: [userId], references: [id])
+  reservations    ComputerReservation[]
   
   @@index([userId])
   @@index([computerId])
+}
+
+model ComputerReservation {
+  id            String                   @id @default(cuid())
+  computerId    String
+  userId        String
+  status        ServiceReservationStatus @default(PENDING)
+  requestedAt   DateTime                 @default(now())
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  cancelledAt   DateTime?
+  sessionId     String?
+
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  computer      Computer                 @relation(fields: [computerId], references: [id])
+  user          User                     @relation(fields: [userId], references: [id])
+  session       ComputerSession?         @relation(fields: [sessionId], references: [id])
+
+  @@index([computerId])
+  @@index([userId])
+  @@index([status])
 }
 
 model Computer {
@@ -645,6 +705,7 @@ model Computer {
   updatedAt       DateTime        @updatedAt
   
   sessions        ComputerSession[]
+  reservations    ComputerReservation[]
   
   @@index([status])
 }

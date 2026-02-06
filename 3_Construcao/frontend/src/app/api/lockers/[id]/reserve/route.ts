@@ -5,12 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import {
   LockerStatus,
+  ServiceReservationStatus,
   NotificationStatus,
   NotificationType,
   UserStatus,
   AccountActivationStatus,
 } from "@prisma/client";
-import { getSystemPolicyNumber } from "@/lib/settings-config";
 
 function canManageMembers(type: string | null | undefined) {
   return type === "SUPERVISOR" || type === "LIBRARIAN" || type === "STAFF";
@@ -55,8 +55,6 @@ export async function POST(
     return NextResponse.json({ error: "Nao autenticado" }, { status: 401 });
   }
 
-  const durationHours = await getSystemPolicyNumber("LOCKER_DURATION_HOURS", 3);
-
   try {
     await prisma.$transaction(async (tx) => {
       const existingRental = await tx.lockerRental.findFirst({
@@ -66,6 +64,15 @@ export async function POST(
 
       if (existingRental) {
         throw new Error("USER_HAS_ACTIVE_LOCKER");
+      }
+
+      const existingReservation = await tx.lockerReservation.findFirst({
+        where: { userId: user.id, status: ServiceReservationStatus.PENDING },
+        select: { id: true },
+      });
+
+      if (existingReservation) {
+        throw new Error("USER_HAS_PENDING_LOCKER");
       }
 
       const locker = await tx.locker.findUnique({
@@ -78,19 +85,29 @@ export async function POST(
         throw new Error("NOT_AVAILABLE");
       }
 
-      const expectedEnd = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+      const lockerReserved = await tx.lockerReservation.findFirst({
+        where: {
+          lockerId: locker.id,
+          status: ServiceReservationStatus.PENDING,
+        },
+        select: { id: true },
+      });
 
-      await tx.lockerRental.create({
+      if (lockerReserved) {
+        throw new Error("LOCKER_ALREADY_RESERVED");
+      }
+
+      await tx.lockerReservation.create({
         data: {
           lockerId: locker.id,
           userId: user.id,
-          expectedEnd,
+          status: ServiceReservationStatus.PENDING,
         },
       });
 
       await tx.locker.update({
         where: { id: locker.id },
-        data: { status: LockerStatus.OCCUPIED },
+        data: { status: LockerStatus.RESERVED },
       });
 
       await tx.notification.create({
@@ -99,7 +116,7 @@ export async function POST(
           type: NotificationType.IN_APP,
           status: NotificationStatus.PENDING,
           title: "Cacifo reservado!",
-          message: `Cacifo ${locker.number} reservado por ${durationHours} horas. Libere ate ${expectedEnd.toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}.`,
+          message: `Reserva do cacifo ${locker.number} enviada. Aguarde a confirmacao do bibliotecario.`,
           metadata: { actionType: "view_services" },
         },
       });
@@ -114,8 +131,20 @@ export async function POST(
         { status: 409 },
       );
     }
+    if (message.includes("USER_HAS_PENDING_LOCKER")) {
+      return NextResponse.json(
+        { error: "USER_HAS_PENDING_LOCKER" },
+        { status: 409 },
+      );
+    }
     if (message.includes("NOT_AVAILABLE")) {
       return NextResponse.json({ error: "NOT_AVAILABLE" }, { status: 409 });
+    }
+    if (message.includes("LOCKER_ALREADY_RESERVED")) {
+      return NextResponse.json(
+        { error: "LOCKER_ALREADY_RESERVED" },
+        { status: 409 },
+      );
     }
     if (message.includes("NOT_FOUND")) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

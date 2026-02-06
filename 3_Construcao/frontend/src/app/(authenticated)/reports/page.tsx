@@ -40,6 +40,9 @@ type ReportType =
   | "members"
   | "fines"
   | "reservations"
+  | "lockers"
+  | "computers"
+  | "training"
   | "statistics";
 
 interface ReportFilters {
@@ -139,6 +142,9 @@ function shouldFormatAsDateKey(key: string): boolean {
     "paidAt",
     "availableDate",
     "expiryDate",
+    "startDate",
+    "endDate",
+    "scheduledDate",
   ].includes(key);
 }
 
@@ -236,7 +242,10 @@ export default function ReportsPage() {
   }, [showCategoryFilter]);
 
   const handleFilterChange = (key: keyof ReportFilters, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value === "__all__" ? "" : value,
+    }));
   };
 
   const generateReport = async () => {
@@ -260,9 +269,12 @@ export default function ReportsPage() {
       params.append("type", filters.type);
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
-      if (filters.category) params.append("category", filters.category);
-      if (filters.memberType) params.append("memberType", filters.memberType);
-      if (filters.status) params.append("status", filters.status);
+      if (filters.category && filters.category !== "__all__")
+        params.append("category", filters.category);
+      if (filters.memberType && filters.memberType !== "__all__")
+        params.append("memberType", filters.memberType);
+      if (filters.status && filters.status !== "__all__")
+        params.append("status", filters.status);
 
       const response = await fetch(`/api/reports?${params.toString()}`);
 
@@ -315,9 +327,12 @@ export default function ReportsPage() {
       params.append("format", "csv");
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
-      if (filters.category) params.append("category", filters.category);
-      if (filters.memberType) params.append("memberType", filters.memberType);
-      if (filters.status) params.append("status", filters.status);
+      if (filters.category && filters.category !== "__all__")
+        params.append("category", filters.category);
+      if (filters.memberType && filters.memberType !== "__all__")
+        params.append("memberType", filters.memberType);
+      if (filters.status && filters.status !== "__all__")
+        params.append("status", filters.status);
 
       const response = await fetch(`/api/reports?${params.toString()}`);
 
@@ -408,6 +423,9 @@ export default function ReportsPage() {
       members: "Relatório de Membros",
       fines: "Relatório de Multas",
       reservations: "Relatório de Reservas",
+      lockers: "Relatório de Cacifos",
+      computers: "Relatório de Computadores",
+      training: "Relatório de Formações",
       statistics: "Estatísticas Gerais",
     };
     return titles[type];
@@ -462,6 +480,30 @@ export default function ReportsPage() {
           { header: "Membro", dataKey: "memberName" },
           { header: "Status", dataKey: "status" },
           { header: "Posição", dataKey: "queuePosition" },
+        ];
+      case "lockers":
+        return [
+          { header: "Cacifo", dataKey: "lockerName" },
+          { header: "Membro", dataKey: "memberName" },
+          { header: "Data Início", dataKey: "startDate" },
+          { header: "Data Fim", dataKey: "endDate" },
+          { header: "Status", dataKey: "status" },
+        ];
+      case "computers":
+        return [
+          { header: "Computador", dataKey: "computerName" },
+          { header: "Membro", dataKey: "memberName" },
+          { header: "Data Início", dataKey: "startDate" },
+          { header: "Data Fim", dataKey: "endDate" },
+          { header: "Status", dataKey: "status" },
+        ];
+      case "training":
+        return [
+          { header: "Título", dataKey: "title" },
+          { header: "Data", dataKey: "scheduledDate" },
+          { header: "Local", dataKey: "location" },
+          { header: "Participantes", dataKey: "participantCount" },
+          { header: "Status", dataKey: "status" },
         ];
       default:
         return [];
@@ -528,6 +570,9 @@ export default function ReportsPage() {
                     <SelectItem value="members">Membros</SelectItem>
                     <SelectItem value="fines">Multas</SelectItem>
                     <SelectItem value="reservations">Reservas</SelectItem>
+                    <SelectItem value="lockers">Cacifos</SelectItem>
+                    <SelectItem value="computers">Computadores</SelectItem>
+                    <SelectItem value="training">Formacoes</SelectItem>
                     <SelectItem value="statistics">Estatísticas</SelectItem>
                   </SelectContent>
                 </Select>
@@ -576,6 +621,7 @@ export default function ReportsPage() {
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
                       {activeStatusOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
@@ -599,6 +645,7 @@ export default function ReportsPage() {
                       <SelectValue placeholder="Todos" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
                       <SelectItem value="STUDENT">Estudante</SelectItem>
                       <SelectItem value="TEACHER">Docente</SelectItem>
                       <SelectItem value="STAFF">Funcionário</SelectItem>
@@ -625,6 +672,7 @@ export default function ReportsPage() {
                       />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__all__">Todas</SelectItem>
                       {categories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}

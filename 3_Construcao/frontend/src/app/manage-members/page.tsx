@@ -1,14 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { api } from "@/api/apiClient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, Search, Download } from "lucide-react";
+import {
+  Users,
+  Search,
+  Download,
+  MoreHorizontal,
+  ShieldOff,
+  UserX,
+  UserCog,
+  BadgeDollarSign,
+  Ban,
+  CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -24,6 +37,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createPageUrl } from "@/utils";
 import { getUserTypeLabel, getUserStatusLabel } from "@/lib/user-helpers";
@@ -44,10 +72,31 @@ type MemberRow = {
   created_date?: string | null;
 } & Record<string, unknown>;
 
+const ROLE_LABELS: Record<string, string> = {
+  STUDENT: "Estudante",
+  TEACHER: "Docente",
+  STAFF: "Funcionário",
+  LIBRARIAN: "Bibliotecário",
+  CATALOGER: "Catalogador",
+  SUPERVISOR: "Supervisor",
+};
+
 export default function ManageMembers() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+
+  // Dialog states
+  const [blockDialog, setBlockDialog] = useState(false);
+  const [fineDialog, setFineDialog] = useState(false);
+  const [roleDialog, setRoleDialog] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<MemberRow | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [fineAmount, setFineAmount] = useState("");
+  const [fineReason, setFineReason] = useState("");
+  const [fineType, setFineType] = useState("OTHER");
+  const [newRole, setNewRole] = useState("");
 
   useEffect(() => {
     const loadUser = async () => {
@@ -68,7 +117,48 @@ export default function ManageMembers() {
       return response.json();
     },
     initialData: [] as MemberRow[],
+    refetchInterval: 30000,
   });
+
+  // Admin action mutation
+  const adminAction = useMutation({
+    mutationFn: async ({
+      memberId,
+      payload,
+    }: {
+      memberId: string;
+      payload: Record<string, unknown>;
+    }) => {
+      const res = await fetch(`/api/members/${memberId}/admin`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao processar acção");
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["manage-members"] });
+      toast.success(data.message || "Acção realizada com sucesso");
+      closeDialogs();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  function closeDialogs() {
+    setBlockDialog(false);
+    setFineDialog(false);
+    setRoleDialog(false);
+    setSelectedMember(null);
+    setBlockReason("");
+    setFineAmount("");
+    setFineReason("");
+    setFineType("OTHER");
+    setNewRole("");
+  }
 
   const getStatusBadge = (member: MemberRow) => {
     if (member.is_blocked)
@@ -115,44 +205,59 @@ export default function ManageMembers() {
     }
   };
 
-  const filteredMembers = members.filter((member) => {
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesEmail = member.email?.toLowerCase().includes(query);
-      const matchesName = member.name?.toLowerCase().includes(query);
-      const matchesReg = member.registration_number
-        ?.toLowerCase()
-        .includes(query);
-      if (!matchesEmail && !matchesName && !matchesReg) return false;
-    }
+  const filteredMembers = useMemo(() => {
+    return members.filter((member) => {
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesEmail = member.email?.toLowerCase().includes(query);
+        const matchesName = member.name?.toLowerCase().includes(query);
+        const matchesReg = member.registration_number
+          ?.toLowerCase()
+          .includes(query);
+        if (!matchesEmail && !matchesName && !matchesReg) return false;
+      }
 
-    if (filterType !== "all") {
-      const memberTypeUpper = member.member_type?.toUpperCase();
-      const filterTypeUpper = filterType.toUpperCase();
-      if (memberTypeUpper !== filterTypeUpper) return false;
-    }
+      if (filterType !== "all") {
+        const memberTypeUpper = member.member_type?.toUpperCase();
+        const filterTypeUpper = filterType.toUpperCase();
+        if (memberTypeUpper !== filterTypeUpper) return false;
+      }
 
-    if (filterStatus !== "all") {
-      if (filterStatus === "blocked" && !member.is_blocked) return false;
-      if (filterStatus !== "blocked") {
-        const activationStatus = member.activation_status?.toUpperCase();
-        const status = member.status?.toUpperCase();
-        const filterStatusUpper = filterStatus.toUpperCase();
+      if (filterStatus !== "all") {
+        if (filterStatus === "blocked" && !member.is_blocked) return false;
+        if (filterStatus !== "blocked") {
+          const activationStatus = member.activation_status?.toUpperCase();
+          const filterStatusUpper = filterStatus.toUpperCase();
 
-        // Se filtrar por ACTIVE, aceitar activation_status ACTIVE ou status ACTIVE
-        if (filterStatusUpper === "ACTIVE") {
-          if (activationStatus !== "ACTIVE" && status !== "ACTIVE")
+          // Priorizar activation_status — é mais preciso que status
+          if (filterStatusUpper === "ACTIVE") {
+            // Só mostrar se activation_status é ACTIVE
+            if (activationStatus !== "ACTIVE") return false;
+          } else if (activationStatus !== filterStatusUpper) {
             return false;
-        } else if (
-          activationStatus !== filterStatusUpper &&
-          status !== filterStatusUpper
-        ) {
-          return false;
+          }
         }
       }
-    }
-    return true;
-  });
+      return true;
+    });
+  }, [members, searchQuery, filterType, filterStatus]);
+
+  const summary = useMemo(() => {
+    const total = members.length;
+    const active = members.filter(
+      (m) => m.activation_status?.toUpperCase() === "ACTIVE",
+    ).length;
+    const blocked = members.filter((m) => m.is_blocked).length;
+    const pending = members.filter((m) => {
+      const s = m.activation_status?.toUpperCase();
+      return (
+        s === "PENDING_DOCUMENTS" ||
+        s === "PENDING_TRAINING" ||
+        s === "TRAINING_SCHEDULED"
+      );
+    }).length;
+    return { total, active, blocked, pending };
+  }, [members]);
 
   const handleExport = () => {
     if (filteredMembers.length === 0) {
@@ -231,9 +336,8 @@ export default function ManageMembers() {
               Gestão de Membros
             </h1>
             <p className="text-slate-500 mt-1">
-              {filteredMembers.length === members.length
-                ? `${members.length} membro(s) cadastrado(s)`
-                : `${filteredMembers.length} de ${members.length} membro(s)`}
+              {summary.total} membro(s) • {summary.active} ativo(s) •{" "}
+              {summary.pending} pendente(s) • {summary.blocked} bloqueado(s)
             </p>
           </div>
           <Button variant="outline" onClick={handleExport}>
@@ -271,13 +375,21 @@ export default function ManageMembers() {
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-48">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os status</SelectItem>
                   <SelectItem value="ACTIVE">Ativos</SelectItem>
-                  <SelectItem value="PENDING">Pendentes</SelectItem>
+                  <SelectItem value="PENDING_DOCUMENTS">
+                    Documentos Pendentes
+                  </SelectItem>
+                  <SelectItem value="PENDING_TRAINING">
+                    Aguardando Formação
+                  </SelectItem>
+                  <SelectItem value="TRAINING_SCHEDULED">
+                    Formação Agendada
+                  </SelectItem>
                   <SelectItem value="BLOCKED">Bloqueados</SelectItem>
                 </SelectContent>
               </Select>
@@ -292,8 +404,11 @@ export default function ManageMembers() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Cargo</TableHead>
                   <TableHead>Situação</TableHead>
+                  <TableHead>Multas</TableHead>
                   <TableHead>Cadastro</TableHead>
+                  <TableHead className="text-right">Acções</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -309,22 +424,36 @@ export default function ManageMembers() {
                           <Skeleton className="h-4 w-48" />
                         </TableCell>
                         <TableCell>
-                          <Skeleton className="h-6 w-24" />
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-24 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-16" />
                         </TableCell>
                         <TableCell>
                           <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-8 w-8 ml-auto" />
                         </TableCell>
                       </TableRow>
                     ))
                 ) : filteredMembers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12">
+                    <TableCell colSpan={7} className="text-center py-12">
                       <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                       <p className="text-slate-500">Nenhum membro encontrado</p>
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredMembers.map((member) => {
+                    const isBlocked = !!member.is_blocked;
+                    const isActive =
+                      member.activation_status?.toUpperCase() === "ACTIVE";
+                    const fines = Number(member.total_fines ?? 0);
+
                     return (
                       <TableRow key={member.id} className="group">
                         <TableCell>
@@ -338,21 +467,127 @@ export default function ManageMembers() {
                               <p className="font-medium text-slate-800">
                                 {member.name || "Sem nome"}
                               </p>
-                              <p className="text-xs text-slate-500">
-                                {getUserTypeLabel(member.member_type)}
-                                {member.registration_number &&
-                                  ` • ${member.registration_number}`}
-                              </p>
+                              {member.registration_number && (
+                                <p className="text-xs text-slate-500">
+                                  {member.registration_number}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-slate-600">
+                        <TableCell className="text-slate-600 text-sm">
                           {member.email}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {ROLE_LABELS[
+                              member.member_type?.toUpperCase() ?? ""
+                            ] ||
+                              member.member_type ||
+                              "—"}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{getStatusBadge(member)}</TableCell>
+                        <TableCell>
+                          {fines > 0 ? (
+                            <span className="text-sm font-medium text-red-600">
+                              {fines.toLocaleString("pt-AO")} Kz
+                            </span>
+                          ) : (
+                            <span className="text-sm text-slate-400">0 Kz</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-slate-500">
                           {member.created_date &&
                             format(new Date(member.created_date), "dd/MM/yyyy")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {!isActive && !isBlocked && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    adminAction.mutate({
+                                      memberId: member.id,
+                                      payload: { action: "activate" },
+                                    })
+                                  }
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2 text-emerald-600" />
+                                  Activar conta
+                                </DropdownMenuItem>
+                              )}
+                              {isActive && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    adminAction.mutate({
+                                      memberId: member.id,
+                                      payload: { action: "deactivate" },
+                                    })
+                                  }
+                                >
+                                  <UserX className="h-4 w-4 mr-2 text-slate-600" />
+                                  Desactivar conta
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuSeparator />
+
+                              {!isBlocked ? (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedMember(member);
+                                    setBlockDialog(true);
+                                  }}
+                                >
+                                  <Ban className="h-4 w-4 mr-2 text-red-600" />
+                                  Bloquear
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    adminAction.mutate({
+                                      memberId: member.id,
+                                      payload: { action: "unblock" },
+                                    })
+                                  }
+                                >
+                                  <ShieldOff className="h-4 w-4 mr-2 text-emerald-600" />
+                                  Desbloquear
+                                </DropdownMenuItem>
+                              )}
+
+                              <DropdownMenuSeparator />
+
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedMember(member);
+                                  setNewRole(
+                                    member.member_type?.toUpperCase() ?? "",
+                                  );
+                                  setRoleDialog(true);
+                                }}
+                              >
+                                <UserCog className="h-4 w-4 mr-2 text-indigo-600" />
+                                Alterar cargo
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedMember(member);
+                                  setFineDialog(true);
+                                }}
+                              >
+                                <BadgeDollarSign className="h-4 w-4 mr-2 text-amber-600" />
+                                Aplicar multa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
@@ -363,6 +598,205 @@ export default function ManageMembers() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Block Dialog */}
+      <Dialog
+        open={blockDialog}
+        onOpenChange={(open) => {
+          if (!open) closeDialogs();
+          else setBlockDialog(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-red-600" />
+              Bloquear {selectedMember?.name}
+            </DialogTitle>
+            <DialogDescription>
+              O membro não poderá usar a biblioteca enquanto estiver bloqueado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Motivo do bloqueio *</Label>
+              <Textarea
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="Ex: Multas pendentes, violação do regulamento..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialogs}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!blockReason.trim() || adminAction.isPending}
+              onClick={() => {
+                if (!selectedMember) return;
+                adminAction.mutate({
+                  memberId: selectedMember.id,
+                  payload: { action: "block", reason: blockReason },
+                });
+              }}
+            >
+              {adminAction.isPending ? "A processar..." : "Bloquear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Dialog */}
+      <Dialog
+        open={roleDialog}
+        onOpenChange={(open) => {
+          if (!open) closeDialogs();
+          else setRoleDialog(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog className="h-5 w-5 text-indigo-600" />
+              Alterar cargo de {selectedMember?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Cargo actual:{" "}
+              {ROLE_LABELS[selectedMember?.member_type?.toUpperCase() ?? ""] ||
+                "—"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Novo cargo</Label>
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cargo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STUDENT">Estudante</SelectItem>
+                  <SelectItem value="TEACHER">Docente</SelectItem>
+                  <SelectItem value="STAFF">Funcionário</SelectItem>
+                  <SelectItem value="LIBRARIAN">Bibliotecário</SelectItem>
+                  <SelectItem value="CATALOGER">Catalogador</SelectItem>
+                  <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialogs}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={
+                !newRole ||
+                newRole === selectedMember?.member_type?.toUpperCase() ||
+                adminAction.isPending
+              }
+              onClick={() => {
+                if (!selectedMember) return;
+                adminAction.mutate({
+                  memberId: selectedMember.id,
+                  payload: { action: "change_role", newRole },
+                });
+              }}
+            >
+              {adminAction.isPending ? "A processar..." : "Alterar cargo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fine Dialog */}
+      <Dialog
+        open={fineDialog}
+        onOpenChange={(open) => {
+          if (!open) closeDialogs();
+          else setFineDialog(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BadgeDollarSign className="h-5 w-5 text-amber-600" />
+              Aplicar multa a {selectedMember?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Multas pendentes actuais:{" "}
+              {Number(selectedMember?.total_fines ?? 0).toLocaleString("pt-AO")}{" "}
+              Kz
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Tipo de multa</Label>
+              <Select value={fineType} onValueChange={setFineType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LATE_RETURN">
+                    Devolução em atraso
+                  </SelectItem>
+                  <SelectItem value="DAMAGED_BOOK">Livro danificado</SelectItem>
+                  <SelectItem value="LOST_BOOK">Livro perdido</SelectItem>
+                  <SelectItem value="OTHER">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Valor (Kz) *</Label>
+              <Input
+                type="number"
+                value={fineAmount}
+                onChange={(e) => setFineAmount(e.target.value)}
+                placeholder="Ex: 500"
+                min={1}
+              />
+            </div>
+            <div>
+              <Label>Motivo *</Label>
+              <Textarea
+                value={fineReason}
+                onChange={(e) => setFineReason(e.target.value)}
+                placeholder="Descreva o motivo da multa..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDialogs}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={
+                !fineAmount ||
+                !fineReason.trim() ||
+                Number(fineAmount) <= 0 ||
+                adminAction.isPending
+              }
+              onClick={() => {
+                if (!selectedMember) return;
+                adminAction.mutate({
+                  memberId: selectedMember.id,
+                  payload: {
+                    action: "apply_fine",
+                    fineAmount: Number(fineAmount),
+                    fineReason,
+                    fineType,
+                  },
+                });
+              }}
+            >
+              {adminAction.isPending ? "A processar..." : "Aplicar multa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

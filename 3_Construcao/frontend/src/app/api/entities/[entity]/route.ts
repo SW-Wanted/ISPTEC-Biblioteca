@@ -18,6 +18,7 @@ import {
   NotificationType,
   Prisma,
   ReservationStatus,
+  ServiceReservationStatus,
   RequestStatus,
   UserStatus,
   UserType,
@@ -848,6 +849,47 @@ export async function GET(
     );
   }
 
+  if (entity === "LockerReservation") {
+    const where: Prisma.LockerReservationWhereInput = {};
+    if (!canManageMembers(user.type)) {
+      where.userId = user.id;
+    }
+
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status);
+      if (isEnumValue(ServiceReservationStatus, s)) where.status = s;
+    }
+
+    const reservations = await prisma.lockerReservation.findMany({
+      where,
+      orderBy: { requestedAt: "desc" },
+      take: limit,
+      include: {
+        locker: { select: { number: true, location: true } },
+        user: { select: { email: true, name: true } },
+      },
+    });
+
+    return NextResponse.json(
+      reservations.map((r) => ({
+        id: r.id,
+        locker_id: r.lockerId,
+        locker_number: r.locker.number,
+        locker_location: r.locker.location,
+        user_id: r.userId,
+        user_email: r.user.email,
+        user_name: r.user.name,
+        status: lowerEnum(r.status),
+        requested_at: toIso(r.requestedAt),
+        approved_at: toIso(r.approvedAt) ?? null,
+        rejected_at: toIso(r.rejectedAt) ?? null,
+        cancelled_at: toIso(r.cancelledAt) ?? null,
+        created_date: toIso(r.createdAt),
+        updated_date: toIso(r.updatedAt),
+      })),
+    );
+  }
+
   if (entity === "Computer") {
     const computers = await prisma.computer.findMany({
       orderBy: [{ location: "asc" }, { number: "asc" }],
@@ -910,6 +952,47 @@ export async function GET(
         max_renewals: s.maxRenewals,
         created_date: toIso(s.createdAt),
         updated_date: toIso(s.updatedAt),
+      })),
+    );
+  }
+
+  if (entity === "ComputerReservation") {
+    const where: Prisma.ComputerReservationWhereInput = {};
+    if (!canManageMembers(user.type)) {
+      where.userId = user.id;
+    }
+
+    if (typeof filter?.status === "string") {
+      const s = normalizeEnum(filter.status);
+      if (isEnumValue(ServiceReservationStatus, s)) where.status = s;
+    }
+
+    const reservations = await prisma.computerReservation.findMany({
+      where,
+      orderBy: { requestedAt: "desc" },
+      take: limit,
+      include: {
+        computer: { select: { number: true, location: true } },
+        user: { select: { email: true, name: true } },
+      },
+    });
+
+    return NextResponse.json(
+      reservations.map((r) => ({
+        id: r.id,
+        computer_id: r.computerId,
+        computer_number: r.computer.number,
+        computer_location: r.computer.location,
+        user_id: r.userId,
+        user_email: r.user.email,
+        user_name: r.user.name,
+        status: lowerEnum(r.status),
+        requested_at: toIso(r.requestedAt),
+        approved_at: toIso(r.approvedAt) ?? null,
+        rejected_at: toIso(r.rejectedAt) ?? null,
+        cancelled_at: toIso(r.cancelledAt) ?? null,
+        created_date: toIso(r.createdAt),
+        updated_date: toIso(r.updatedAt),
       })),
     );
   }

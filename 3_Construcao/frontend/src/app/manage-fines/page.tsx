@@ -106,6 +106,7 @@ export default function ManageFines() {
     queryFn: async () =>
       (await api.entities.Fine.list("-created_date", 200)) as FineRow[],
     initialData: [] as FineRow[],
+    refetchInterval: 30000,
   });
 
   const pendingFines = fines.filter((f) => f.status === "pending");

@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type SpecialRequest } from "@/api/apiClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FileText } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendente",
@@ -82,6 +84,7 @@ export default function SpecialRequestsAdminPage() {
     queryKey: ["special-requests"],
     queryFn: () => api.entities.SpecialRequest.list(),
     initialData: [],
+    refetchInterval: 15000,
   });
 
   const updateMutation = useMutation({
@@ -121,13 +124,23 @@ export default function SpecialRequestsAdminPage() {
   }, [requests, filterStatus, search]);
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+            <FileText className="w-7 h-7 text-indigo-600" />
+            Solicitacoes Especiais
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Gerencie pedidos de levantamento bibliografico, catalogacao e
+            formacao
+          </p>
+        </div>
+
+        {/* Filters */}
         <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <CardTitle>Solicitacoes Especiais</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="w-full md:w-72">
                 <Label>Pesquisar</Label>
@@ -170,11 +183,33 @@ export default function SpecialRequestsAdminPage() {
               </TableHeader>
               <TableBody>
                 {isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-6">
-                      A carregar...
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <TableRow key={`skel-${i}`}>
+                        <TableCell>
+                          <Skeleton className="h-5 w-32 rounded-full" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-40 mb-1" />
+                          <Skeleton className="h-3 w-56" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-28 mb-1" />
+                          <Skeleton className="h-3 w-20" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-5 w-20 rounded-full" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-16" />
+                            <Skeleton className="h-8 w-16" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 )}
                 {!isLoading && filtered.length === 0 && (
                   <TableRow>

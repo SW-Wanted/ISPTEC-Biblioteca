@@ -46,12 +46,46 @@ type LockerRow = {
   current_user_id?: string | null;
 } & Record<string, unknown>;
 
+type LockerReservationRow = {
+  id: string;
+  locker_id?: string | null;
+  locker_number?: string | number | null;
+  locker_location?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+} & Record<string, unknown>;
+
+type LockerRentalRow = {
+  id: string;
+  locker_id?: string | null;
+  locker_number?: string | number | null;
+  locker_location?: string | null;
+  expected_end?: string | null;
+} & Record<string, unknown>;
+
 type ComputerRow = {
   id: string;
   number?: string | number | null;
   status?: string | null;
   location?: string | null;
   current_user_id?: string | null;
+} & Record<string, unknown>;
+
+type ComputerReservationRow = {
+  id: string;
+  computer_id?: string | null;
+  computer_number?: string | number | null;
+  computer_location?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+} & Record<string, unknown>;
+
+type ComputerSessionRow = {
+  id: string;
+  computer_id?: string | null;
+  computer_number?: string | number | null;
+  computer_location?: string | null;
+  expected_end?: string | null;
 } & Record<string, unknown>;
 
 type SpecialRequestRow = {
@@ -96,21 +130,64 @@ export default function Services() {
     queryKey: ["lockers"],
     queryFn: () => api.entities.Locker.list(),
     initialData: [] as LockerRow[],
+    refetchInterval: 15000,
   });
   const { data: computers = [] } = useQuery<ComputerRow[]>({
     queryKey: ["computers"],
     queryFn: () => api.entities.Computer.list(),
     initialData: [] as ComputerRow[],
+    refetchInterval: 15000,
   });
   const { data: myRequests = [] } = useQuery<SpecialRequestRow[]>({
     queryKey: ["my-requests", user?.email],
     queryFn: () => api.entities.SpecialRequest.filter({ user_id: user?.email }),
     enabled: !!user?.email,
     initialData: [] as SpecialRequestRow[],
+    refetchInterval: 15000,
+  });
+
+  const { data: lockerReservations = [] } = useQuery<LockerReservationRow[]>({
+    queryKey: ["locker-reservations", user?.email],
+    queryFn: () => api.entities.LockerReservation.filter({ status: "pending" }),
+    enabled: !!user?.email,
+    initialData: [] as LockerReservationRow[],
+    refetchInterval: 10000,
+  });
+
+  const { data: computerReservations = [] } = useQuery<
+    ComputerReservationRow[]
+  >({
+    queryKey: ["computer-reservations", user?.email],
+    queryFn: () =>
+      api.entities.ComputerReservation.filter({ status: "pending" }),
+    enabled: !!user?.email,
+    initialData: [] as ComputerReservationRow[],
+    refetchInterval: 10000,
+  });
+
+  const { data: lockerRentals = [] } = useQuery<LockerRentalRow[]>({
+    queryKey: ["locker-rentals", user?.email],
+    queryFn: () => api.entities.LockerRental.filter({ endTime: null }),
+    enabled: !!user?.email,
+    initialData: [] as LockerRentalRow[],
+    refetchInterval: 10000,
+  });
+
+  const { data: computerSessions = [] } = useQuery<ComputerSessionRow[]>({
+    queryKey: ["computer-sessions", user?.email],
+    queryFn: () => api.entities.ComputerSession.filter({ endTime: null }),
+    enabled: !!user?.email,
+    initialData: [] as ComputerSessionRow[],
+    refetchInterval: 10000,
   });
 
   const availableLockers = lockers.filter((l) => l.status === "available");
   const availableComputers = computers.filter((c) => c.status === "available");
+
+  const activeLockerReservation = lockerReservations[0];
+  const activeComputerReservation = computerReservations[0];
+  const activeLockerRental = lockerRentals[0];
+  const activeComputerSession = computerSessions[0];
 
   const reserveLockerMutation = useMutation({
     mutationFn: async (locker: LockerRow) => {
@@ -126,6 +203,9 @@ export default function Services() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lockers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["locker-reservations", user?.email],
+      });
       setActiveService(null);
       toast.success("Cacifo reservado com sucesso!");
     },
@@ -135,8 +215,12 @@ export default function Services() {
         toast.error(
           "Você já possui um cacifo ativo. Devolva-o antes de reservar outro.",
         );
+      } else if (message.includes("USER_HAS_PENDING_LOCKER")) {
+        toast.error("Você já possui uma reserva pendente de cacifo.");
       } else if (message.includes("NOT_AVAILABLE")) {
         toast.error("Este cacifo não está disponível.");
+      } else if (message.includes("LOCKER_ALREADY_RESERVED")) {
+        toast.error("Este cacifo já está reservado.");
       } else {
         toast.error("Erro ao reservar cacifo");
       }
@@ -157,6 +241,9 @@ export default function Services() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["computers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["computer-reservations", user?.email],
+      });
       setActiveService(null);
       toast.success("Computador reservado! Faça check-in no balcão.");
     },
@@ -166,11 +253,59 @@ export default function Services() {
         toast.error(
           "Você já possui uma sessão de computador ativa. Encerre-a antes de reservar outro.",
         );
+      } else if (message.includes("USER_HAS_PENDING_SESSION")) {
+        toast.error("Você já possui uma reserva pendente de computador.");
       } else if (message.includes("NOT_AVAILABLE")) {
         toast.error("Este computador não está disponível.");
+      } else if (message.includes("COMPUTER_ALREADY_RESERVED")) {
+        toast.error("Este computador já está reservado.");
       } else {
         toast.error("Erro ao reservar computador");
       }
+    },
+  });
+
+  const cancelLockerReservationMutation = useMutation({
+    mutationFn: async (lockerId: string) => {
+      const res = await fetch(`/api/lockers/${lockerId}/cancel`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao cancelar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lockers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["locker-reservations", user?.email],
+      });
+      toast.success("Reserva de cacifo cancelada");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao cancelar reserva");
+    },
+  });
+
+  const cancelComputerReservationMutation = useMutation({
+    mutationFn: async (computerId: string) => {
+      const res = await fetch(`/api/computers/${computerId}/cancel`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? "Erro ao cancelar reserva");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["computers"] });
+      queryClient.invalidateQueries({
+        queryKey: ["computer-reservations", user?.email],
+      });
+      toast.success("Reserva de computador cancelada");
+    },
+    onError: (error: any) => {
+      toast.error(error?.message ?? "Erro ao cancelar reserva");
     },
   });
 
@@ -298,61 +433,98 @@ export default function Services() {
           </TabsList>
           <TabsContent value="services">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.map((service, index) => (
-                <motion.div
-                  key={service.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
-                >
-                  <Card
-                    className="border-0 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden"
-                    onClick={() => setActiveService(service.id)}
+              {services.map((service, index) => {
+                const isLocker = service.id === "locker";
+                const isComputer = service.id === "computer";
+                const lockerBusy =
+                  !!activeLockerReservation || !!activeLockerRental;
+                const computerBusy =
+                  !!activeComputerReservation || !!activeComputerSession;
+
+                const statusLabel = isLocker
+                  ? activeLockerRental
+                    ? `Ocupado: Cacifo ${activeLockerRental.locker_number ?? ""}`
+                    : activeLockerReservation
+                      ? `Reserva pendente: Cacifo ${activeLockerReservation.locker_number ?? ""}`
+                      : null
+                  : isComputer
+                    ? activeComputerSession
+                      ? `Ocupado: PC ${activeComputerSession.computer_number ?? ""}`
+                      : activeComputerReservation
+                        ? `Reserva pendente: PC ${activeComputerReservation.computer_number ?? ""}`
+                        : null
+                    : null;
+
+                const canReserve = isLocker
+                  ? !lockerBusy
+                  : isComputer
+                    ? !computerBusy
+                    : true;
+
+                return (
+                  <motion.div
+                    key={service.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
                   >
-                    <CardContent className="p-6">
-                      <div
-                        className={cn(
-                          "w-14 h-14 rounded-2xl bg-linear-to-br flex items-center justify-center mb-4",
-                          service.color,
-                        )}
-                      >
-                        <service.icon className="w-7 h-7 text-white" />
-                      </div>
-                      <h3 className="font-semibold text-slate-800 mb-1">
-                        {service.title}
-                      </h3>
-                      <p className="text-sm text-slate-500 mb-3">
-                        {service.description}
-                      </p>
-                      {service.available !== undefined && (
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              service.available > 0
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-red-50 text-red-700",
-                            )}
-                          >
-                            {service.available > 0
-                              ? `${service.available} disponível(is)`
-                              : "Todos ocupados"}
-                          </Badge>
+                    <Card
+                      className="border-0 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden"
+                      onClick={() => setActiveService(service.id)}
+                    >
+                      <CardContent className="p-6">
+                        <div
+                          className={cn(
+                            "w-14 h-14 rounded-2xl bg-linear-to-br flex items-center justify-center mb-4",
+                            service.color,
+                          )}
+                        >
+                          <service.icon className="w-7 h-7 text-white" />
                         </div>
-                      )}
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto mt-3 text-indigo-600"
-                      >
-                        {service.id === "locker" || service.id === "computer"
-                          ? "Reservar"
-                          : "Solicitar"}
-                        <ArrowRight className="w-4 h-4 ml-1" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                        <h3 className="font-semibold text-slate-800 mb-1">
+                          {service.title}
+                        </h3>
+                        <p className="text-sm text-slate-500 mb-3">
+                          {service.description}
+                        </p>
+                        {service.available !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                service.available > 0
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-red-50 text-red-700",
+                              )}
+                            >
+                              {service.available > 0
+                                ? `${service.available} disponível(is)`
+                                : "Todos ocupados"}
+                            </Badge>
+                          </div>
+                        )}
+                        {statusLabel && (
+                          <p className="text-xs text-slate-500 mt-2">
+                            {statusLabel}
+                          </p>
+                        )}
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto mt-3 text-indigo-600"
+                          disabled={!canReserve && (isLocker || isComputer)}
+                        >
+                          {service.id === "locker" || service.id === "computer"
+                            ? canReserve
+                              ? "Reservar"
+                              : "Ver status"
+                            : "Solicitar"}
+                          <ArrowRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </div>
           </TabsContent>
           <TabsContent value="requests">
@@ -425,13 +597,93 @@ export default function Services() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reservar Cacifo</DialogTitle>
+            <DialogTitle>
+              {activeLockerRental
+                ? "Cacifo em Uso"
+                : activeLockerReservation
+                  ? "Reserva Pendente"
+                  : "Reservar Cacifo"}
+            </DialogTitle>
             <DialogDescription>
-              Escolha um cacifo disponível. Duração: 3 horas.
+              {activeLockerRental
+                ? "Você já possui um cacifo em uso."
+                : activeLockerReservation
+                  ? "A sua reserva está aguardando aprovação do bibliotecário."
+                  : "Escolha um cacifo disponível. Duração: 3 horas."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            {availableLockers.length === 0 ? (
+            {activeLockerRental ? (
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <KeyRound className="w-8 h-8 text-blue-500" />
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      Cacifo {activeLockerRental.locker_number ?? ""}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {activeLockerRental.locker_location ?? "Biblioteca"}
+                    </p>
+                  </div>
+                  <Badge className="ml-auto bg-blue-100 text-blue-700">
+                    Em uso
+                  </Badge>
+                </div>
+                {activeLockerRental.expected_end && (
+                  <p className="text-sm text-slate-600">
+                    Término previsto:{" "}
+                    {new Date(
+                      activeLockerRental.expected_end,
+                    ).toLocaleTimeString("pt-AO", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+                <p className="text-xs text-slate-400">
+                  Gerencie o seu cacifo no card &quot;Minhas Reservas
+                  Ativas&quot;.
+                </p>
+              </div>
+            ) : activeLockerReservation ? (
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <KeyRound className="w-8 h-8 text-amber-500" />
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      Cacifo {activeLockerReservation.locker_number ?? ""}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {activeLockerReservation.locker_location ?? "Biblioteca"}
+                    </p>
+                  </div>
+                  <Badge className="ml-auto bg-amber-100 text-amber-700">
+                    Pendente
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-600">
+                  Aguardando aprovação do bibliotecário.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  disabled={cancelLockerReservationMutation.isPending}
+                  onClick={() => {
+                    const lockerId = activeLockerReservation.locker_id;
+                    if (lockerId) {
+                      cancelLockerReservationMutation.mutate(lockerId);
+                      setActiveService(null);
+                    }
+                  }}
+                >
+                  {cancelLockerReservationMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Cancelar Reserva
+                </Button>
+              </div>
+            ) : availableLockers.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-orange-400 mx-auto mb-3" />
                 <p className="text-slate-600">
@@ -464,13 +716,95 @@ export default function Services() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reservar Computador</DialogTitle>
+            <DialogTitle>
+              {activeComputerSession
+                ? "Computador em Uso"
+                : activeComputerReservation
+                  ? "Reserva Pendente"
+                  : "Reservar Computador"}
+            </DialogTitle>
             <DialogDescription>
-              Escolha uma estação disponível. Sessão de 2 horas.
+              {activeComputerSession
+                ? "Você já possui uma sessão de computador activa."
+                : activeComputerReservation
+                  ? "A sua reserva está aguardando aprovação do bibliotecário."
+                  : "Escolha uma estação disponível. Sessão de 2 horas."}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            {availableComputers.length === 0 ? (
+            {activeComputerSession ? (
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Computer className="w-8 h-8 text-blue-500" />
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      PC {activeComputerSession.computer_number ?? ""}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {activeComputerSession.computer_location ??
+                        "Sala de Informática"}
+                    </p>
+                  </div>
+                  <Badge className="ml-auto bg-blue-100 text-blue-700">
+                    Em uso
+                  </Badge>
+                </div>
+                {activeComputerSession.expected_end && (
+                  <p className="text-sm text-slate-600">
+                    Término previsto:{" "}
+                    {new Date(
+                      activeComputerSession.expected_end,
+                    ).toLocaleTimeString("pt-AO", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+                <p className="text-xs text-slate-400">
+                  Gerencie a sua sessão no card &quot;Minhas Reservas
+                  Ativas&quot;.
+                </p>
+              </div>
+            ) : activeComputerReservation ? (
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Computer className="w-8 h-8 text-amber-500" />
+                  <div>
+                    <p className="font-semibold text-slate-800">
+                      PC {activeComputerReservation.computer_number ?? ""}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {activeComputerReservation.computer_location ??
+                        "Sala de Informática"}
+                    </p>
+                  </div>
+                  <Badge className="ml-auto bg-amber-100 text-amber-700">
+                    Pendente
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-600">
+                  Aguardando aprovação do bibliotecário.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  disabled={cancelComputerReservationMutation.isPending}
+                  onClick={() => {
+                    const computerId = activeComputerReservation.computer_id;
+                    if (computerId) {
+                      cancelComputerReservationMutation.mutate(computerId);
+                      setActiveService(null);
+                    }
+                  }}
+                >
+                  {cancelComputerReservationMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Cancelar Reserva
+                </Button>
+              </div>
+            ) : availableComputers.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="w-12 h-12 text-orange-400 mx-auto mb-3" />
                 <p className="text-slate-600">

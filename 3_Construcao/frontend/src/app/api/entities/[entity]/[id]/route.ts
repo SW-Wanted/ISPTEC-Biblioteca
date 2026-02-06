@@ -938,7 +938,7 @@ export async function PATCH(
       if (!isEnumValue(LockerStatus, s)) {
         return NextResponse.json({ error: "status inválido" }, { status: 400 });
       }
-      if (s === LockerStatus.OCCUPIED) {
+      if (s === LockerStatus.OCCUPIED || s === LockerStatus.RESERVED) {
         return NextResponse.json(
           { error: "Use a reserva para ocupar" },
           { status: 400 },
@@ -1041,7 +1041,7 @@ export async function PATCH(
       if (!isEnumValue(ComputerStatus, s)) {
         return NextResponse.json({ error: "status inválido" }, { status: 400 });
       }
-      if (s === ComputerStatus.OCCUPIED) {
+      if (s === ComputerStatus.OCCUPIED || s === ComputerStatus.RESERVED) {
         return NextResponse.json(
           { error: "Use a reserva para ocupar" },
           { status: 400 },

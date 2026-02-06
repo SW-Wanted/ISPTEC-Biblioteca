@@ -110,11 +110,13 @@ export default function ManageBooks() {
     queryKey: ["manage-books"],
     queryFn: () => api.entities.Book.list("-created_date", 100),
     initialData: [],
+    refetchInterval: 30000,
   });
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.entities.Category.list(),
     initialData: [],
+    refetchInterval: 60000,
   });
 
   type BookFormData = typeof formData;
