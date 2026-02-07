@@ -504,7 +504,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className={cn("transition-all duration-300 pt-16 lg:pt-0", "lg:ml-72")}
       >
-        <div className="min-h-screen">{children}</div>
+        <div className="min-h-screen overflow-x-hidden">{children}</div>
       </main>
     </div>
   );
