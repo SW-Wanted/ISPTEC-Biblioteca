@@ -181,12 +181,12 @@ export default function Home() {
       <section className="relative overflow-hidden">
         {/* Background Image com Overlay */}
         <HeroCarousel />
-        <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 opacity-30 z-[3] pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-amber-400/20 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+        <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
