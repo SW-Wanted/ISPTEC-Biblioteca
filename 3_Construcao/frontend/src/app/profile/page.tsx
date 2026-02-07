@@ -179,11 +179,15 @@ export default function Profile() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<{
+    name: string;
+    registration_number: string;
     phone: string;
     preferred_notification: string;
   }>({
+    name: "",
+    registration_number: "",
     phone: "",
-    preferred_notification: "email",
+    preferred_notification: "push",
   });
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
@@ -300,8 +304,10 @@ export default function Profile() {
       return;
     }
     setEditForm({
+      name: member.name || "",
+      registration_number: member.registration_number || "",
       phone: member.phone || "",
-      preferred_notification: member.preferred_notification || "email",
+      preferred_notification: member.preferred_notification || "push",
     });
     setIsEditing(true);
   };
@@ -521,123 +527,118 @@ export default function Profile() {
           </div>
 
           <CardContent className="relative pt-0 pb-6">
+            {/* Row: photo + badges (right) + action buttons (far right) */}
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
-              {/* ---- Profile photo ---- */}
-              <div className="flex flex-col items-center sm:items-start">
-                <div className="relative group/avatar">
-                  <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
-                    {member?.profile_image_url ? (
-                      <Image
-                        src={member.profile_image_url}
-                        alt="Foto de perfil"
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
-                        unoptimized
-                        loader={({ src }) => src}
-                      />
-                    ) : (
-                      <span className="text-3xl font-bold text-amber-600">
-                        {(isViewingOtherProfile
-                          ? member?.name
-                          : user.full_name
-                        )?.charAt(0) ||
-                          (isViewingOtherProfile ? member?.email : user.email)
-                            ?.charAt(0)
-                            ?.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  {/* Avatar edit overlay */}
-                  {!isViewingOtherProfile && (
-                    <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/avatar:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover/avatar:opacity-100">
-                      <div className="flex gap-1">
+              {/* Photo */}
+              <div className="relative group/avatar shrink-0">
+                <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
+                  {member?.profile_image_url ? (
+                    <Image
+                      src={member.profile_image_url}
+                      alt="Foto de perfil"
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                      loader={({ src }) => src}
+                    />
+                  ) : (
+                    <span className="text-3xl font-bold text-amber-600">
+                      {(isViewingOtherProfile
+                        ? member?.name
+                        : user.full_name
+                      )?.charAt(0) ||
+                        (isViewingOtherProfile ? member?.email : user.email)
+                          ?.charAt(0)
+                          ?.toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                {/* Avatar edit overlay */}
+                {!isViewingOtherProfile && (
+                  <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/avatar:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover/avatar:opacity-100">
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => profileInputRef.current?.click()}
+                        disabled={uploadingImage === "profile"}
+                        className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
+                        title="Alterar foto de perfil"
+                      >
+                        {uploadingImage === "profile" ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                        ) : (
+                          <Camera className="w-4 h-4 text-slate-700" />
+                        )}
+                      </button>
+                      {member?.profile_image_url && (
                         <button
                           type="button"
-                          onClick={() => profileInputRef.current?.click()}
+                          onClick={() => handleRemoveImage("profileImageUrl")}
                           disabled={uploadingImage === "profile"}
                           className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
-                          title="Alterar foto de perfil"
+                          title="Remover foto de perfil"
                         >
-                          {uploadingImage === "profile" ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                          ) : (
-                            <Camera className="w-4 h-4 text-slate-700" />
-                          )}
+                          <X className="w-4 h-4 text-red-500" />
                         </button>
-                        {member?.profile_image_url && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage("profileImageUrl")}
-                            disabled={uploadingImage === "profile"}
-                            className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
-                            title="Remover foto de perfil"
-                          >
-                            <X className="w-4 h-4 text-red-500" />
-                          </button>
-                        )}
-                      </div>
+                      )}
                     </div>
-                  )}
-                  <input
-                    ref={profileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => onFileSelected(e, "profileImageUrl")}
-                  />
-                </div>
-                {/* Name below photo  */}
-                <h1 className="text-2xl font-bold text-slate-800 mt-3 text-center sm:text-left">
-                  {isViewingOtherProfile
-                    ? member?.name || "Utilizador"
-                    : user.full_name || "Utilizador"}
-                </h1>
+                  </div>
+                )}
+                <input
+                  ref={profileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => onFileSelected(e, "profileImageUrl")}
+                />
               </div>
-              <div className="flex-1 text-center sm:text-left">
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2 sm:mt-0">
-                  <Badge className="bg-amber-100 text-amber-700">
-                    {getUserTypeLabel(member?.member_type)}
+
+              {/* Badges to the right of photo */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                <Badge className="bg-amber-100 text-amber-700">
+                  {getUserTypeLabel(member?.member_type)}
+                </Badge>
+                {member?.activation_status === "ACTIVE" &&
+                  member?.status !== "INACTIVE" && (
+                    <Badge className="bg-emerald-100 text-emerald-700">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Conta Ativa
+                    </Badge>
+                  )}
+                {member?.status === "INACTIVE" && (
+                  <Badge className="bg-gray-100 text-gray-700">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Conta Inativa
                   </Badge>
-                  {member?.activation_status === "ACTIVE" &&
-                    member?.status !== "INACTIVE" && (
-                      <Badge className="bg-emerald-100 text-emerald-700">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Conta Ativa
-                      </Badge>
-                    )}
-                  {member?.status === "INACTIVE" && (
-                    <Badge className="bg-gray-100 text-gray-700">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Conta Inativa
-                    </Badge>
-                  )}
-                  {member?.activation_status === "TRAINING_SCHEDULED" && (
-                    <Badge className="bg-blue-100 text-blue-700">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Formação Agendada
-                    </Badge>
-                  )}
-                  {member?.activation_status === "PENDING_TRAINING" && (
-                    <Badge className="bg-yellow-100 text-yellow-700">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Aguardando Formação
-                    </Badge>
-                  )}
-                  {member?.activation_status === "PENDING_DOCUMENTS" && (
-                    <Badge className="bg-orange-100 text-orange-700">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Documentos Pendentes
-                    </Badge>
-                  )}
-                  {member?.is_blocked && (
-                    <Badge className="bg-red-100 text-red-700">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Bloqueado
-                    </Badge>
-                  )}
-                </div>
+                )}
+                {member?.activation_status === "TRAINING_SCHEDULED" && (
+                  <Badge className="bg-blue-100 text-blue-700">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Formação Agendada
+                  </Badge>
+                )}
+                {member?.activation_status === "PENDING_TRAINING" && (
+                  <Badge className="bg-yellow-100 text-yellow-700">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Aguardando Formação
+                  </Badge>
+                )}
+                {member?.activation_status === "PENDING_DOCUMENTS" && (
+                  <Badge className="bg-orange-100 text-orange-700">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Documentos Pendentes
+                  </Badge>
+                )}
+                {member?.is_blocked && (
+                  <Badge className="bg-red-100 text-red-700">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Bloqueado
+                  </Badge>
+                )}
               </div>
+
+              <div className="flex-1" />
               {!isViewingOtherProfile && (
                 <div className="flex gap-2">
                   <Button
@@ -654,6 +655,13 @@ export default function Profile() {
                 </div>
               )}
             </div>
+
+            {/* Name below the photo */}
+            <h1 className="text-2xl font-bold text-slate-800 mt-3 text-center sm:text-left">
+              {isViewingOtherProfile
+                ? member?.name || "Utilizador"
+                : user.full_name || "Utilizador"}
+            </h1>
           </CardContent>
         </Card>
 
@@ -678,6 +686,32 @@ export default function Profile() {
                   <CardContent className="p-6 space-y-6">
                     {isEditing ? (
                       <div className="space-y-4">
+                        <div>
+                          <Label>Nome Completo</Label>
+                          <Input
+                            value={editForm.name}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Nome completo"
+                          />
+                        </div>
+                        <div>
+                          <Label>Nº de Matrícula</Label>
+                          <Input
+                            value={editForm.registration_number}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                registration_number: e.target.value,
+                              })
+                            }
+                            placeholder="Ex: 20230001"
+                          />
+                        </div>
                         <div>
                           <Label>Telefone</Label>
                           <Input
