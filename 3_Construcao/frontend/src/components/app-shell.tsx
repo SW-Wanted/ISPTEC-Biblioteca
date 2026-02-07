@@ -91,7 +91,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password";
+    pathname === "/forgot-password" ||
+    pathname === "/auth-error";
 
   // Carregar utilizador autenticado com React Query
   const { data: user, isLoading: isUserLoading } = useQuery({

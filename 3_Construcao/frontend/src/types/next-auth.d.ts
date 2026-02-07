@@ -13,6 +13,7 @@ declare module "next-auth" {
       id?: string;
       type?: UserType;
       activationStatus?: AccountActivationStatus;
+      deletionPending?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -22,5 +23,6 @@ declare module "next-auth/jwt" {
     id?: string;
     type?: UserType;
     activationStatus?: AccountActivationStatus;
+    deletionPending?: boolean;
   }
 }

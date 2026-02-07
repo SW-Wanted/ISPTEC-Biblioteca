@@ -15,6 +15,7 @@ import {
   BadgeDollarSign,
   Ban,
   CheckCircle,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +96,7 @@ export default function ManageMembers() {
   const [blockReason, setBlockReason] = useState("");
   const [fineAmount, setFineAmount] = useState("");
   const [fineReason, setFineReason] = useState("");
-  const [fineType, setFineType] = useState("OTHER");
+  const [fineType, setFineType] = useState("LATE_RETURN");
   const [newRole, setNewRole] = useState("");
 
   useEffect(() => {
@@ -156,13 +157,19 @@ export default function ManageMembers() {
     setBlockReason("");
     setFineAmount("");
     setFineReason("");
-    setFineType("OTHER");
+    setFineType("LATE_RETURN");
     setNewRole("");
   }
 
   const getStatusBadge = (member: MemberRow) => {
     if (member.is_blocked)
       return <Badge className="bg-red-100 text-red-700">Bloqueado</Badge>;
+
+    // Verificar se tem eliminação pendente (status INACTIVE por pedido de eliminação)
+    const status = member.status?.toUpperCase();
+    if (status === "INACTIVE" || (member as any).deletion_requested) {
+      return <Badge className="bg-gray-100 text-gray-700">Inativo</Badge>;
+    }
 
     // Priorizar activation_status para status mais preciso
     const activationStatus = member.activation_status?.toUpperCase();
@@ -225,14 +232,20 @@ export default function ManageMembers() {
 
       if (filterStatus !== "all") {
         if (filterStatus === "blocked" && !member.is_blocked) return false;
-        if (filterStatus !== "blocked") {
+        if (filterStatus === "inactive") {
+          if (member.status?.toUpperCase() !== "INACTIVE") return false;
+        } else if (filterStatus !== "blocked" && filterStatus !== "inactive") {
           const activationStatus = member.activation_status?.toUpperCase();
           const filterStatusUpper = filterStatus.toUpperCase();
 
           // Priorizar activation_status — é mais preciso que status
           if (filterStatusUpper === "ACTIVE") {
-            // Só mostrar se activation_status é ACTIVE
-            if (activationStatus !== "ACTIVE") return false;
+            // Só mostrar se activation_status é ACTIVE e não INACTIVE
+            if (
+              activationStatus !== "ACTIVE" ||
+              member.status?.toUpperCase() === "INACTIVE"
+            )
+              return false;
           } else if (activationStatus !== filterStatusUpper) {
             return false;
           }
@@ -391,6 +404,7 @@ export default function ManageMembers() {
                     Formação Agendada
                   </SelectItem>
                   <SelectItem value="BLOCKED">Bloqueados</SelectItem>
+                  <SelectItem value="inactive">Inativos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -509,6 +523,18 @@ export default function ManageMembers() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  window.open(
+                                    `/profile?user=${encodeURIComponent(member.email || "")}`,
+                                    "_blank",
+                                  )
+                                }
+                              >
+                                <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                Ver perfil
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               {!isActive && !isBlocked && (
                                 <DropdownMenuItem
                                   onClick={() =>
@@ -742,9 +768,14 @@ export default function ManageMembers() {
                   <SelectItem value="LATE_RETURN">
                     Devolução em atraso
                   </SelectItem>
+                  <SelectItem value="LOCKER_OVERTIME">
+                    Excesso de tempo no cacifo
+                  </SelectItem>
+                  <SelectItem value="LOST_CREDENTIAL">
+                    Perda de credencial
+                  </SelectItem>
                   <SelectItem value="DAMAGED_BOOK">Livro danificado</SelectItem>
                   <SelectItem value="LOST_BOOK">Livro perdido</SelectItem>
-                  <SelectItem value="OTHER">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>

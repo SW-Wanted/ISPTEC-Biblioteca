@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 
 // All ISPTEC campus images for the hero carousel
@@ -42,63 +42,99 @@ const HERO_IMAGES = [
   "/index/isptec-campus-33.jpeg",
 ];
 
-const TRANSITION_INTERVAL = 6000; // 6 seconds per image
+const TRANSITION_DURATION = 1500; // 1.5s crossfade
+const DISPLAY_DURATION = 6000; // 6s per image
 
 export function HeroCarousel() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [nextIndex, setNextIndex] = useState(1);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [showLayer, setShowLayer] = useState<"a" | "b">("a");
+  const [layerA, setLayerA] = useState(0);
+  const [layerB, setLayerB] = useState(1);
+  const transitioning = useRef(false);
 
   const advanceSlide = useCallback(() => {
-    setIsTransitioning(true);
+    if (transitioning.current) return;
+    transitioning.current = true;
+
+    const nextIdx = (showLayer === "a" ? layerA : layerB) + 1;
+    const nextImageIndex = nextIdx % HERO_IMAGES.length;
+
+    // Preload next image on the hidden layer, then crossfade
+    if (showLayer === "a") {
+      setLayerB(nextImageIndex);
+      // Small delay to allow image to start loading before transition
+      requestAnimationFrame(() => {
+        setShowLayer("b");
+        setActiveIndex(nextImageIndex);
+      });
+    } else {
+      setLayerA(nextImageIndex);
+      requestAnimationFrame(() => {
+        setShowLayer("a");
+        setActiveIndex(nextImageIndex);
+      });
+    }
 
     setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % HERO_IMAGES.length);
-      setNextIndex((prev) => (prev + 1) % HERO_IMAGES.length);
-      setIsTransitioning(false);
-    }, 1000); // match the CSS transition duration
-  }, []);
+      transitioning.current = false;
+    }, TRANSITION_DURATION + 100);
+  }, [showLayer, layerA, layerB]);
 
   useEffect(() => {
-    const interval = setInterval(advanceSlide, TRANSITION_INTERVAL);
+    const interval = setInterval(advanceSlide, DISPLAY_DURATION);
     return () => clearInterval(interval);
   }, [advanceSlide]);
 
   return (
     <div className="absolute inset-0">
-      {/* Current image */}
+      {/* Layer A */}
       <Image
-        src={HERO_IMAGES[currentIndex]}
+        src={HERO_IMAGES[layerA]}
         alt="ISPTEC Campus"
         fill
-        className="object-cover transition-opacity duration-1000 ease-in-out"
-        style={{ opacity: isTransitioning ? 0 : 1 }}
-        priority={currentIndex === 0}
+        className="object-cover"
+        style={{
+          opacity: showLayer === "a" ? 1 : 0,
+          transition: `opacity ${TRANSITION_DURATION}ms ease-in-out`,
+          zIndex: showLayer === "a" ? 1 : 0,
+        }}
+        priority={layerA === 0}
         quality={85}
         sizes="100vw"
       />
 
-      {/* Next image (preloaded underneath) */}
+      {/* Layer B */}
       <Image
-        src={HERO_IMAGES[nextIndex]}
+        src={HERO_IMAGES[layerB]}
         alt="ISPTEC Campus"
         fill
         className="object-cover"
+        style={{
+          opacity: showLayer === "b" ? 1 : 0,
+          transition: `opacity ${TRANSITION_DURATION}ms ease-in-out`,
+          zIndex: showLayer === "b" ? 1 : 0,
+        }}
         quality={85}
         sizes="100vw"
       />
 
       {/* Dark overlay for text readability */}
-      <div className="absolute inset-0 bg-slate-900/60 mix-blend-multiply" />
-      <div className="absolute inset-0 bg-linear-to-t from-amber-900/70 via-transparent to-transparent" />
+      <div
+        className="absolute inset-0 bg-slate-900/60 mix-blend-multiply"
+        style={{ zIndex: 2 }}
+      />
+      <div
+        className="absolute inset-0 bg-linear-to-t from-amber-900/70 via-transparent to-transparent"
+        style={{ zIndex: 2 }}
+      />
 
       {/* Slide indicators */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
         {HERO_IMAGES.slice(0, 8).map((_, i) => (
           <div
             key={i}
-            className={`h-1 rounded-full transition-all duration-500 ${
-              i === currentIndex % 8 ? "w-6 bg-amber-400" : "w-1.5 bg-white/40"
+            className={`h-1 rounded-full transition-all duration-700 ${
+              i === activeIndex % 8 ? "w-6 bg-amber-400" : "w-1.5 bg-white/40"
             }`}
           />
         ))}
