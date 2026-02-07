@@ -97,6 +97,8 @@ export default function ManageMembers() {
   const [fineAmount, setFineAmount] = useState("");
   const [fineReason, setFineReason] = useState("");
   const [fineType, setFineType] = useState("LATE_RETURN");
+  const [fineBookId, setFineBookId] = useState("");
+  const [fineBookSearch, setFineBookSearch] = useState("");
   const [newRole, setNewRole] = useState("");
 
   useEffect(() => {
@@ -119,6 +121,28 @@ export default function ManageMembers() {
     },
     initialData: [] as MemberRow[],
     refetchInterval: 30000,
+  });
+
+  // Books query for LOST_BOOK/DAMAGED_BOOK fines
+  const { data: books = [] } = useQuery<
+    { id: string; title: string; isbn: string }[]
+  >({
+    queryKey: ["books-for-fines", fineBookSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (fineBookSearch) params.set("search", fineBookSearch);
+      const res = await fetch(`/api/books?${params}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.books ?? data).map(
+        (b: { id: string; title: string; isbn?: string }) => ({
+          id: b.id,
+          title: b.title,
+          isbn: b.isbn ?? "",
+        }),
+      );
+    },
+    enabled: fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK",
   });
 
   // Admin action mutation
@@ -158,6 +182,8 @@ export default function ManageMembers() {
     setFineAmount("");
     setFineReason("");
     setFineType("LATE_RETURN");
+    setFineBookId("");
+    setFineBookSearch("");
     setNewRole("");
   }
 
@@ -472,11 +498,19 @@ export default function ManageMembers() {
                       <TableRow key={member.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600">
-                              {member.name?.charAt(0)?.toUpperCase() ||
-                                member.email?.charAt(0)?.toUpperCase() ||
-                                "U"}
-                            </div>
+                            {(member as any).profile_image_url ? (
+                              <img
+                                src={(member as any).profile_image_url}
+                                alt=""
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600">
+                                {member.name?.charAt(0)?.toUpperCase() ||
+                                  member.email?.charAt(0)?.toUpperCase() ||
+                                  "U"}
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium text-slate-800">
                                 {member.name || "Sem nome"}
@@ -779,6 +813,50 @@ export default function ManageMembers() {
                 </SelectContent>
               </Select>
             </div>
+            {(fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK") && (
+              <div>
+                <Label>Livro associado *</Label>
+                <Input
+                  placeholder="Pesquisar livro pelo título ou ISBN..."
+                  value={fineBookSearch}
+                  onChange={(e) => {
+                    setFineBookSearch(e.target.value);
+                    if (!e.target.value) setFineBookId("");
+                  }}
+                  className="mb-2"
+                />
+                {books.length > 0 && fineBookSearch && (
+                  <div className="max-h-40 overflow-y-auto rounded-md border">
+                    {books.map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
+                          fineBookId === book.id ? "bg-accent font-medium" : ""
+                        }`}
+                        onClick={() => {
+                          setFineBookId(book.id);
+                          setFineBookSearch(book.title);
+                        }}
+                      >
+                        <span>{book.title}</span>
+                        {book.isbn && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ISBN: {book.isbn}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {fineBookId && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    ⚠ O total de exemplares deste livro será decrementado ao
+                    aplicar a multa.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <Label>Valor (Kz) *</Label>
               <Input
@@ -808,18 +886,27 @@ export default function ManageMembers() {
                 !fineAmount ||
                 !fineReason.trim() ||
                 Number(fineAmount) <= 0 ||
-                adminAction.isPending
+                adminAction.isPending ||
+                ((fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK") &&
+                  !fineBookId)
               }
               onClick={() => {
                 if (!selectedMember) return;
+                const payload: Record<string, unknown> = {
+                  action: "apply_fine",
+                  fineAmount: Number(fineAmount),
+                  fineReason,
+                  fineType,
+                };
+                if (
+                  fineBookId &&
+                  (fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK")
+                ) {
+                  payload.bookId = fineBookId;
+                }
                 adminAction.mutate({
                   memberId: selectedMember.id,
-                  payload: {
-                    action: "apply_fine",
-                    fineAmount: Number(fineAmount),
-                    fineReason,
-                    fineType,
-                  },
+                  payload,
                 });
               }}
             >
