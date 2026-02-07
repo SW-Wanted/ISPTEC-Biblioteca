@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
 import { api } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -71,7 +72,8 @@ type MemberRow = {
   is_blocked?: boolean | null;
   total_fines?: number | null;
   created_date?: string | null;
-} & Record<string, unknown>;
+  profile_image_url?: string | null;
+};
 
 const ROLE_LABELS: Record<string, string> = {
   STUDENT: "Estudante",
@@ -284,7 +286,10 @@ export default function ManageMembers() {
   const summary = useMemo(() => {
     const total = members.length;
     const active = members.filter(
-      (m) => m.activation_status?.toUpperCase() === "ACTIVE",
+      (m) =>
+        m.activation_status?.toUpperCase() === "ACTIVE" &&
+        m.status?.toUpperCase() !== "INACTIVE" &&
+        !m.is_blocked,
     ).length;
     const blocked = members.filter((m) => m.is_blocked).length;
     const pending = members.filter((m) => {
@@ -498,11 +503,13 @@ export default function ManageMembers() {
                       <TableRow key={member.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            {(member as any).profile_image_url ? (
-                              <img
-                                src={(member as any).profile_image_url}
-                                alt=""
-                                className="w-10 h-10 rounded-full object-cover"
+                            {member.profile_image_url ? (
+                              <Image
+                                src={member.profile_image_url}
+                                alt={member.name || "Perfil"}
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover"
                               />
                             ) : (
                               <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600">
