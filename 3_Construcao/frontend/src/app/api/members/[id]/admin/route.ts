@@ -65,7 +65,13 @@ const adminUpdateSchema = z.object({
   fineAmount: z.number().positive().optional(),
   fineReason: z.string().min(1).max(500).optional(),
   fineType: z
-    .enum(["LATE_RETURN", "DAMAGED_BOOK", "LOST_BOOK", "OTHER"])
+    .enum([
+      "LATE_RETURN",
+      "LOCKER_OVERTIME",
+      "LOST_CREDENTIAL",
+      "DAMAGED_BOOK",
+      "LOST_BOOK",
+    ])
     .optional(),
 });
 
@@ -165,6 +171,7 @@ export async function PATCH(
           where: { id: memberId },
           data: {
             status: UserStatus.INACTIVE,
+            activationStatus: AccountActivationStatus.PENDING_DOCUMENTS,
           },
         });
 
@@ -287,7 +294,7 @@ export async function PATCH(
             userId: memberId,
             amount: fineAmount,
             reason: fineReason,
-            type: (fineType as FineType) || FineType.OTHER,
+            type: (fineType as FineType) || FineType.LATE_RETURN,
             status: "PENDING",
           },
         });
@@ -332,7 +339,7 @@ export async function PATCH(
 async function logActivity(
   userId: string,
   action: string,
-  details: string,
+  description: string,
   targetId: string,
 ) {
   try {
@@ -340,8 +347,8 @@ async function logActivity(
       data: {
         userId,
         action,
-        details,
-        entityType: "User",
+        description,
+        entity: "User",
         entityId: targetId,
       },
     });

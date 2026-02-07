@@ -118,27 +118,28 @@ export async function PATCH(
     }
 
     // Atualizar documento
-    const updatedDocument = await prisma.userDocument.update({
-      where: { id: documentId },
-      data: {
-        isVerified,
-        verifiedAt: isVerified ? new Date() : null,
-        verifiedBy: isVerified ? staff.id : null,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            activationStatus: true,
+    if (isVerified) {
+      // Aprovar: marcar como verificado
+      const updatedDocument = await prisma.userDocument.update({
+        where: { id: documentId },
+        data: {
+          isVerified: true,
+          verifiedAt: new Date(),
+          verifiedBy: staff.id,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              activationStatus: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // Se documento aprovado, verificar se pode mudar status para PENDING_TRAINING
-    if (isVerified) {
+      // Se documento aprovado, verificar se pode mudar status para PENDING_TRAINING
       // Apenas processar se o usuário ainda está em PENDING_DOCUMENTS
       if (
         !updatedDocument.user.activationStatus ||
@@ -181,94 +182,122 @@ export async function PATCH(
           }
         }
       }
-    }
 
-    // Se for verificação de CARTÃO DE ESTUDANTE, tentar extrair dados do QR Code
-    if (isVerified && document.documentType === "STUDENT_CARD") {
-      try {
-        console.log(
-          "🔍 Tentando extrair dados do QR Code do cartão de estudante...",
-        );
+      // Se for verificação de CARTÃO DE ESTUDANTE, tentar extrair dados do QR Code
+      if (document.documentType === "STUDENT_CARD") {
+        try {
+          console.log(
+            "🔍 Tentando extrair dados do QR Code do cartão de estudante...",
+          );
 
-        const studentData = await extractStudentDataFromCard(
-          document.documentUrl,
-        );
+          const studentData = await extractStudentDataFromCard(
+            document.documentUrl,
+          );
 
-        if (studentData) {
-          console.log("✅ Dados extraídos do QR Code:", studentData);
+          if (studentData) {
+            console.log("✅ Dados extraídos do QR Code:", studentData);
 
-          // Preparar dados para atualização
-          const updateData: {
-            name?: string;
-            phone?: string;
-            course?: string;
-            registrationNumber?: string;
-            status?: UserStatus;
-          } = {};
+            // Preparar dados para atualização
+            const updateData: {
+              name?: string;
+              phone?: string;
+              course?: string;
+              registrationNumber?: string;
+              status?: UserStatus;
+            } = {};
 
-          // Nome completo
-          if (studentData.fullName) {
-            updateData.name = studentData.fullName;
-          }
-
-          // Telefone
-          if (studentData.phone) {
-            updateData.phone = studentData.phone;
-          }
-
-          // Curso (da organização ou título)
-          if (studentData.organization) {
-            updateData.course = studentData.organization;
-          } else if (studentData.title) {
-            updateData.course = studentData.title;
-          }
-
-          // Extrair código de matrícula do email
-          if (document.user.email) {
-            const registrationCode = extractRegistrationCode(
-              document.user.email,
-            );
-            if (registrationCode) {
-              updateData.registrationNumber = registrationCode.toUpperCase();
+            // Nome completo
+            if (studentData.fullName) {
+              updateData.name = studentData.fullName;
             }
-          }
 
-          // Ativar utilizador se estava pendente
-          const currentUser = await prisma.user.findUnique({
-            where: { id: document.user.id },
-            select: { status: true },
-          });
+            // Telefone
+            if (studentData.phone) {
+              updateData.phone = studentData.phone;
+            }
 
-          if (currentUser?.status === UserStatus.PENDING) {
-            updateData.status = UserStatus.ACTIVE;
-          }
+            // Curso (da organização ou título)
+            if (studentData.organization) {
+              updateData.course = studentData.organization;
+            } else if (studentData.title) {
+              updateData.course = studentData.title;
+            }
 
-          // Atualizar utilizador
-          if (Object.keys(updateData).length > 0) {
-            await prisma.user.update({
+            // Extrair código de matrícula do email
+            if (document.user.email) {
+              const registrationCode = extractRegistrationCode(
+                document.user.email,
+              );
+              if (registrationCode) {
+                updateData.registrationNumber = registrationCode.toUpperCase();
+              }
+            }
+
+            // Ativar utilizador se estava pendente
+            const currentUser = await prisma.user.findUnique({
               where: { id: document.user.id },
-              data: updateData,
+              select: { status: true },
             });
 
-            console.log(
-              "✅ Perfil do estudante atualizado automaticamente:",
-              updateData,
-            );
-          }
-        } else {
-          console.log("⚠️ Não foi possível extrair dados do QR Code");
-        }
-      } catch (qrError) {
-        console.error(
-          "❌ Erro ao processar QR Code (operação continua):",
-          qrError,
-        );
-        // Não falhar a operação se o QR Code não puder ser lido
-      }
-    }
+            if (currentUser?.status === UserStatus.PENDING) {
+              updateData.status = UserStatus.ACTIVE;
+            }
 
-    // Enviar notificação ao utilizador
-    try {
+            // Atualizar utilizador
+            if (Object.keys(updateData).length > 0) {
+              await prisma.user.update({
+                where: { id: document.user.id },
+                data: updateData,
+              });
+
+              console.log(
+                "✅ Perfil do estudante atualizado automaticamente:",
+                updateData,
+              );
+            }
+          } else {
+            console.log("⚠️ Não foi possível extrair dados do QR Code");
+          }
+        } catch (qrError) {
+          console.error(
+            "❌ Erro ao processar QR Code (operação continua):",
+            qrError,
+          );
+          // Não falhar a operação se o QR Code não puder ser lido
+        }
+      }
+
+      // Enviar notificação ao utilizador (aprovação)
+      try {
+        const documentTypeLabels: Record<string, string> = {
+          ID_CARD: "Cartão de Identidade",
+          STUDENT_CARD: "Cartão de Estudante",
+          ENROLLMENT: "Ficha de Matrícula",
+          STAFF_CARD: "Cartão de Colaborador",
+        };
+
+        await prisma.notification.create({
+          data: {
+            userId: document.user.id,
+            type: "IN_APP",
+            title: "Documento Verificado",
+            message: `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi verificado com sucesso!`,
+            status: "PENDING",
+          },
+        });
+      } catch (notificationError) {
+        console.error("Erro ao enviar notificação:", notificationError);
+      }
+
+      return NextResponse.json(
+        {
+          message: "Documento verificado com sucesso",
+          document: updatedDocument,
+        },
+        { status: 200 },
+      );
+    } else {
+      // Rejeitar: enviar notificação e REMOVER o documento para o utilizador poder re-enviar
       const documentTypeLabels: Record<string, string> = {
         ID_CARD: "Cartão de Identidade",
         STUDENT_CARD: "Cartão de Estudante",
@@ -276,30 +305,34 @@ export async function PATCH(
         STAFF_CARD: "Cartão de Colaborador",
       };
 
-      await prisma.notification.create({
-        data: {
-          userId: document.user.id,
-          type: "IN_APP",
-          title: isVerified ? "Documento Verificado" : "Documento Rejeitado",
-          message: isVerified
-            ? `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi verificado com sucesso!`
-            : `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi rejeitado. Por favor, envia um novo documento.`,
-          status: "PENDING",
-        },
-      });
-    } catch (notificationError) {
-      console.error("Erro ao enviar notificação:", notificationError);
-    }
+      // Enviar notificação de rejeição antes de apagar
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: document.user.id,
+            type: "IN_APP",
+            title: "Documento Rejeitado",
+            message: `O teu ${documentTypeLabels[document.documentType] || document.documentType} foi rejeitado. Por favor, envia um novo documento.`,
+            status: "PENDING",
+          },
+        });
+      } catch (notificationError) {
+        console.error("Erro ao enviar notificação:", notificationError);
+      }
 
-    return NextResponse.json(
-      {
-        message: isVerified
-          ? "Documento verificado com sucesso"
-          : "Documento rejeitado",
-        document: updatedDocument,
-      },
-      { status: 200 },
-    );
+      // Apagar o documento rejeitado para permitir re-envio
+      await prisma.userDocument.delete({
+        where: { id: documentId },
+      });
+
+      return NextResponse.json(
+        {
+          message:
+            "Documento rejeitado e removido. O utilizador foi notificado para reenviar.",
+        },
+        { status: 200 },
+      );
+    }
   } catch (error) {
     console.error("Erro ao atualizar documento:", error);
     return NextResponse.json(
