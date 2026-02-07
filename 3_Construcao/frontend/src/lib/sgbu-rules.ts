@@ -119,3 +119,84 @@ export function clampInt(value: unknown, min: number, max: number): number {
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, Math.trunc(n)));
 }
+
+// =====================================================
+// 📕📒📓 COPY CLASSIFICATION SYSTEM (Red/Yellow/White)
+// =====================================================
+
+export interface CopyClassificationRule {
+  color: "RED" | "YELLOW" | "WHITE";
+  label: string;
+  fromCopy: number;
+  toCopy: number | null;
+  loanPolicy: string;
+  maxLoanDays: number | null;
+  description: string;
+}
+
+/**
+ * Default copy classification rules based on ISPTEC library practice:
+ * - Red (exemplar 1): Reference copy, cannot be loaned
+ * - Yellow (exemplars 2-3): Short-term loan (2 days)
+ * - White (exemplars 4+): Standard loan (normal policy)
+ */
+export const DEFAULT_COPY_CLASSIFICATION_RULES: CopyClassificationRule[] = [
+  {
+    color: "RED",
+    label: "Vermelho",
+    fromCopy: 1,
+    toCopy: 1,
+    loanPolicy: "NO_LOAN",
+    maxLoanDays: null,
+    description: "Exemplar de referência - Não pode ser emprestado",
+  },
+  {
+    color: "YELLOW",
+    label: "Amarelo",
+    fromCopy: 2,
+    toCopy: 3,
+    loanPolicy: "SHORT_TERM",
+    maxLoanDays: 2,
+    description: "Empréstimo curto - Máximo 2 dias",
+  },
+  {
+    color: "WHITE",
+    label: "Branco",
+    fromCopy: 4,
+    toCopy: null,
+    loanPolicy: "STANDARD",
+    maxLoanDays: null,
+    description: "Empréstimo normal - Prazo conforme tipo de utilizador",
+  },
+];
+
+export const COPY_CLASSIFICATION_COLORS: Record<
+  string,
+  { bg: string; text: string; dot: string }
+> = {
+  RED: { bg: "bg-red-100", text: "text-red-700", dot: "bg-red-500" },
+  YELLOW: {
+    bg: "bg-yellow-100",
+    text: "text-yellow-700",
+    dot: "bg-yellow-500",
+  },
+  WHITE: { bg: "bg-slate-100", text: "text-slate-700", dot: "bg-slate-400" },
+};
+
+/**
+ * Determines the classification rule for a given copy number.
+ */
+export function getCopyClassification(
+  copyNumber: number,
+  rules: CopyClassificationRule[] = DEFAULT_COPY_CLASSIFICATION_RULES,
+): CopyClassificationRule | null {
+  for (const rule of rules) {
+    if (
+      copyNumber >= rule.fromCopy &&
+      (rule.toCopy === null || copyNumber <= rule.toCopy)
+    ) {
+      return rule;
+    }
+  }
+  return rules.find((r) => r.toCopy === null) || null;
+}

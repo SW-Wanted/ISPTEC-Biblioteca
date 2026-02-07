@@ -190,6 +190,7 @@ export const authOptions: NextAuthOptions = {
           name: true,
           activationStatus: true,
           deletionScheduledAt: true,
+          profileImageUrl: true,
         },
       });
 
@@ -211,6 +212,7 @@ export const authOptions: NextAuthOptions = {
       token.name = dbUser.name;
       token.activationStatus = dbUser.activationStatus;
       token.deletionPending = !!dbUser.deletionScheduledAt;
+      token.profileImageUrl = dbUser.profileImageUrl;
       return token;
     },
     async session({ session, token }) {
@@ -221,6 +223,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = typedToken.name;
         session.user.activationStatus = typedToken.activationStatus;
         session.user.deletionPending = typedToken.deletionPending;
+        session.user.profileImageUrl = typedToken.profileImageUrl;
       }
       return session;
     },
