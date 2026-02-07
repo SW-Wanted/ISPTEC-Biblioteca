@@ -94,6 +94,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     pathname === "/forgot-password" ||
     pathname === "/auth-error";
 
+  // Public pages that should render without sidebar for unauthenticated users
+  const isPublicPage = pathname === "/help" || pathname === "/not-found";
+
   // Carregar utilizador autenticado com React Query
   const { data: user, isLoading: isUserLoading } = useQuery({
     queryKey: ["current-user"],
@@ -183,6 +186,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Render without layout for auth pages
   if (isAuthPage) {
     return <>{children}</>;
+  }
+
+  // Render without sidebar for unauthenticated users on public pages
+  // (help, not-found, or any page accessed without login)
+  if (isPublicPage && !isUserLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {/* Simple public header */}
+        <header className="h-16 px-6 flex items-center justify-between border-b border-slate-200 bg-white">
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/isptec-logo-square.png"
+              alt="ISPTEC"
+              width={36}
+              height={36}
+              className="rounded-xl"
+            />
+            <div>
+              <span className="font-bold text-slate-800">ISPTEC</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider ml-2">
+                Biblioteca
+              </span>
+            </div>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/help">
+              <Button variant="ghost" size="sm">
+                <HelpCircle className="w-4 h-4 mr-1" />
+                Ajuda
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button size="sm">Entrar</Button>
+            </Link>
+          </div>
+        </header>
+        <main>{children}</main>
+      </div>
+    );
   }
 
   return (
@@ -370,10 +412,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   type="button"
                   className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
-                    {user.full_name?.charAt(0) ||
-                      user.email?.charAt(0)?.toUpperCase()}
-                  </div>
+                  {user.profile_image_url ? (
+                    <img
+                      src={user.profile_image_url}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
+                      {user.full_name?.charAt(0) ||
+                        user.email?.charAt(0)?.toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-slate-800 truncate">
                       {user.full_name || "Utilizador"}
