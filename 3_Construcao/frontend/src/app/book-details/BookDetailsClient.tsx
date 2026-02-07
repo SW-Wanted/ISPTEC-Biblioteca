@@ -297,7 +297,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     typeof book.total_reviews === "number" ? book.total_reviews : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
+    <div className="min-h-screen bg-slate-50 pb-12 overflow-x-hidden max-w-full">
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2 text-sm">
