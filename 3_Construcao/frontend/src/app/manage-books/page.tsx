@@ -763,10 +763,11 @@ export default function ManageBooks() {
                       setFormData({
                         ...formData,
                         total_copies: newTotal,
-                        available_copies: Math.min(
-                          formData.available_copies,
-                          newTotal,
-                        ),
+                        // Ao adicionar, available_copies = total_copies
+                        // Ao editar, não alterar available_copies automaticamente
+                        available_copies: isEditing
+                          ? formData.available_copies
+                          : newTotal,
                       });
                     }}
                     className={
@@ -776,45 +777,29 @@ export default function ManageBooks() {
                     }
                     placeholder="Mínimo: 1"
                   />
-                </div>
-                <div>
-                  <Label>
-                    Cópias Disponíveis <span className="text-red-600">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max={formData.total_copies}
-                    value={formData.available_copies || ""}
-                    onChange={(e) => {
-                      const value =
-                        e.target.value === ""
-                          ? ""
-                          : parseInt(e.target.value, 10);
-                      const newAvailable =
-                        typeof value === "number" && !isNaN(value) ? value : 0;
-                      setFormData({
-                        ...formData,
-                        available_copies: Math.min(
-                          newAvailable,
-                          formData.total_copies,
-                        ),
-                      });
-                    }}
-                    className={
-                      formData.available_copies < 0 ||
-                      formData.available_copies > formData.total_copies
-                        ? "border-red-300"
-                        : ""
-                    }
-                    placeholder={`Máximo: ${formData.total_copies}`}
-                  />
-                  {formData.available_copies > formData.total_copies && (
-                    <p className="text-xs text-red-600 mt-1">
-                      Não pode exceder {formData.total_copies}
+                  {!isEditing && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Cópias disponíveis serão definidas automaticamente com o
+                      mesmo valor.
                     </p>
                   )}
                 </div>
+                {isEditing && (
+                  <div>
+                    <Label>Cópias Disponíveis</Label>
+                    <Input
+                      type="number"
+                      value={formData.available_copies}
+                      readOnly
+                      disabled
+                      className="bg-slate-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Valor calculado automaticamente (empréstimos, devoluções,
+                      perdas).
+                    </p>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <Label>Localização</Label>
                   <Input
