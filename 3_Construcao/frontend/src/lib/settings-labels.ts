@@ -67,6 +67,7 @@ export const SYSTEM_POLICY_LABELS: Record<string, string> = {
   CONTACT_PHONE: "Telefone de Contacto",
   CONTACT_EMAIL: "Email de Contacto",
   CONTACT_LOCATION: "Localização",
+  account_deletion_grace_days: "Prazo de Eliminação de Conta",
 };
 
 export const SYSTEM_POLICY_DESCRIPTIONS: Record<string, string> = {
@@ -91,6 +92,8 @@ export const SYSTEM_POLICY_DESCRIPTIONS: Record<string, string> = {
   CONTACT_PHONE: "Número de telefone para contacto com a biblioteca",
   CONTACT_EMAIL: "Endereço de email para contacto com a biblioteca",
   CONTACT_LOCATION: "Localização física da biblioteca",
+  account_deletion_grace_days:
+    "Número de dias de carência antes da eliminação definitiva da conta após pedido",
 };
 
 export const SYSTEM_POLICY_UNITS: Record<string, string> = {
@@ -109,6 +112,7 @@ export const SYSTEM_POLICY_UNITS: Record<string, string> = {
   CONTACT_PHONE: "",
   CONTACT_EMAIL: "",
   CONTACT_LOCATION: "",
+  account_deletion_grace_days: "dias",
 };
 
 export function formatSystemPolicyKey(key: string): string {

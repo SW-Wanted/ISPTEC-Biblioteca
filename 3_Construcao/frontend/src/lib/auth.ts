@@ -40,7 +40,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+        if (!parsed.success) {
+          throw new Error("InvalidCredentials");
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
@@ -52,15 +54,31 @@ export const authOptions: NextAuthOptions = {
             type: true,
             status: true,
             isBlocked: true,
+            deletionScheduledAt: true,
           },
         });
 
-        if (!user) return null;
-        if (user.status !== UserStatus.ACTIVE) return null;
-        if (user.isBlocked) return null;
+        if (!user) {
+          throw new Error("InvalidCredentials");
+        }
 
         const ok = await bcrypt.compare(parsed.data.password, user.password);
-        if (!ok) return null;
+        if (!ok) {
+          throw new Error("InvalidCredentials");
+        }
+
+        if (user.isBlocked) {
+          throw new Error("AccountBlocked");
+        }
+
+        // Permitir INACTIVE se tiver eliminação agendada (para cancelar)
+        if (user.status !== UserStatus.ACTIVE) {
+          if (user.status === UserStatus.INACTIVE && user.deletionScheduledAt) {
+            // Permitir login para cancelar eliminação
+          } else {
+            throw new Error("AccountInactive");
+          }
+        }
 
         await prisma.user.update({
           where: { id: user.id },
@@ -94,7 +112,12 @@ export const authOptions: NextAuthOptions = {
 
       const existing = await prisma.user.findUnique({
         where: { email },
-        select: { id: true },
+        select: {
+          id: true,
+          status: true,
+          isBlocked: true,
+          deletionScheduledAt: true,
+        },
       });
 
       if (!existing) {
@@ -132,6 +155,20 @@ export const authOptions: NextAuthOptions = {
             : `✅ Novo usuário criado (ACTIVE): ${email}`,
         );
       } else {
+        // Bloquear se bloqueado
+        if (existing.isBlocked) {
+          console.error("❌ Tentativa de login com conta bloqueada:", email);
+          return false;
+        }
+        // Permitir INACTIVE com eliminação agendada (para cancelar)
+        if (
+          existing.status === UserStatus.INACTIVE &&
+          !existing.deletionScheduledAt
+        ) {
+          console.error("❌ Tentativa de login com conta inativa:", email);
+          return false;
+        }
+
         await prisma.user.update({
           where: { email },
           data: { lastLoginAt: new Date() },
@@ -152,17 +189,20 @@ export const authOptions: NextAuthOptions = {
           isBlocked: true,
           name: true,
           activationStatus: true,
+          deletionScheduledAt: true,
         },
       });
 
-      // ✅ Permitir PENDING para novos usuários completarem o cadastro
-      // ❌ Bloquear apenas INACTIVE e usuários bloqueados
-      if (
-        !dbUser ||
-        dbUser.status === UserStatus.INACTIVE ||
-        dbUser.isBlocked
-      ) {
+      if (!dbUser || dbUser.isBlocked) {
         // Invalidate session
+        return {};
+      }
+
+      // Permitir INACTIVE se tiver eliminação agendada (para cancelar)
+      if (
+        dbUser.status === UserStatus.INACTIVE &&
+        !dbUser.deletionScheduledAt
+      ) {
         return {};
       }
 
@@ -170,6 +210,7 @@ export const authOptions: NextAuthOptions = {
       token.type = dbUser.type;
       token.name = dbUser.name;
       token.activationStatus = dbUser.activationStatus;
+      token.deletionPending = !!dbUser.deletionScheduledAt;
       return token;
     },
     async session({ session, token }) {
@@ -177,14 +218,16 @@ export const authOptions: NextAuthOptions = {
         const typedToken = token as JWT;
         session.user.id = typedToken.id;
         session.user.type = typedToken.type;
-        session.user.name = typedToken.name; // ✅ Adicionar name à sessão
+        session.user.name = typedToken.name;
         session.user.activationStatus = typedToken.activationStatus;
+        session.user.deletionPending = typedToken.deletionPending;
       }
       return session;
     },
   },
   pages: {
     signIn: "/login",
+    error: "/auth-error",
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

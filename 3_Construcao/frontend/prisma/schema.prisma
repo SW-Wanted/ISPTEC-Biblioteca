@@ -185,9 +185,17 @@ model User {
   blockedReason     String?
   blockedAt         DateTime?
   
+  // Imagens de perfil
+  profileImageUrl   String?         // Foto de perfil (Cloudinary)
+  coverImageUrl     String?         // Imagem de fundo (Cloudinary)
+  
   // Preferências
   preferredNotification NotificationType @default(EMAIL)
   language          String          @default("pt")
+  
+  // Eliminação de conta
+  deletionRequestedAt DateTime?     // Data do pedido de eliminação
+  deletionScheduledAt DateTime?     // Data prevista para eliminação real
   
   // Timestamps
   createdAt         DateTime        @default(now())
