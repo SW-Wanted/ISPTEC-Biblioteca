@@ -505,7 +505,7 @@ function AdminSettingsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Settings className="w-7 h-7 text-indigo-600" />
+              <Settings className="w-7 h-7 text-amber-600" />
               Políticas da Biblioteca
             </h1>
             <p className="text-slate-500 mt-1">

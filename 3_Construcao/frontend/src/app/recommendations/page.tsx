@@ -50,7 +50,7 @@ function BookCard({ book }: BookCardProps) {
           )}
         </div>
         <CardContent className="p-3">
-          <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+          <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-amber-600 transition-colors">
             {book.title}
           </h3>
           <p className="text-xs text-slate-500 mt-1 line-clamp-1">
@@ -88,7 +88,7 @@ function BookSection({
   return (
     <section className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-linear-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -222,7 +222,7 @@ export default function Recommendations() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-14 h-14 bg-linear-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
+            <div className="w-14 h-14 bg-linear-to-br from-orange-500 to-pink-600 rounded-2xl flex items-center justify-center">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
             <div>

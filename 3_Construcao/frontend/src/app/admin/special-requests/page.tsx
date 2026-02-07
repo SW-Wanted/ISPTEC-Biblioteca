@@ -129,7 +129,7 @@ export default function SpecialRequestsAdminPage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <FileText className="w-7 h-7 text-indigo-600" />
+            <FileText className="w-7 h-7 text-amber-600" />
             Solicitacoes Especiais
           </h1>
           <p className="text-slate-500 mt-1">

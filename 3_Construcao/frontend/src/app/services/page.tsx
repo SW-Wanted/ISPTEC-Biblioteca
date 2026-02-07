@@ -352,7 +352,7 @@ export default function Services() {
       description: "Reserve uma estação por 2 horas",
       available: availableComputers.length,
       total: computers.length,
-      color: "from-purple-500 to-pink-500",
+      color: "from-orange-500 to-pink-500",
     },
     {
       id: "bibliography",
@@ -373,7 +373,7 @@ export default function Services() {
       icon: GraduationCap,
       title: "Formações",
       description: "Agende formação em bases de dados",
-      color: "from-indigo-500 to-violet-500",
+      color: "from-amber-500 to-violet-500",
     },
   ];
 
@@ -405,7 +405,7 @@ export default function Services() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Computer className="w-7 h-7 text-indigo-600" />
+            <Computer className="w-7 h-7 text-amber-600" />
             Serviços da Biblioteca
           </h1>
           <p className="text-slate-500 mt-1">
@@ -510,7 +510,7 @@ export default function Services() {
                         )}
                         <Button
                           variant="link"
-                          className="p-0 h-auto mt-3 text-indigo-600"
+                          className="p-0 h-auto mt-3 text-amber-600"
                           disabled={!canReserve && (isLocker || isComputer)}
                         >
                           {service.id === "locker" || service.id === "computer"

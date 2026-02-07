@@ -303,7 +303,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
           <div className="flex items-center gap-2 text-sm">
             <Link
               to={createPageUrl("SearchBooks")}
-              className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+              className="text-slate-500 hover:text-amber-600 transition-colors flex items-center gap-1"
             >
               <ChevronLeft className="w-4 h-4" />
               Pesquisa
@@ -362,7 +362,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
               {book.category && (
                 <Badge
                   variant="secondary"
-                  className="bg-indigo-50 text-indigo-700"
+                  className="bg-amber-50 text-amber-700"
                 >
                   {book.category}
                 </Badge>
@@ -451,7 +451,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                         Já levantado
                       </Badge>
                     ) : hasExistingReservation ? (
-                      <Badge className="bg-indigo-100 text-indigo-700 py-2 px-4">
+                      <Badge className="bg-amber-100 text-amber-700 py-2 px-4">
                         Já reservado
                       </Badge>
                     ) : (
@@ -530,7 +530,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                     <div>
                       <p className="text-slate-500">Localização</p>
                       <p className="font-medium text-slate-800 flex items-center gap-1">
-                        <MapPin className="w-4 h-4 text-indigo-600" />
+                        <MapPin className="w-4 h-4 text-amber-600" />
                         {book.location}
                       </p>
                     </div>
@@ -577,7 +577,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-medium">
                               {review.user_name?.charAt(0) || "U"}
                             </div>
                             <span className="font-medium text-slate-800">

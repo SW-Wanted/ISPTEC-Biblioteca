@@ -202,10 +202,10 @@ export default function SearchBooksClient() {
                 placeholder="Pesquisar por título, autor ou ISBN..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 py-6 rounded-xl border-slate-200 focus-visible:ring-indigo-500"
+                className="pl-12 py-6 rounded-xl border-slate-200 focus-visible:ring-amber-500"
               />
             </div>
-            <Button type="submit" className="px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700">
+            <Button type="submit" className="px-8 rounded-xl bg-amber-600 hover:bg-amber-700">
               Pesquisar
             </Button>
             <Sheet>
@@ -267,13 +267,13 @@ export default function SearchBooksClient() {
                 <div className="hidden sm:flex border border-slate-200 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={cn("p-2 transition-colors", viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600')}
+                    className={cn("p-2 transition-colors", viewMode === 'grid' ? 'bg-amber-50 text-amber-600' : 'text-slate-400 hover:text-slate-600')}
                   >
                     <Grid3X3 className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={cn("p-2 transition-colors", viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600')}
+                    className={cn("p-2 transition-colors", viewMode === 'list' ? 'bg-amber-50 text-amber-600' : 'text-slate-400 hover:text-slate-600')}
                   >
                     <List className="w-5 h-5" />
                   </button>
@@ -364,7 +364,7 @@ export default function SearchBooksClient() {
                             )}
                           </div>
                           <CardContent className={cn(viewMode === 'grid' ? 'p-4' : 'p-4 flex-1')}>
-                            <h3 className={cn("font-medium text-slate-800 group-hover:text-indigo-600 transition-colors", viewMode === 'grid' ? 'text-sm line-clamp-2' : 'text-base')}>
+                            <h3 className={cn("font-medium text-slate-800 group-hover:text-amber-600 transition-colors", viewMode === 'grid' ? 'text-sm line-clamp-2' : 'text-base')}>
                               {book.title}
                             </h3>
                             <p className="text-sm text-slate-500 mt-1 line-clamp-1">{book.authors?.join(', ') || 'Autor desconhecido'}</p>

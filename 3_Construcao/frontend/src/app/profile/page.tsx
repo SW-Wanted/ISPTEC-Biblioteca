@@ -277,7 +277,7 @@ export default function Profile() {
   if (authState === "loading") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
       </div>
     );
   }
@@ -307,7 +307,7 @@ export default function Profile() {
   if (!user || memberLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
       </div>
     );
   }
@@ -316,10 +316,10 @@ export default function Profile() {
     <div className="min-h-screen bg-slate-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <Card className="border-0 shadow-sm overflow-hidden">
-          <div className="h-32 bg-linear-to-r from-indigo-500 via-purple-500 to-indigo-600" />
+          <div className="h-32 bg-linear-to-r from-amber-500 via-orange-500 to-amber-600" />
           <CardContent className="relative pt-0 pb-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
-              <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center text-3xl font-bold text-indigo-600">
+              <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center text-3xl font-bold text-amber-600">
                 {user.full_name?.charAt(0) ||
                   user.email?.charAt(0)?.toUpperCase()}
               </div>
@@ -328,7 +328,7 @@ export default function Profile() {
                   {user.full_name || "Utilizador"}
                 </h1>
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-                  <Badge className="bg-indigo-100 text-indigo-700">
+                  <Badge className="bg-amber-100 text-amber-700">
                     {getUserTypeLabel(member?.member_type)}
                   </Badge>
                   {member?.activation_status === "ACTIVE" && (
@@ -457,8 +457,8 @@ export default function Profile() {
                       <>
                         <div className="grid sm:grid-cols-2 gap-6">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                              <Mail className="w-5 h-5 text-indigo-600" />
+                            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                              <Mail className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm text-slate-500">Email</p>
@@ -468,8 +468,8 @@ export default function Profile() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                              <Phone className="w-5 h-5 text-indigo-600" />
+                            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                              <Phone className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm text-slate-500">Telefone</p>
@@ -479,8 +479,8 @@ export default function Profile() {
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                              <Shield className="w-5 h-5 text-indigo-600" />
+                            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                              <Shield className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm text-slate-500">
@@ -493,8 +493,8 @@ export default function Profile() {
                           </div>
                           {member?.course && (
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                                <GraduationCap className="w-5 h-5 text-indigo-600" />
+                              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                                <GraduationCap className="w-5 h-5 text-amber-600" />
                               </div>
                               <div>
                                 <p className="text-sm text-slate-500">Curso</p>
@@ -506,8 +506,8 @@ export default function Profile() {
                           )}
                           {member?.department && (
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                                <Building2 className="w-5 h-5 text-indigo-600" />
+                              <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-amber-600" />
                               </div>
                               <div>
                                 <p className="text-sm text-slate-500">
@@ -520,8 +520,8 @@ export default function Profile() {
                             </div>
                           )}
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                              <Bell className="w-5 h-5 text-indigo-600" />
+                            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center">
+                              <Bell className="w-5 h-5 text-amber-600" />
                             </div>
                             <div>
                               <p className="text-sm text-slate-500">
@@ -542,7 +542,7 @@ export default function Profile() {
                           </h4>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 bg-slate-50 rounded-lg">
-                              <p className="text-2xl font-bold text-indigo-600">
+                              <p className="text-2xl font-bold text-amber-600">
                                 {member?.max_books ||
                                   getLoanLimits(member?.member_type).maxBooks}
                               </p>
@@ -551,7 +551,7 @@ export default function Profile() {
                               </p>
                             </div>
                             <div className="p-3 bg-slate-50 rounded-lg">
-                              <p className="text-2xl font-bold text-indigo-600">
+                              <p className="text-2xl font-bold text-amber-600">
                                 {member?.loan_days ||
                                   getLoanLimits(member?.member_type).loanDays}
                               </p>
@@ -678,12 +678,12 @@ export default function Profile() {
                 <Card className="border-0 shadow-sm">
                   <CardContent className="p-6">
                     <div className="grid sm:grid-cols-3 gap-4">
-                      <div className="p-4 bg-indigo-50 rounded-lg text-center">
-                        <BookOpen className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
-                        <p className="text-3xl font-bold text-indigo-700">
+                      <div className="p-4 bg-amber-50 rounded-lg text-center">
+                        <BookOpen className="w-8 h-8 text-amber-600 mx-auto mb-2" />
+                        <p className="text-3xl font-bold text-amber-700">
                           {loans.length}
                         </p>
-                        <p className="text-sm text-indigo-600">
+                        <p className="text-sm text-amber-600">
                           Total de empréstimos
                         </p>
                       </div>
@@ -694,12 +694,12 @@ export default function Profile() {
                         </p>
                         <p className="text-sm text-emerald-600">Devolvidos</p>
                       </div>
-                      <div className="p-4 bg-purple-50 rounded-lg text-center">
-                        <Clock className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                        <p className="text-3xl font-bold text-purple-700">
+                      <div className="p-4 bg-orange-50 rounded-lg text-center">
+                        <Clock className="w-8 h-8 text-orange-600 mx-auto mb-2" />
+                        <p className="text-3xl font-bold text-orange-700">
                           {loans.filter((l) => l.status === "active").length}
                         </p>
-                        <p className="text-sm text-purple-600">Em andamento</p>
+                        <p className="text-sm text-orange-600">Em andamento</p>
                       </div>
                     </div>
                   </CardContent>

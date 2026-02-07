@@ -81,7 +81,7 @@ function StatCard({
         </div>
         {linkUrl && (
           <a href={linkUrl} className="block mt-3">
-            <Button variant="link" className="p-0 h-auto text-indigo-600">
+            <Button variant="link" className="p-0 h-auto text-amber-600">
               Ver detalhes <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </a>
@@ -189,7 +189,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <BarChart3 className="w-7 h-7 text-indigo-600" />
+              <BarChart3 className="w-7 h-7 text-amber-600" />
               Dashboard
             </h1>
             <p className="text-slate-500 mt-1">
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
             title="Empréstimos Ativos"
             value={activeLoans.length}
             icon={BookMarked}
-            color="bg-gradient-to-br from-indigo-500 to-indigo-600"
+            color="bg-gradient-to-br from-amber-500 to-amber-600"
             link="ManageLoans"
             tab="loans"
           />
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
               currency: "AOA",
             })}
             icon={Activity}
-            color="bg-gradient-to-br from-purple-500 to-pink-500"
+            color="bg-gradient-to-br from-orange-500 to-pink-500"
           />
         </div>
 
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-500">Total de Livros</span>
-                <BookOpen className="w-5 h-5 text-indigo-600" />
+                <BookOpen className="w-5 h-5 text-amber-600" />
               </div>
               <p className="text-2xl font-bold text-slate-800">
                 {books.length}
@@ -282,7 +282,7 @@ export default function AdminDashboard() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-500">Taxa de Ocupação</span>
-                <Activity className="w-5 h-5 text-purple-600" />
+                <Activity className="w-5 h-5 text-orange-600" />
               </div>
               <p className="text-2xl font-bold text-slate-800">
                 {totalCopies > 0

@@ -155,7 +155,7 @@ export default function Help() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <div className="w-16 h-16 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-linear-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <HelpCircle className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-slate-800">
@@ -182,7 +182,7 @@ export default function Help() {
               <Accordion type="single" collapsible className="w-full">
                 {dynamicFaqs.map((faq, index) => (
                   <AccordionItem key={faq.id} value={`item-${index}`}>
-                    <AccordionTrigger className="text-left text-slate-800 hover:text-indigo-600">
+                    <AccordionTrigger className="text-left text-slate-800 hover:text-amber-600">
                       {faq.question}
                     </AccordionTrigger>
                     <AccordionContent className="text-slate-600">
@@ -204,7 +204,7 @@ export default function Help() {
             <Card className="border-0 shadow-sm h-full">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-indigo-600" />
+                  <Clock className="w-5 h-5 text-amber-600" />
                   Horário de Funcionamento
                 </CardTitle>
               </CardHeader>
@@ -256,7 +256,7 @@ export default function Help() {
             <Card className="border-0 shadow-sm h-full">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                  <Users className="w-5 h-5 text-indigo-600" />
+                  <Users className="w-5 h-5 text-amber-600" />
                   Limites por Tipo
                 </CardTitle>
               </CardHeader>
@@ -278,11 +278,11 @@ export default function Help() {
                         {studentPolicy?.maxRenewals} renovações
                       </p>
                     </div>
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <p className="font-medium text-purple-800 mb-1">
+                    <div className="p-3 bg-orange-50 rounded-lg">
+                      <p className="font-medium text-orange-800 mb-1">
                         Docentes
                       </p>
-                      <p className="text-sm text-purple-700">
+                      <p className="text-sm text-orange-700">
                         {teacherPolicy?.maxBooks} livros •{" "}
                         {teacherPolicy?.loanDays} dias •{" "}
                         {teacherPolicy?.maxRenewals} renovações
@@ -300,10 +300,10 @@ export default function Help() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="border-0 shadow-sm bg-linear-to-r from-indigo-500 to-purple-600 text-white">
+          <Card className="border-0 shadow-sm bg-linear-to-r from-amber-500 to-orange-600 text-white">
             <CardContent className="p-6">
               <h3 className="text-xl font-bold mb-4">Precisa de mais ajuda?</h3>
-              <p className="text-indigo-100 mb-6">
+              <p className="text-amber-100 mb-6">
                 Entre em contacto connosco ou use o assistente virtual para
                 respostas imediatas.
               </p>
@@ -314,14 +314,14 @@ export default function Help() {
                       <contact.icon className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs text-indigo-200">{contact.label}</p>
+                      <p className="text-xs text-amber-200">{contact.label}</p>
                       <p className="font-medium text-sm">{contact.value}</p>
                     </div>
                   </div>
                 ))}
               </div>
               <Link to={createPageUrl("Chatbot")}>
-                <Button className="bg-white text-indigo-600 hover:bg-indigo-50">
+                <Button className="bg-white text-amber-600 hover:bg-amber-50">
                   <MessageCircle className="w-4 h-4 mr-2" />
                   Falar com o Assistente Virtual
                 </Button>

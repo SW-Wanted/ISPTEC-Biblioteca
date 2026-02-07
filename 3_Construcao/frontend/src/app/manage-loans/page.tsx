@@ -606,7 +606,7 @@ export default function ManageLoans() {
         >
           <CardContent className="p-5">
             <div className="flex gap-4">
-              <div className="w-20 h-28 bg-linear-to-br from-indigo-100 to-indigo-200 rounded-lg shrink-0 overflow-hidden flex items-center justify-center">
+              <div className="w-20 h-28 bg-linear-to-br from-amber-100 to-amber-200 rounded-lg shrink-0 overflow-hidden flex items-center justify-center">
                 {reservation.cover_url ? (
                   <Image
                     src={reservation.cover_url}
@@ -616,7 +616,7 @@ export default function ManageLoans() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <BookOpen className="w-10 h-10 text-indigo-400" />
+                  <BookOpen className="w-10 h-10 text-amber-400" />
                 )}
               </div>
 
@@ -628,7 +628,7 @@ export default function ManageLoans() {
                         `BookDetails?id=${reservation.book_id}`,
                       )}
                     >
-                      <h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">
+                      <h3 className="font-semibold text-slate-800 hover:text-amber-600 transition-colors line-clamp-2">
                         {reservation.book_title || "Título não disponível"}
                       </h3>
                     </Link>
@@ -832,7 +832,7 @@ export default function ManageLoans() {
                         `BookDetails?id=${reservation.book_id}`,
                       )}
                     >
-                      <h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">
+                      <h3 className="font-semibold text-slate-800 hover:text-amber-600 transition-colors line-clamp-2">
                         {reservation.book_title || "Título não disponível"}
                       </h3>
                     </Link>
@@ -891,7 +891,7 @@ export default function ManageLoans() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <BookMarked className="w-7 h-7 text-indigo-600" />
+              <BookMarked className="w-7 h-7 text-amber-600" />
               Gestão de Empréstimos
             </h1>
             <p className="text-slate-500 mt-1">
@@ -951,8 +951,8 @@ export default function ManageLoans() {
                         {activeLoans.length}
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-indigo-600" />
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-amber-600" />
                     </div>
                   </div>
                 </CardContent>
@@ -1125,8 +1125,8 @@ export default function ManageLoans() {
                         {pendingReservations.length}
                       </p>
                     </div>
-                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <Clock className="w-6 h-6 text-indigo-600" />
+                    <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Clock className="w-6 h-6 text-amber-600" />
                     </div>
                   </div>
                 </CardContent>

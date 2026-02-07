@@ -332,7 +332,7 @@ export default function ManageMembers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Users className="w-7 h-7 text-indigo-600" />
+              <Users className="w-7 h-7 text-amber-600" />
               Gestão de Membros
             </h1>
             <p className="text-slate-500 mt-1">
@@ -458,7 +458,7 @@ export default function ManageMembers() {
                       <TableRow key={member.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center font-medium text-indigo-600">
+                            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600">
                               {member.name?.charAt(0)?.toUpperCase() ||
                                 member.email?.charAt(0)?.toUpperCase() ||
                                 "U"}
@@ -573,7 +573,7 @@ export default function ManageMembers() {
                                   setRoleDialog(true);
                                 }}
                               >
-                                <UserCog className="h-4 w-4 mr-2 text-indigo-600" />
+                                <UserCog className="h-4 w-4 mr-2 text-amber-600" />
                                 Alterar cargo
                               </DropdownMenuItem>
 
@@ -660,7 +660,7 @@ export default function ManageMembers() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserCog className="h-5 w-5 text-indigo-600" />
+              <UserCog className="h-5 w-5 text-amber-600" />
               Alterar cargo de {selectedMember?.name}
             </DialogTitle>
             <DialogDescription>

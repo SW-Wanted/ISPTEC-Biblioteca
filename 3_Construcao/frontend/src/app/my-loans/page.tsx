@@ -188,7 +188,7 @@ export default function MyLoans() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <Link to={createPageUrl(`BookDetails?id=${loan.book_id}`)}>
-                      <h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">
+                      <h3 className="font-semibold text-slate-800 hover:text-amber-600 transition-colors line-clamp-2">
                         {loan.book_title || "Título não disponível"}
                       </h3>
                     </Link>
@@ -244,7 +244,7 @@ export default function MyLoans() {
                         setSelectedLoan(loan);
                         setShowRenewDialog(true);
                       }}
-                      className="bg-indigo-600 hover:bg-indigo-700"
+                      className="bg-amber-600 hover:bg-amber-700"
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Renovar
@@ -272,7 +272,7 @@ export default function MyLoans() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <BookMarked className="w-7 h-7 text-indigo-600" />
+            <BookMarked className="w-7 h-7 text-amber-600" />
             Meus Empréstimos
           </h1>
           <p className="text-slate-500 mt-1">
@@ -283,7 +283,7 @@ export default function MyLoans() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-indigo-600">
+              <p className="text-3xl font-bold text-amber-600">
                 {activeLoans.length}
               </p>
               <p className="text-xs text-slate-500 mt-1">Empréstimos Ativos</p>

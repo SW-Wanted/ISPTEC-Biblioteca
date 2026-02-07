@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
@@ -197,7 +198,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
 
         <div className="flex items-center gap-2">
-          <BookOpen className="w-7 h-7 text-indigo-600" />
+          <Image
+            src="/isptec-logo-square.png"
+            alt="ISPTEC"
+            width={32}
+            height={32}
+            className="rounded"
+          />
           <span className="font-bold text-lg text-slate-800">ISPTEC</span>
         </div>
 
@@ -237,9 +244,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
+            <Image
+              src="/isptec-logo-square.png"
+              alt="ISPTEC"
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
             <div>
               <h1 className="font-bold text-slate-800">ISPTEC</h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider">
@@ -274,14 +285,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                   active
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-amber-50 text-amber-700"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
               >
                 <Icon
                   className={cn(
                     "w-5 h-5",
-                    active ? "text-indigo-600" : "text-slate-400",
+                    active ? "text-amber-600" : "text-slate-400",
                   )}
                 />
                 {item.name}
@@ -322,14 +333,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                       active
-                        ? "bg-indigo-50 text-indigo-700"
+                        ? "bg-amber-50 text-amber-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-5 h-5",
-                        active ? "text-indigo-600" : "text-slate-400",
+                        active ? "text-amber-600" : "text-slate-400",
                       )}
                     />
                     {item.name}
@@ -358,7 +369,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   type="button"
                   className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
                     {user.full_name?.charAt(0) ||
                       user.email?.charAt(0)?.toUpperCase()}
                   </div>
