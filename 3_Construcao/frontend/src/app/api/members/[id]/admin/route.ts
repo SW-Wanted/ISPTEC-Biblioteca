@@ -73,6 +73,7 @@ const adminUpdateSchema = z.object({
       "LOST_BOOK",
     ])
     .optional(),
+  bookId: z.string().optional(), // Book affected by lost/damaged fine
 });
 
 // ---------------------------------------------------------------------------
@@ -108,7 +109,7 @@ export async function PATCH(
     );
   }
 
-  const { action, newRole, reason, fineAmount, fineReason, fineType } =
+  const { action, newRole, reason, fineAmount, fineReason, fineType, bookId } =
     validation.data;
 
   // Find target member
@@ -296,6 +297,7 @@ export async function PATCH(
             reason: fineReason,
             type: (fineType as FineType) || FineType.LATE_RETURN,
             status: "PENDING",
+            bookId: bookId || null,
           },
         });
 
@@ -307,10 +309,30 @@ export async function PATCH(
           },
         });
 
+        // If lost/damaged book with bookId, decrement totalCopies
+        if (
+          bookId &&
+          (fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK")
+        ) {
+          await prisma.book.update({
+            where: { id: bookId },
+            data: {
+              totalCopies: { decrement: 1 },
+            },
+          });
+
+          await logActivity(
+            admin.id,
+            "BOOK_INVENTORY_DECREASED",
+            `Livro perdido/danificado: totalCopies decrementado para livro ${bookId}`,
+            bookId,
+          );
+        }
+
         await logActivity(
           admin.id,
           "FINE_APPLIED",
-          `Admin ${admin.name} aplicou multa de ${fineAmount} Kz a ${member.name}: ${fineReason}`,
+          `Admin ${admin.name} aplicou multa de ${fineAmount} Kz a ${member.name}: ${fineReason}${bookId ? ` (Livro: ${bookId})` : ""}`,
           memberId,
         );
 
