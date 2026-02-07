@@ -522,77 +522,80 @@ export default function Profile() {
 
           <CardContent className="relative pt-0 pb-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 -mt-12">
-              {/* ---- Profile photo (LinkedIn-style) ---- */}
-              <div className="relative group/avatar">
-                <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
-                  {member?.profile_image_url ? (
-                    <Image
-                      src={member.profile_image_url}
-                      alt="Foto de perfil"
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-cover"
-                      unoptimized
-                      loader={({ src }) => src}
-                    />
-                  ) : (
-                    <span className="text-3xl font-bold text-amber-600">
-                      {(isViewingOtherProfile
-                        ? member?.name
-                        : user.full_name
-                      )?.charAt(0) ||
-                        (isViewingOtherProfile ? member?.email : user.email)
-                          ?.charAt(0)
-                          ?.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                {/* Avatar edit overlay */}
-                {!isViewingOtherProfile && (
-                  <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/avatar:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover/avatar:opacity-100">
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => profileInputRef.current?.click()}
-                        disabled={uploadingImage === "profile"}
-                        className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
-                        title="Alterar foto de perfil"
-                      >
-                        {uploadingImage === "profile" ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
-                        ) : (
-                          <Camera className="w-4 h-4 text-slate-700" />
-                        )}
-                      </button>
-                      {member?.profile_image_url && (
+              {/* ---- Profile photo ---- */}
+              <div className="flex flex-col items-center sm:items-start">
+                <div className="relative group/avatar">
+                  <div className="w-24 h-24 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden">
+                    {member?.profile_image_url ? (
+                      <Image
+                        src={member.profile_image_url}
+                        alt="Foto de perfil"
+                        width={96}
+                        height={96}
+                        className="w-full h-full object-cover"
+                        unoptimized
+                        loader={({ src }) => src}
+                      />
+                    ) : (
+                      <span className="text-3xl font-bold text-amber-600">
+                        {(isViewingOtherProfile
+                          ? member?.name
+                          : user.full_name
+                        )?.charAt(0) ||
+                          (isViewingOtherProfile ? member?.email : user.email)
+                            ?.charAt(0)
+                            ?.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  {/* Avatar edit overlay */}
+                  {!isViewingOtherProfile && (
+                    <div className="absolute inset-0 rounded-2xl bg-black/0 group-hover/avatar:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover/avatar:opacity-100">
+                      <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => handleRemoveImage("profileImageUrl")}
+                          onClick={() => profileInputRef.current?.click()}
                           disabled={uploadingImage === "profile"}
                           className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
-                          title="Remover foto de perfil"
+                          title="Alterar foto de perfil"
                         >
-                          <X className="w-4 h-4 text-red-500" />
+                          {uploadingImage === "profile" ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+                          ) : (
+                            <Camera className="w-4 h-4 text-slate-700" />
+                          )}
                         </button>
-                      )}
+                        {member?.profile_image_url && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage("profileImageUrl")}
+                            disabled={uploadingImage === "profile"}
+                            className="rounded-full bg-white/90 p-1.5 shadow hover:bg-white transition-colors"
+                            title="Remover foto de perfil"
+                          >
+                            <X className="w-4 h-4 text-red-500" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                <input
-                  ref={profileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => onFileSelected(e, "profileImageUrl")}
-                />
-              </div>
-              <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl font-bold text-slate-800">
+                  )}
+                  <input
+                    ref={profileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => onFileSelected(e, "profileImageUrl")}
+                  />
+                </div>
+                {/* Name below photo  */}
+                <h1 className="text-2xl font-bold text-slate-800 mt-3 text-center sm:text-left">
                   {isViewingOtherProfile
                     ? member?.name || "Utilizador"
                     : user.full_name || "Utilizador"}
                 </h1>
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2 sm:mt-0">
                   <Badge className="bg-amber-100 text-amber-700">
                     {getUserTypeLabel(member?.member_type)}
                   </Badge>
