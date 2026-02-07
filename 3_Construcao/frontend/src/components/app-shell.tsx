@@ -112,11 +112,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  // Verificar se é admin baseado no UserType
+  // Verificar se é admin baseado no UserType E se está ACTIVE
   const isAdmin =
-    user?.type === "SUPERVISOR" ||
-    user?.type === "LIBRARIAN" ||
-    user?.type === "STAFF";
+    (user?.type === "SUPERVISOR" ||
+      user?.type === "LIBRARIAN" ||
+      user?.type === "STAFF") &&
+    user?.activationStatus === "ACTIVE";
 
   const router = useRouter();
 
@@ -127,16 +128,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isProfilePage = pathname.startsWith("/profile"); // Permitir acesso ao perfil para upload de documentos
     const isServicesPage = pathname.startsWith("/services"); // Permitir acesso a formações para PENDING_TRAINING
     const isNotificationsPage = pathname.startsWith("/notifications"); // Permitir acesso a notificações
+    const isHelpPage = pathname.startsWith("/help"); // Permitir acesso à página de ajuda
     const isApiPage = pathname.startsWith("/api"); // Permitir chamadas API
+
+    // Supervisores, bibliotecários e staff não precisam de activação
+    const isAdminType =
+      user?.type === "SUPERVISOR" ||
+      user?.type === "LIBRARIAN" ||
+      user?.type === "STAFF";
 
     if (
       user &&
       user.activationStatus !== "ACTIVE" &&
+      !isAdminType &&
       !isAuthPage &&
       !isOnboardingPage &&
       !isProfilePage &&
       !isServicesPage &&
       !isNotificationsPage &&
+      !isHelpPage &&
       !isApiPage
     ) {
       console.log(
@@ -416,10 +426,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <img
                       src={user.profile_image_url}
                       alt=""
-                      className="w-10 h-10 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold">
+                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold shrink-0 aspect-square">
                       {user.full_name?.charAt(0) ||
                         user.email?.charAt(0)?.toUpperCase()}
                     </div>
