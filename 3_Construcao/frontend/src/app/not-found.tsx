@@ -93,7 +93,7 @@ export default function NotFound() {
               height={20}
               className="opacity-50"
             />
-            <span>Biblioteca Digital ISPTEC</span>
+            <span>ISPTEC | Biblioteca</span>
           </div>
         </div>
       </div>
