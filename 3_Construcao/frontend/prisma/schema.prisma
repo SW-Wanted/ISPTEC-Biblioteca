@@ -360,6 +360,7 @@ model Book {
   reservations    Reservation[]
   recommendations BookRecommendation[]
   reviews         BookReview[]
+  fines           Fine[]
   
   @@index([isbn])
   @@index([categoryId])
@@ -531,6 +532,7 @@ model Fine {
   id              String     @id @default(cuid())
   userId          String
   loanId          String?
+  bookId          String?    // Book affected by lost/damaged fine
   type            FineType
   amount          Decimal    @db.Decimal(10, 2)
   status          FineStatus @default(PENDING)
@@ -551,10 +553,12 @@ model Fine {
   
   user            User       @relation(fields: [userId], references: [id])
   loan            Loan?      @relation(fields: [loanId], references: [id])
+  book            Book?      @relation(fields: [bookId], references: [id])
   
   @@index([userId])
   @@index([status])
   @@index([type])
+  @@index([bookId])
 }
 
 // ============================================
