@@ -834,17 +834,11 @@ export default function Cataloging() {
                           value={formData.total_copies}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            const newTotal = parseInt(newValue) || 0;
                             setFormData({
                               ...formData,
                               total_copies: newValue,
-                              available_copies:
-                                newTotal > 0
-                                  ? Math.min(
-                                      parseInt(formData.available_copies) || 0,
-                                      newTotal,
-                                    ).toString()
-                                  : formData.available_copies,
+                              // Catalogação = criação nova, available = total
+                              available_copies: newValue,
                             });
                           }}
                           className={
@@ -855,48 +849,10 @@ export default function Cataloging() {
                           }
                           placeholder="1"
                         />
-                      </div>
-                      <div>
-                        <Label>
-                          Cópias Disponíveis{" "}
-                          <span className="text-red-600">*</span>
-                        </Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={formData.total_copies || undefined}
-                          value={formData.available_copies}
-                          onChange={(e) => {
-                            const newValue = e.target.value;
-                            const newAvail = parseInt(newValue) || 0;
-                            const maxTotal =
-                              parseInt(formData.total_copies) || 999;
-                            setFormData({
-                              ...formData,
-                              available_copies:
-                                newAvail <= maxTotal
-                                  ? newValue
-                                  : maxTotal.toString(),
-                            });
-                          }}
-                          className={
-                            !formData.available_copies ||
-                            parseInt(formData.available_copies) < 0 ||
-                            (formData.total_copies &&
-                              parseInt(formData.available_copies) >
-                                parseInt(formData.total_copies))
-                              ? "border-red-300"
-                              : ""
-                          }
-                          placeholder="1"
-                        />
-                        {formData.total_copies &&
-                          parseInt(formData.available_copies) >
-                            parseInt(formData.total_copies) && (
-                            <p className="text-xs text-red-600 mt-1">
-                              Não pode exceder {formData.total_copies}
-                            </p>
-                          )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          Cópias disponíveis serão definidas automaticamente com
+                          o mesmo valor.
+                        </p>
                       </div>
                       <div className="md:col-span-2">
                         <Label>Localização</Label>
