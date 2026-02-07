@@ -182,12 +182,12 @@ function CopyClassificationTab() {
       <CardContent className="space-y-6">
         {/* Visual explanation */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {rules.map((rule) => {
+          {rules.map((rule, ruleIdx) => {
             const colors =
               COPY_CLASSIFICATION_COLORS[rule.color] ??
               COPY_CLASSIFICATION_COLORS.WHITE;
             return (
-              <div key={rule.color} className={`p-4 rounded-lg ${colors.bg}`}>
+              <div key={ruleIdx} className={`p-4 rounded-lg ${colors.bg}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <div className={`w-3 h-3 rounded-full ${colors.dot}`} />
                   <span className={`font-semibold text-sm ${colors.text}`}>
@@ -441,13 +441,13 @@ function CopyClassificationTab() {
                 })}
               </div>
               <div className="flex flex-wrap gap-4 mt-3">
-                {rules.map((rule) => {
+                {rules.map((rule, legendIdx) => {
                   const colors =
                     COPY_CLASSIFICATION_COLORS[rule.color] ??
                     COPY_CLASSIFICATION_COLORS.WHITE;
                   return (
                     <div
-                      key={rule.color}
+                      key={legendIdx}
                       className="flex items-center gap-1.5 text-xs text-slate-600"
                     >
                       <div
@@ -473,20 +473,45 @@ function CopyClassificationTab() {
 
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("fines");
+  const [activeTab, setActiveTab] = useState<string>("categories");
+
+  // Fetch current user to check role
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isSupervisor = currentUser?.type === "SUPERVISOR";
+
+  // Tabs acessíveis conforme role
+  const allTabs = ["fines", "policies", "copies", "system", "categories", "faqs", "audit"];
+  const nonSupervisorTabs = ["categories", "faqs", "copies"];
+  const allowedTabs = isSupervisor ? allTabs : nonSupervisorTabs;
 
   // Sincronizar tab com URL hash
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (
       hash &&
-      ["fines", "policies", "system", "categories", "faqs", "audit"].includes(
+      ["fines", "policies", "copies", "system", "categories", "faqs", "audit"].includes(
         hash,
       )
     ) {
-      setActiveTab(hash);
+      // Se não é supervisor e a tab não é permitida, redirecionar
+      if (allowedTabs.includes(hash)) {
+        setActiveTab(hash);
+      } else {
+        setActiveTab(allowedTabs[0]);
+      }
+    } else {
+      setActiveTab(allowedTabs[0]);
     }
-  }, []);
+  }, [currentUser]);
 
   // Atualizar URL quando tab mudar
   const handleTabChange = (value: string) => {
@@ -933,27 +958,35 @@ function AdminSettingsPage() {
           className="space-y-4"
         >
           <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-7">
-            <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
-              Multas
-            </TabsTrigger>
-            <TabsTrigger value="policies" className="flex-1 min-w-[120px]">
-              Empréstimos
-            </TabsTrigger>
+            {isSupervisor && (
+              <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
+                Multas
+              </TabsTrigger>
+            )}
+            {isSupervisor && (
+              <TabsTrigger value="policies" className="flex-1 min-w-[120px]">
+                Empréstimos
+              </TabsTrigger>
+            )}
             <TabsTrigger value="copies" className="flex-1 min-w-[120px]">
               Exemplares
             </TabsTrigger>
-            <TabsTrigger value="system" className="flex-1 min-w-[120px]">
-              Sistema
-            </TabsTrigger>
+            {isSupervisor && (
+              <TabsTrigger value="system" className="flex-1 min-w-[120px]">
+                Sistema
+              </TabsTrigger>
+            )}
             <TabsTrigger value="categories" className="flex-1 min-w-[120px]">
               Categorias
             </TabsTrigger>
             <TabsTrigger value="faqs" className="flex-1 min-w-[120px]">
               FAQs
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
-              Auditoria
-            </TabsTrigger>
+            {isSupervisor && (
+              <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
+                Auditoria
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Multas Tab */}
