@@ -63,17 +63,9 @@ export async function POST(
         },
       });
 
-      // 3. If LOST_BOOK fine with bookId, restore inventory
-      // Payment means the user paid for the book replacement → restore totalCopies + availableCopies
-      if (fine.bookId && fine.type === "LOST_BOOK") {
-        await tx.book.update({
-          where: { id: fine.bookId },
-          data: {
-            totalCopies: { increment: 1 },
-            availableCopies: { increment: 1 },
-          },
-        });
-      }
+      // 3. LOST_BOOK fine: payment is monetary compensation only.
+      // The physical book is still lost — do NOT restore totalCopies or availableCopies.
+      // Inventory should only be updated when a replacement copy is actually catalogued.
 
       // 4. Create notification
       await tx.notification.create({
@@ -82,7 +74,7 @@ export async function POST(
           type: "IN_APP",
           status: "PENDING",
           title: "Pagamento confirmado",
-          message: `Seu pagamento de ${Number(fine.amount).toLocaleString("pt-AO", { style: "currency", currency: "AOA" })} foi confirmado.${fine.bookId && fine.type === "LOST_BOOK" ? " O inventário do livro foi restaurado." : ""}`,
+          message: `Seu pagamento de ${Number(fine.amount).toLocaleString("pt-AO", { style: "currency", currency: "AOA" })} foi confirmado.`,
         },
       });
 
