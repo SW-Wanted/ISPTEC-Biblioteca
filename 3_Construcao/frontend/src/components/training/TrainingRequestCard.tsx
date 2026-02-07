@@ -33,7 +33,7 @@ export function TrainingRequestCard({ user }: TrainingRequestCardProps) {
   );
   const queryClient = useQueryClient();
 
-  // Fetch available sessions
+  // Fetch available sessions - for PENDING_TRAINING and ACTIVE users
   const { data: sessionsData, isLoading } = useQuery({
     queryKey: ["available-training-sessions"],
     queryFn: async () => {
@@ -43,7 +43,9 @@ export function TrainingRequestCard({ user }: TrainingRequestCardProps) {
       if (!res.ok) throw new Error("Erro ao carregar sessões");
       return res.json();
     },
-    enabled: user.activationStatus === "PENDING_TRAINING",
+    enabled:
+      user.activationStatus === "PENDING_TRAINING" ||
+      user.activationStatus === "ACTIVE",
   });
 
   // Register mutation
@@ -73,19 +75,62 @@ export function TrainingRequestCard({ user }: TrainingRequestCardProps) {
   });
 
   if (user.activationStatus === "ACTIVE") {
+    const upcomingSessions: TrainingSession[] = sessionsData?.sessions || [];
     return (
       <Card className="border-green-200 bg-green-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-green-700">
             <GraduationCap className="h-5 w-5" />
-            Conta Ativa
+            Formações da Biblioteca
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <p className="text-sm text-green-600">
-            Sua conta está ativa! Você completou a formação e pode usar todos os
-            serviços da biblioteca.
+            Sua conta está ativa! Confira as próximas formações disponíveis.
           </p>
+          {isLoading ? (
+            <p className="text-xs text-green-500">Carregando...</p>
+          ) : upcomingSessions.length === 0 ? (
+            <p className="text-xs text-green-500">
+              Nenhuma formação agendada de momento.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {upcomingSessions.slice(0, 3).map((session) => (
+                <div
+                  key={session.id}
+                  className="bg-white/70 border border-green-100 rounded-lg p-3"
+                >
+                  <h4 className="text-sm font-medium text-slate-800">
+                    {session.title}
+                  </h4>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(session.scheduledDate).toLocaleDateString(
+                        "pt-AO",
+                      )}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {new Date(session.scheduledDate).toLocaleTimeString(
+                        "pt-AO",
+                        { hour: "2-digit", minute: "2-digit" },
+                      )}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {session.location}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {session.participants.length}/{session.maxParticipants}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     );
