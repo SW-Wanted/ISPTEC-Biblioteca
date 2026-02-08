@@ -151,7 +151,11 @@ export default function Services() {
 
   const { data: lockerReservations = [] } = useQuery<LockerReservationRow[]>({
     queryKey: ["locker-reservations", user?.email],
-    queryFn: () => api.entities.Locker.filter({ status: "pending" }),
+    queryFn: () =>
+      api.entities.LockerReservation.filter({
+        status: "pending",
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as LockerReservationRow[],
     refetchInterval: 10000,
@@ -162,7 +166,10 @@ export default function Services() {
   >({
     queryKey: ["computer-reservations", user?.email],
     queryFn: () =>
-      api.entities.Computer.filter({ status: "pending" }),
+      api.entities.ComputerReservation.filter({
+        status: "pending",
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as ComputerReservationRow[],
     refetchInterval: 10000,
@@ -170,7 +177,11 @@ export default function Services() {
 
   const { data: lockerRentals = [] } = useQuery<LockerRentalRow[]>({
     queryKey: ["locker-rentals", user?.email],
-    queryFn: () => api.entities.Locker.filter({ endTime: null }),
+    queryFn: () =>
+      api.entities.LockerRental.filter({
+        endTime: null,
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as LockerRentalRow[],
     refetchInterval: 10000,
@@ -178,7 +189,11 @@ export default function Services() {
 
   const { data: computerSessions = [] } = useQuery<ComputerSessionRow[]>({
     queryKey: ["computer-sessions", user?.email],
-    queryFn: () => api.entities.Computer.filter({ endTime: null }),
+    queryFn: () =>
+      api.entities.ComputerSession.filter({
+        endTime: null,
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as ComputerSessionRow[],
     refetchInterval: 10000,
@@ -401,7 +416,7 @@ export default function Services() {
     }
   };
 
-   // Renderização de loading
+  // Renderização de loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -462,10 +477,7 @@ export default function Services() {
                       Ativação de Conta
                     </a>
                     . Se tiver dúvidas, consulte a página de{" "}
-                    <a
-                      href="/help"
-                      className="underline hover:text-amber-900"
-                    >
+                    <a href="/help" className="underline hover:text-amber-900">
                       Ajuda
                     </a>
                     .
@@ -517,9 +529,11 @@ export default function Services() {
                         "border-0 shadow-sm transition-all duration-300 overflow-hidden",
                         isUserActive
                           ? "hover:shadow-md cursor-pointer"
-                          : "opacity-50 cursor-not-allowed"
+                          : "opacity-50 cursor-not-allowed",
                       )}
-                      onClick={() => isUserActive && setActiveService(service.id)}
+                      onClick={() =>
+                        isUserActive && setActiveService(service.id)
+                      }
                     >
                       <CardContent className="p-6">
                         <div
