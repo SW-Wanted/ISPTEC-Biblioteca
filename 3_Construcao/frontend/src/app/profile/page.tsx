@@ -36,6 +36,10 @@ import {
   ImageIcon,
   Trash2,
   X,
+  Lock,
+  Eye,
+  EyeOff,
+  ExternalLink,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -195,6 +199,23 @@ export default function Profile() {
   const [uploadingImage, setUploadingImage] = useState<
     "profile" | "cover" | null
   >(null);
+  // Password management state
+  const [passwordInfo, setPasswordInfo] = useState<{
+    hasUserDefinedPassword: boolean;
+    isGoogleOnly: boolean;
+    isGoogleEligible: boolean;
+    canChangePassword: boolean;
+    canCreatePassword: boolean;
+  } | null>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   const profileInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -258,6 +279,84 @@ export default function Profile() {
     },
     initialData: [],
   });
+
+  // Fetch password provider info
+  const { data: passwordData } = useQuery({
+    queryKey: ["password-info"],
+    enabled: authState === "auth" && !isViewingOtherProfile,
+    queryFn: async () => {
+      const res = await fetch("/api/auth/password");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (passwordData) setPasswordInfo(passwordData);
+  }, [passwordData]);
+
+  // Password mutation
+  const passwordMutation = useMutation({
+    mutationFn: async (payload: {
+      action: string;
+      currentPassword?: string;
+      newPassword: string;
+    }) => {
+      const res = await fetch("/api/auth/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao processar");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || "Senha atualizada!");
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordError("");
+      queryClient.invalidateQueries({ queryKey: ["password-info"] });
+    },
+    onError: (err: Error) => {
+      setPasswordError(err.message);
+      toast.error(err.message);
+    },
+  });
+
+  const handlePasswordSubmit = () => {
+    setPasswordError("");
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("A senha deve ter pelo menos 8 caracteres");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("As senhas não coincidem");
+      return;
+    }
+    if (passwordInfo?.canChangePassword) {
+      if (!passwordForm.currentPassword) {
+        setPasswordError("Senha atual é obrigatória");
+        return;
+      }
+      passwordMutation.mutate({
+        action: "change",
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+    } else if (passwordInfo?.canCreatePassword) {
+      passwordMutation.mutate({
+        action: "create",
+        newPassword: passwordForm.newPassword,
+      });
+    }
+  };
 
   const { data: documents = [], refetch: refetchDocuments } = useQuery<any[]>({
     queryKey: ["user-documents", targetEmail],
@@ -751,6 +850,269 @@ export default function Profile() {
                             </SelectContent>
                           </Select>
                         </div>
+                        {/* Password Management Section */}
+                        <Separator className="my-4" />
+                        <div>
+                          <h4 className="font-medium text-slate-800 mb-3 flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-amber-600" />
+                            Segurança — Senha
+                          </h4>
+
+                          {passwordInfo?.isGoogleOnly ? (
+                            // Cenário 1: Google-only
+                            <div className="space-y-3">
+                              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <p className="text-sm text-blue-800 mb-2">
+                                  Está conectado via <strong>Google</strong>.
+                                  Pode gerir a segurança da sua conta
+                                  diretamente na sua Conta Google.
+                                </p>
+                                <a
+                                  href="https://myaccount.google.com/security"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:text-blue-900"
+                                >
+                                  Gerir Conta Google
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                              <p className="text-xs text-slate-500">
+                                Quer criar uma senha para login directo (sem
+                                Google)?
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  // Transitar para cenário "criar senha"
+                                  setPasswordInfo((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          isGoogleOnly: false,
+                                          canCreatePassword: true,
+                                        }
+                                      : prev,
+                                  );
+                                }}
+                              >
+                                <Lock className="w-3.5 h-3.5 mr-1" />
+                                Criar Senha Local
+                              </Button>
+                            </div>
+                          ) : passwordInfo?.canCreatePassword ? (
+                            // Cenário 2: Híbrido (criar senha nova sem pedir antiga)
+                            <div className="space-y-3">
+                              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <p className="text-sm text-amber-800">
+                                  Crie uma senha para poder fazer login
+                                  directamente com email e senha, sem depender
+                                  do Google.
+                                </p>
+                              </div>
+                              <div>
+                                <Label>Nova Senha</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showNewPassword ? "text" : "password"}
+                                    value={passwordForm.newPassword}
+                                    onChange={(e) =>
+                                      setPasswordForm((prev) => ({
+                                        ...prev,
+                                        newPassword: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Mínimo 8 caracteres"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowNewPassword(!showNewPassword)
+                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                  >
+                                    {showNewPassword ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Confirmar Senha</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={
+                                      showConfirmPassword ? "text" : "password"
+                                    }
+                                    value={passwordForm.confirmPassword}
+                                    onChange={(e) =>
+                                      setPasswordForm((prev) => ({
+                                        ...prev,
+                                        confirmPassword: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Repita a senha"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowConfirmPassword(
+                                        !showConfirmPassword,
+                                      )
+                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                  >
+                                    {showConfirmPassword ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              {passwordError && (
+                                <p className="text-sm text-red-600">
+                                  {passwordError}
+                                </p>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={handlePasswordSubmit}
+                                disabled={passwordMutation.isPending}
+                              >
+                                {passwordMutation.isPending && (
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                )}
+                                Criar Senha
+                              </Button>
+                            </div>
+                          ) : passwordInfo?.canChangePassword ? (
+                            // Cenário 3: Tradicional (pedir senha atual)
+                            <div className="space-y-3">
+                              <div>
+                                <Label>Senha Actual</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={
+                                      showCurrentPassword ? "text" : "password"
+                                    }
+                                    value={passwordForm.currentPassword}
+                                    onChange={(e) =>
+                                      setPasswordForm((prev) => ({
+                                        ...prev,
+                                        currentPassword: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Introduza a senha actual"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowCurrentPassword(
+                                        !showCurrentPassword,
+                                      )
+                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                  >
+                                    {showCurrentPassword ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Nova Senha</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={showNewPassword ? "text" : "password"}
+                                    value={passwordForm.newPassword}
+                                    onChange={(e) =>
+                                      setPasswordForm((prev) => ({
+                                        ...prev,
+                                        newPassword: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Mínimo 8 caracteres"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowNewPassword(!showNewPassword)
+                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                  >
+                                    {showNewPassword ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <div>
+                                <Label>Confirmar Nova Senha</Label>
+                                <div className="relative">
+                                  <Input
+                                    type={
+                                      showConfirmPassword ? "text" : "password"
+                                    }
+                                    value={passwordForm.confirmPassword}
+                                    onChange={(e) =>
+                                      setPasswordForm((prev) => ({
+                                        ...prev,
+                                        confirmPassword: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Repita a nova senha"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setShowConfirmPassword(
+                                        !showConfirmPassword,
+                                      )
+                                    }
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                  >
+                                    {showConfirmPassword ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              {passwordError && (
+                                <p className="text-sm text-red-600">
+                                  {passwordError}
+                                </p>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={handlePasswordSubmit}
+                                disabled={passwordMutation.isPending}
+                              >
+                                {passwordMutation.isPending && (
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                )}
+                                Alterar Senha
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-slate-50 rounded-lg">
+                              <p className="text-sm text-slate-500">
+                                A carregar informação de segurança...
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <Separator className="my-4" />
                         <div className="flex gap-2 justify-end">
                           <Button
                             variant="outline"
@@ -767,7 +1129,7 @@ export default function Profile() {
                             {updateMemberMutation.isPending && (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             )}
-                            Salvar
+                            Salvar Perfil
                           </Button>
                         </div>
                       </div>
