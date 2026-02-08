@@ -189,10 +189,12 @@ function createEntityClient<T extends { id: string }>(entity: string) {
 }
 
 type AuthUser = {
+  id?: string;
   email: string;
   full_name?: string | null;
   type?: string | null;
-  id?: string;
+  activationStatus?: string | null;
+  profile_image_url?: string | null;
 };
 
 export const api = {
