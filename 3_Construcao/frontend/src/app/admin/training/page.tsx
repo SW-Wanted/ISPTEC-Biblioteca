@@ -546,7 +546,7 @@ function AdminTrainingPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
               <GraduationCap className="w-7 h-7 text-amber-600" />
-              Gestao de Formacoes
+              Gestão de Formações
             </h1>
             <p className="text-slate-500 mt-1">
               {summary.scheduled} agendada(s) • {summary.inProgress} em
@@ -631,7 +631,7 @@ function AdminTrainingPage() {
                   <TableHead>Local</TableHead>
                   <TableHead>Participantes</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Accoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -819,9 +819,9 @@ function AdminTrainingPage() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Criar Sessao de Formacao</DialogTitle>
+            <DialogTitle>Criar Sessão de Formação</DialogTitle>
             <DialogDescription>
-              Agende uma nova sessao de formacao para membros da biblioteca.
+              Agende uma nova sessão de formação para membros da biblioteca.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
