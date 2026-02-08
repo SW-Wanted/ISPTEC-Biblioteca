@@ -7,7 +7,7 @@ import { createPageUrl } from "@/utils";
 import { api, type Loan, type Member } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { format, differenceInDays, isPast } from "date-fns";
+import { format, differenceInDays, isPast, startOfDay } from "date-fns";
 import {
   BookMarked,
   Clock,
@@ -25,25 +25,48 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+
+const LOAN_POLICY_LABELS: Record<
+  string,
+  { label: string; color: string; days: string }
+> = {
+  STANDARD: {
+    label: "Padrão",
+    color: "bg-slate-100 text-slate-600",
+    days: "conforme utilizador",
+  },
+  DAILY: {
+    label: "Cedência Diária",
+    color: "bg-amber-100 text-amber-700",
+    days: "1 dia",
+  },
+  SHORT_TERM: {
+    label: "Curto Prazo",
+    color: "bg-purple-100 text-purple-700",
+    days: "2 dias",
+  },
+  EXTENDED: {
+    label: "Prazo Alargado",
+    color: "bg-cyan-100 text-cyan-700",
+    days: "30 dias",
+  },
+};
+
+const MATERIAL_TYPE_LABELS: Record<string, string> = {
+  BOOK: "Livro",
+  DAILY_LOAN: "Cedência Diária",
+  REFERENCE: "Referência",
+  CD_DVD: "CD/DVD",
+  MAGAZINE: "Revista",
+  THESIS: "Tese/Dissertação",
+};
 
 export default function MyLoans() {
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
-  const [showRenewDialog, setShowRenewDialog] = useState(false);
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -57,17 +80,7 @@ export default function MyLoans() {
     loadUser();
   }, []);
 
-  const { data: member } = useQuery({
-    queryKey: ["member", user?.email],
-    queryFn: async (): Promise<Member | null> => {
-      const members = await api.entities.Member.filter({
-        user_id: user?.email,
-      });
-      return members[0] || null;
-    },
-    enabled: !!user?.email,
-    initialData: null,
-  });
+  // Member data não é mais necessário (renovação é apenas para staff)
 
   const { data: loans = [], isLoading } = useQuery({
     queryKey: ["my-loans", user?.email],
@@ -83,27 +96,7 @@ export default function MyLoans() {
     (l) => l.status === "returned" || l.status === "cancelled",
   );
 
-  const renewMutation = useMutation<void, Error, Loan>({
-    mutationFn: async (loan) => {
-      const renewalCount = loan.renewal_count ?? 0;
-      const maxRenewals = loan.max_renewals ?? 0;
-      if (renewalCount >= maxRenewals)
-        throw new Error("Limite de renovações atingido");
-
-      await api.loans.renew(loan.id);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["my-loans", user?.email] });
-      setShowRenewDialog(false);
-      setSelectedLoan(null);
-      toast.success("Renovação realizada com sucesso!");
-    },
-    onError: (caught: unknown) => {
-      const message =
-        caught instanceof Error ? caught.message : "Erro ao renovar empréstimo";
-      toast.error(message);
-    },
-  });
+  // Renovação removida: apenas staff pode renovar empréstimos via manage-loans
 
   const getLoanStatus = (loan: Loan) => {
     if (!loan.due_date)
@@ -113,9 +106,11 @@ export default function MyLoans() {
         icon: Clock,
       };
 
-    const dueDate = new Date(loan.due_date);
-    const today = new Date();
+    // Normalizar datas para início do dia para cálculo correto
+    const dueDate = startOfDay(new Date(loan.due_date));
+    const today = startOfDay(new Date());
     const daysLeft = differenceInDays(dueDate, today);
+
     if (loan.status === "returned")
       return {
         label: "Devolvido",
@@ -143,15 +138,7 @@ export default function MyLoans() {
     };
   };
 
-  const canRenew = (loan: Loan) => {
-    const renewalCount = loan.renewal_count ?? 0;
-    const maxRenewals = loan.max_renewals ?? 0;
-    return (
-      loan.status === "active" &&
-      renewalCount < maxRenewals &&
-      (loan.due_date ? !isPast(new Date(loan.due_date)) : false)
-    );
-  };
+  // canRenew removido: renovação é apenas para staff
 
   const LoanCard = ({ loan }: { loan: Loan }) => {
     const status = getLoanStatus(loan);
@@ -197,6 +184,26 @@ export default function MyLoans() {
                       {loan.loan_date
                         ? format(new Date(loan.loan_date), "dd/MM/yyyy")
                         : "-"}
+                      {loan.loan_date && loan.due_date && (
+                        <span className="text-slate-400">
+                          {" · "}Prazo:{" "}
+                          {differenceInDays(
+                            new Date(loan.due_date),
+                            new Date(loan.loan_date),
+                          )}{" "}
+                          dias
+                          {loan.loan_policy &&
+                            loan.loan_policy !== "STANDARD" && (
+                              <>
+                                {" "}
+                                (
+                                {LOAN_POLICY_LABELS[loan.loan_policy]?.label ??
+                                  loan.loan_policy}
+                                )
+                              </>
+                            )}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <Badge className={cn("shrink-0", status.color)}>
@@ -204,7 +211,7 @@ export default function MyLoans() {
                     {status.label}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-4 mt-3 text-sm text-slate-600">
+                <div className="flex items-center gap-4 mt-3 text-sm text-slate-600 flex-wrap">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4 text-slate-400" />
                     Devolução:{" "}
@@ -217,6 +224,29 @@ export default function MyLoans() {
                     {loan.renewal_count ?? 0}/{loan.max_renewals ?? 0}{" "}
                     renovações
                   </div>
+                  {loan.loan_policy && loan.loan_policy !== "STANDARD" && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-xs",
+                        LOAN_POLICY_LABELS[loan.loan_policy]?.color,
+                      )}
+                    >
+                      {LOAN_POLICY_LABELS[loan.loan_policy]?.label ??
+                        loan.loan_policy}
+                      {" · "}
+                      {LOAN_POLICY_LABELS[loan.loan_policy]?.days}
+                    </Badge>
+                  )}
+                  {loan.material_type && loan.material_type !== "BOOK" && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-slate-50 text-slate-500"
+                    >
+                      {MATERIAL_TYPE_LABELS[loan.material_type] ??
+                        loan.material_type}
+                    </Badge>
+                  )}
                 </div>
                 {Number(loan.fine_amount ?? 0) > 0 && (
                   <div className="mt-3 p-2 bg-red-50 rounded-lg flex items-center justify-between">
@@ -237,25 +267,18 @@ export default function MyLoans() {
                   </div>
                 )}
                 <div className="flex gap-2 mt-4">
-                  {canRenew(loan) && (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setSelectedLoan(loan);
-                        setShowRenewDialog(true);
-                      }}
-                      className="bg-amber-600 hover:bg-amber-700"
-                    >
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Renovar
-                    </Button>
-                  )}
                   <Link to={createPageUrl(`BookDetails?id=${loan.book_id}`)}>
                     <Button variant="outline" size="sm">
                       Ver livro
                       <ChevronRight className="w-4 h-4 ml-1" />
                     </Button>
                   </Link>
+                  {loan.status === "active" && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1 ml-auto">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      Para renovar, contacte a biblioteca
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -426,59 +449,7 @@ export default function MyLoans() {
         </Tabs>
       </div>
 
-      <Dialog open={showRenewDialog} onOpenChange={setShowRenewDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Renovação</DialogTitle>
-            <DialogDescription>
-              O empréstimo será renovado por mais{" "}
-              {member?.role === "teacher" ? 15 : 5} dias.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedLoan && (
-            <div className="py-4">
-              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-                <BookOpen className="w-12 h-12 text-slate-400" />
-                <div>
-                  <p className="font-medium text-slate-800">
-                    {selectedLoan.book_title}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    Renovação {(selectedLoan.renewal_count ?? 0) + 1} de{" "}
-                    {selectedLoan.max_renewals ?? 0}
-                  </p>
-                </div>
-              </div>
-              {(selectedLoan.renewal_count ?? 0) + 1 ===
-                (selectedLoan.max_renewals ?? 0) && (
-                <div className="mt-4 p-3 bg-orange-50 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
-                  <p className="text-sm text-orange-700">
-                    Esta será sua última renovação permitida para este
-                    empréstimo.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRenewDialog(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                if (selectedLoan) renewMutation.mutate(selectedLoan);
-              }}
-              disabled={renewMutation.isPending || !selectedLoan}
-            >
-              {renewMutation.isPending && (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              )}
-              Confirmar Renovação
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Renovação removida: apenas staff pode renovar via manage-loans */}
     </div>
   );
 }
