@@ -240,12 +240,7 @@ function CopyClassificationTab() {
                         onValueChange={(val) => updateRule(index, "color", val)}
                       >
                         <SelectTrigger className="w-[90px]">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-3 h-3 rounded-full ${(COPY_CLASSIFICATION_COLORS[rule.color] ?? COPY_CLASSIFICATION_COLORS.WHITE).dot}`}
-                            />
-                            <SelectValue />
-                          </div>
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="RED">
@@ -489,8 +484,16 @@ function AdminSettingsPage() {
   const isSupervisor = currentUser?.type === "SUPERVISOR";
 
   // Tabs acessíveis conforme role
-  const allTabs = ["fines", "policies", "copies", "system", "categories", "faqs", "audit"];
-  const nonSupervisorTabs = ["categories", "faqs", "copies"];
+  const allTabs = [
+    "fines",
+    "policies",
+    "copies",
+    "system",
+    "categories",
+    "faqs",
+    "audit",
+  ];
+  const nonSupervisorTabs = ["categories", "faqs"];
   const allowedTabs = isSupervisor ? allTabs : nonSupervisorTabs;
 
   // Sincronizar tab com URL hash
@@ -498,9 +501,15 @@ function AdminSettingsPage() {
     const hash = window.location.hash.replace("#", "");
     if (
       hash &&
-      ["fines", "policies", "copies", "system", "categories", "faqs", "audit"].includes(
-        hash,
-      )
+      [
+        "fines",
+        "policies",
+        "copies",
+        "system",
+        "categories",
+        "faqs",
+        "audit",
+      ].includes(hash)
     ) {
       // Se não é supervisor e a tab não é permitida, redirecionar
       if (allowedTabs.includes(hash)) {
@@ -1596,7 +1605,7 @@ function AdminSettingsPage() {
                   <div className="space-y-3">
                     {(faqsData?.faqs || []).length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
-                        Nenhuma FAQ cadastrada. Clique em "Nova FAQ" para criar.
+                        Nenhuma FAQ cadastrada. Clique em &quot;Nova FAQ&quot; para criar.
                       </div>
                     ) : (
                       (faqsData?.faqs || [])
