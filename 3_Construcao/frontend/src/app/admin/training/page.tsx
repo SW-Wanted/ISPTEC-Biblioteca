@@ -41,6 +41,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -130,6 +140,10 @@ function AdminTrainingPage() {
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>(
     [],
   );
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "cancel" | "delete";
+    sessionId: string;
+  } | null>(null);
   const [createForm, setCreateForm] = useState({
     title: "",
     description: "",
@@ -763,13 +777,10 @@ function AdminTrainingPage() {
                                 className="text-slate-500 hover:text-slate-700"
                                 disabled={cancelMutation.isPending}
                                 onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Cancelar esta sessao de formacao?",
-                                    )
-                                  ) {
-                                    cancelMutation.mutate(session.id);
-                                  }
+                                  setConfirmAction({
+                                    type: "cancel",
+                                    sessionId: session.id,
+                                  });
                                 }}
                                 title="Cancelar sessao"
                               >
@@ -783,13 +794,10 @@ function AdminTrainingPage() {
                                 className="text-red-500 hover:text-red-700"
                                 disabled={deleteMutation.isPending}
                                 onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Eliminar permanentemente esta sessao? Esta accao nao pode ser revertida.",
-                                    )
-                                  ) {
-                                    deleteMutation.mutate(session.id);
-                                  }
+                                  setConfirmAction({
+                                    type: "delete",
+                                    sessionId: session.id,
+                                  });
                                 }}
                                 title="Eliminar"
                               >
@@ -1158,6 +1166,51 @@ function AdminTrainingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation AlertDialog */}
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === "cancel"
+                ? "Cancelar Sessão de Formação"
+                : "Eliminar Sessão"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === "cancel"
+                ? "Tem a certeza que pretende cancelar esta sessão de formação? Os participantes serão notificados."
+                : "Eliminar permanentemente esta sessão? Esta acção não pode ser revertida."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAction?.type === "cancel") {
+                  cancelMutation.mutate(confirmAction.sessionId);
+                } else if (confirmAction?.type === "delete") {
+                  deleteMutation.mutate(confirmAction.sessionId);
+                }
+                setConfirmAction(null);
+              }}
+              className={
+                confirmAction?.type === "delete"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : ""
+              }
+            >
+              {confirmAction?.type === "cancel"
+                ? "Sim, cancelar"
+                : "Sim, eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
