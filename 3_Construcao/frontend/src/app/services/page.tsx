@@ -105,7 +105,7 @@ export default function Services() {
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
-   const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeService, setActiveService] = useState<string | null>(null);
   const [requestForm, setRequestForm] = useState({
     type: "",

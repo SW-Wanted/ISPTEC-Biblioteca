@@ -227,7 +227,6 @@ export const api = {
   cataloging: {
     /**
      * Analisa imagem de livro usando Gemini Vision (API dedicada para catalogação)
-     * Muito mais preciso que OCR puro - este método extrai dados directamente da fotografia
      */
     analyzeImage: async (imageBase64: string, mimeType: string) => {
       const res = await fetch("/api/cataloging/analyze-image", {
