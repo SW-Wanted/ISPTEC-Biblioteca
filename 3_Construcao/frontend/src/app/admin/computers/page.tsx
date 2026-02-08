@@ -73,7 +73,7 @@ function statusBadge(status?: string) {
     case "reserved":
       return <Badge className="bg-amber-100 text-amber-700">Reservado</Badge>;
     case "maintenance":
-      return <Badge className="bg-slate-100 text-slate-700">Manutencao</Badge>;
+      return <Badge className="bg-slate-100 text-slate-700">Manutenção</Badge>;
     default:
       return <Badge variant="outline">Desconhecido</Badge>;
   }
@@ -365,12 +365,12 @@ export default function AdminComputersPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
               <Computer className="w-7 h-7 text-amber-600" />
-              Gestao de Computadores
+              Gestão de Computadores
             </h1>
             <p className="text-slate-500 mt-1">
               {summary.occupied} ocupado(s) • {summary.reserved} reservado(s) •{" "}
               {summary.available} disponivel(is) • {summary.maintenance} em
-              manutencao
+              manutenção
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -379,7 +379,7 @@ export default function AdminComputersPage() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Numero, localizacao ou utilizador"
+                placeholder="Número, localização ou utilizador"
               />
             </div>
             <Button onClick={() => setShowCreateDialog(true)}>
@@ -402,7 +402,7 @@ export default function AdminComputersPage() {
               Ocupados: {summary.occupied}
             </Badge>
             <Badge className="bg-slate-100 text-slate-700">
-              Manutencao: {summary.maintenance}
+              Manutenção: {summary.maintenance}
             </Badge>
           </CardContent>
         </Card>
@@ -413,11 +413,11 @@ export default function AdminComputersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Computador</TableHead>
-                  <TableHead>Localizacao</TableHead>
+                  <TableHead>Localização</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Utilizador</TableHead>
-                  <TableHead>Termino</TableHead>
-                  <TableHead className="text-right">Accoes</TableHead>
+                  <TableHead>Término</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -622,7 +622,7 @@ export default function AdminComputersPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Numero</Label>
+              <Label>Número</Label>
               <Input
                 value={createForm.number}
                 onChange={(e) =>
@@ -635,7 +635,7 @@ export default function AdminComputersPage() {
               />
             </div>
             <div>
-              <Label>Localizacao</Label>
+              <Label>Localização</Label>
               <Input
                 value={createForm.location}
                 onChange={(e) =>
@@ -660,7 +660,7 @@ export default function AdminComputersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Disponivel</SelectItem>
-                  <SelectItem value="maintenance">Manutencao</SelectItem>
+                  <SelectItem value="maintenance">Manutenção</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -698,7 +698,7 @@ export default function AdminComputersPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Numero</Label>
+              <Label>Número</Label>
               <Input
                 value={editForm.number}
                 onChange={(e) =>
@@ -710,7 +710,7 @@ export default function AdminComputersPage() {
               />
             </div>
             <div>
-              <Label>Localizacao</Label>
+              <Label>Localização</Label>
               <Input
                 value={editForm.location}
                 onChange={(e) =>
@@ -734,7 +734,7 @@ export default function AdminComputersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="available">Disponivel</SelectItem>
-                  <SelectItem value="maintenance">Manutencao</SelectItem>
+                  <SelectItem value="maintenance">Manutenção</SelectItem>
                 </SelectContent>
               </Select>
             </div>
