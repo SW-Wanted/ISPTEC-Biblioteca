@@ -20,7 +20,7 @@ async function requireSettingsAdmin() {
   const isAdmin =
     user &&
     [UserType.SUPERVISOR, UserType.LIBRARIAN, UserType.STAFF].includes(
-      user.type as any,
+      user.type,
     );
   if (!isAdmin) return null;
 
@@ -28,7 +28,7 @@ async function requireSettingsAdmin() {
 }
 
 // GET: Listar todas as políticas do sistema
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const user = await requireSettingsAdmin();
     if (!user) {

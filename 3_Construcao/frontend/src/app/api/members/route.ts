@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "200");
 
     // Construir filtros
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (type && type !== "all") {
       where.type = type.toUpperCase() as UserType;

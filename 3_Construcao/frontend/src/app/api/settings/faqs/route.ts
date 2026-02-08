@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({ faqs }, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching FAQs:", error);
 
     // Se a tabela não existir, retornar array vazio ao invés de erro
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(faq, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "Dados inválidos", details: error.errors },
@@ -196,7 +196,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedById: authCheck.userId,
     };
 

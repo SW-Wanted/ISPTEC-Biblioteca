@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Monitor, Clock, MapPin, Calendar } from "lucide-react";
+import { KeyRound, Monitor, Clock, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -370,7 +370,7 @@ export function ActiveReservationsCard() {
                         queryClient.invalidateQueries({
                           queryKey: ["active-reservations"],
                         });
-                      } catch (e: any) {
+                      } catch (e: unknown) {
                         toast.error(e?.message ?? "Erro ao cancelar");
                       }
                     }}

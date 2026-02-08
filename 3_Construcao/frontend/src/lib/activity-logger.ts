@@ -32,7 +32,7 @@ interface ActivityLogData {
   entity: string;
   entityId?: string | null;
   description: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   ipAddress?: string | null;
   userAgent?: string | null;
 }
@@ -40,7 +40,7 @@ interface ActivityLogData {
 /**
  * Sanitiza metadados para remover informações sensíveis
  */
-function sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
+function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
   const sensitiveKeys = ["password", "token", "secret", "apiKey", "creditCard"];
   const sanitized = { ...metadata };
 
@@ -275,7 +275,7 @@ export async function getActivityLogs(params?: {
   limit?: number;
   offset?: number;
 }) {
-  const where: any = {};
+  const where: Record<string, unknown> = {};
 
   if (params?.userId) where.userId = params.userId;
   if (params?.type)

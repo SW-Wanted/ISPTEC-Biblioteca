@@ -113,7 +113,7 @@ export async function POST(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = String(error?.message ?? "");
     if (message.includes("NO_PENDING_RESERVATION")) {
       return NextResponse.json(

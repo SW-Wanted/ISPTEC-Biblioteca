@@ -15,7 +15,7 @@ async function main() {
       console.log("\n📋 FAQs existentes:");
       faqs.forEach((f) => console.log(`   ${f.order}. ${f.question}`));
       return;
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.log("⚠️  Tabela não existe. Criando...\n");
     }
 

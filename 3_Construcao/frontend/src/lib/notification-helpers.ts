@@ -33,7 +33,7 @@ export interface NotificationMetadata {
   /**
    * Dados adicionais contextuais
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -315,7 +315,7 @@ export function createFineIssuedMetadata(
 /**
  * Extrai URL de ação da metadata da notificação
  */
-export function getNotificationActionUrl(metadata: any): string | null {
+export function getNotificationActionUrl(metadata: unknown): string | null {
   if (!metadata) return null;
 
   if (typeof metadata === "string") {
@@ -333,7 +333,7 @@ export function getNotificationActionUrl(metadata: any): string | null {
 /**
  * Extrai tipo de ação da metadata da notificação
  */
-export function getNotificationActionType(metadata: any): string | null {
+export function getNotificationActionType(metadata: unknown): string | null {
   if (!metadata) return null;
 
   if (typeof metadata === "string") {
@@ -351,7 +351,7 @@ export function getNotificationActionType(metadata: any): string | null {
 /**
  * Verifica se notificação tem ação configurada
  */
-export function hasNotificationAction(metadata: any): boolean {
+export function hasNotificationAction(metadata: unknown): boolean {
   const actionUrl = getNotificationActionUrl(metadata);
   return !!actionUrl;
 }
@@ -359,7 +359,7 @@ export function hasNotificationAction(metadata: any): boolean {
 /**
  * Obtém label do botão de ação baseado no tipo
  */
-export function getNotificationActionLabel(metadata: any): string {
+export function getNotificationActionLabel(metadata: unknown): string {
   const actionType = getNotificationActionType(metadata);
 
   if (!actionType) return "Ver Detalhes";

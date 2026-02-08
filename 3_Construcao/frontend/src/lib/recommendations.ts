@@ -156,7 +156,7 @@ export async function getRecommendations(
   // 4. Calcular score de confiança para cada recomendação
   const scoredRecommendations = recommendations.map((book) => {
     let confidence = 0;
-    let reasons: string[] = [];
+    const reasons: string[] = [];
 
     // Score por categoria (peso: 40%)
     if (topCategories.includes(book.categoryId)) {

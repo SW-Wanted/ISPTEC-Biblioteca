@@ -19,7 +19,7 @@ async function requireSettingsAdmin() {
   const isAdmin =
     user &&
     [UserType.SUPERVISOR, UserType.LIBRARIAN, UserType.STAFF].includes(
-      user.type as any,
+      user.type as UserType,
     );
   if (!isAdmin) return null;
 

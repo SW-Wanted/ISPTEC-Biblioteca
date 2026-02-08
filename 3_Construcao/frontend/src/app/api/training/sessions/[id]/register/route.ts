@@ -173,7 +173,7 @@ export async function POST(
           status: NotificationStatus.PENDING,
           title: "Inscrição em formação confirmada",
           message: `Você foi inscrito na formação "${trainingSession.title}" agendada para ${trainingSession.scheduledDate.toLocaleDateString("pt-AO")}. Local: ${trainingSession.location}.`,
-          metadata: metadata as any,
+          metadata: metadata as Record<string, unknown>,
         },
       });
 

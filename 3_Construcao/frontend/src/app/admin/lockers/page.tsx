@@ -200,7 +200,7 @@ export default function AdminLockersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-locker-rentals"] });
       toast.success("Cacifo libertado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao libertar cacifo");
     },
   });
@@ -219,7 +219,7 @@ export default function AdminLockersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-locker-rentals"] });
       toast.success("Cacifo renovado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao renovar cacifo");
     },
   });
@@ -242,7 +242,7 @@ export default function AdminLockersPage() {
       });
       toast.success("Reserva aceite");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao aceitar reserva");
     },
   });
@@ -264,7 +264,7 @@ export default function AdminLockersPage() {
       });
       toast.success("Reserva rejeitada");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao rejeitar reserva");
     },
   });
@@ -302,7 +302,7 @@ export default function AdminLockersPage() {
       setCreateForm({ number: "", location: "", status: "available" });
       toast.success("Cacifo adicionado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao adicionar cacifo");
     },
   });
@@ -330,7 +330,7 @@ export default function AdminLockersPage() {
       setEditingLocker(null);
       toast.success("Cacifo actualizado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao actualizar cacifo");
     },
   });
@@ -349,7 +349,7 @@ export default function AdminLockersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-lockers"] });
       toast.success("Cacifo eliminado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao eliminar cacifo");
     },
   });

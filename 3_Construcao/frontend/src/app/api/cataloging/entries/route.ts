@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         extractedISBN: data.extractedISBN,
         extractedPublisher: data.extractedPublisher,
         extractedYear: data.extractedYear,
-        enrichedData: data.enrichedData as any,
+        enrichedData: data.enrichedData as Record<string, unknown> | null,
         status: CatalogStatus.PENDING,
       },
     });
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
 
     const entries = await prisma.catalogEntry.findMany({
       where: {
-        status: status as any,
+        status: status as "PENDING" | "APPROVED" | "REJECTED",
       },
       include: {
         cataloger: {

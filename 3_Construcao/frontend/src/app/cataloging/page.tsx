@@ -354,8 +354,8 @@ export default function Cataloging() {
         coverUrl: uploadedImageUrl || formData.cover_url || undefined,
         location: formData.location || "Acervo Geral",
         totalCopies: parseInt(formData.total_copies, 10) || 1,
-        materialType: formData.material_type as any,
-        loanPolicy: formData.loan_policy as any,
+        materialType: formData.material_type as "BOOK" | "MAGAZINE" | "THESIS" | "ARTICLE",
+        loanPolicy: formData.loan_policy as "STANDARD" | "REFERENCE" | "SHORT_TERM" | "LONG_TERM",
         reviewNotes: "Auto-aprovado via catalogação inteligente",
       });
     },

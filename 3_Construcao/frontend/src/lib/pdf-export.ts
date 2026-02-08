@@ -24,7 +24,7 @@ export interface PDFOptions {
  * Gera PDF com tabela de dados
  */
 export function generateTablePDF(
-  data: any[],
+  data: unknown[],
   columns: PDFColumn[],
   options: PDFOptions,
 ): void {
@@ -123,12 +123,12 @@ export function generateTablePDF(
     alternateRowStyles: {
       fillColor: [245, 245, 245],
     },
-    columnStyles: columns.reduce((acc, col, index) => {
+    columnStyles: columns.reduce<Record<number, { cellWidth: number }>>((acc, col, index) => {
       if (col.width) {
         acc[index] = { cellWidth: col.width };
       }
       return acc;
-    }, {} as any),
+    }, {}),
     margin: { left: 15, right: 15 },
     didDrawPage: (data) => {
       // Rodapé em cada página
@@ -151,7 +151,7 @@ export function generateTablePDF(
  * Gera PDF com estatísticas e gráficos (resumo)
  */
 export function generateStatisticsPDF(
-  statistics: any,
+  statistics: Record<string, unknown>,
   options: PDFOptions,
 ): void {
   const {
@@ -246,14 +246,14 @@ export function generateStatisticsPDF(
     autoTable(doc, {
       startY: yPosition,
       head: [["#", "Título", "Autor", "Categoria", "Empréstimos"]],
-      body: statistics.topBooks
+      body: (statistics.topBooks as Array<Record<string, unknown>>)
         .slice(0, 10)
-        .map((book: any, index: number) => [
+        .map((book, index: number) => [
           String(index + 1),
-          book.title,
-          book.author,
-          book.category,
-          String(book.totalLoans),
+          String(book.title ?? ''),
+          String(book.author ?? ''),
+          String(book.category ?? ''),
+          String(book.totalLoans ?? 0),
         ]),
       theme: "striped",
       styles: {
@@ -268,7 +268,7 @@ export function generateStatisticsPDF(
       margin: { left: 20, right: 20 },
     });
 
-    yPosition = (doc as any).lastAutoTable.finalY + 10;
+    yPosition = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
   }
 
   // Empréstimos por Categoria
@@ -286,7 +286,7 @@ export function generateStatisticsPDF(
     autoTable(doc, {
       startY: yPosition,
       head: [["Categoria", "Total de Livros", "Total de Empréstimos"]],
-      body: statistics.loansByCategory.map((cat: any) => [
+      body: statistics.loansByCategory.map((cat: unknown) => [
         cat.category,
         String(cat.totalBooks),
         String(cat.totalLoans),
@@ -328,7 +328,7 @@ export function generateStatisticsPDF(
 /**
  * Formata valor da célula para exibição
  */
-function formatCellValue(value: any): string {
+function formatCellValue(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
   }

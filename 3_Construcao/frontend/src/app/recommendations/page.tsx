@@ -193,7 +193,7 @@ export default function Recommendations() {
           return {
             ...data.data,
             recommendations: (data.data?.recommendations ?? []).map(
-              (b: any) => ({
+              (b: unknown) => ({
                 id: b.id,
                 title: b.title,
                 cover_url: b.coverUrl ?? b.cover_url ?? null,

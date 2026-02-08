@@ -12,10 +12,6 @@ import {
   AccountActivationStatus,
 } from "@prisma/client";
 
-function canManageMembers(type: string | null | undefined) {
-  return type === "SUPERVISOR" || type === "LIBRARIAN" || type === "STAFF";
-}
-
 async function requireUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) return null;
@@ -123,7 +119,7 @@ export async function POST(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = String(error?.message ?? "");
     if (message.includes("USER_HAS_ACTIVE_LOCKER")) {
       return NextResponse.json(

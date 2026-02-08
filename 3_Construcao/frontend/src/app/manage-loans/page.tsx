@@ -207,7 +207,7 @@ export default function ManageLoans() {
 
   const safeLoanPolicies = Array.isArray(loanPolicies) ? loanPolicies : [];
   const maxBooksByType = safeLoanPolicies.reduce(
-    (acc: Map<string, number>, policy: any) => {
+    (acc: Map<string, number>, policy: unknown) => {
       if (!policy?.userType) return acc;
       const key = String(policy.userType).toLowerCase();
       acc.set(key, Number(policy.maxBooks) || maxBooksFallback[key] || 2);

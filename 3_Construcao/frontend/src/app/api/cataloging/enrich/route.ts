@@ -18,7 +18,7 @@ const enrichSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { isbn, title, author, publisher, publishedYear } =
+    const { isbn, title, author } =
       enrichSchema.parse(body);
 
     // Validar que ao menos ISBN ou título foi fornecido
@@ -69,15 +69,15 @@ export async function POST(request: NextRequest) {
 
         if (data.items && data.items.length > 0) {
           // Pegar o resultado mais relevante (primeiro)
-          const bookInfo = data.items[0].volumeInfo;
+          const bookInfo = data.items[0].volumeInfo as Record<string, unknown>;
 
           // Tentar extrair ISBN do resultado
           const foundIsbn =
-            bookInfo.industryIdentifiers?.find(
-              (id: any) => id.type === "ISBN_13",
+            (bookInfo.industryIdentifiers as Array<{ type: string; identifier: string }> | undefined)?.find(
+              (id) => id.type === "ISBN_13",
             )?.identifier ||
-            bookInfo.industryIdentifiers?.find(
-              (id: any) => id.type === "ISBN_10",
+            (bookInfo.industryIdentifiers as Array<{ type: string; identifier: string }> | undefined)?.find(
+              (id) => id.type === "ISBN_10",
             )?.identifier;
 
           enrichedData = normalizeGoogleBooksData(bookInfo, foundIsbn || isbn);
@@ -121,13 +121,13 @@ export async function POST(request: NextRequest) {
  * Normaliza dados retornados do Google Books API
  * Combina todos os dados disponíveis e mapeia idioma
  */
-function normalizeGoogleBooksData(bookInfo: any, isbn?: string) {
+function normalizeGoogleBooksData(bookInfo: Record<string, unknown>, isbn?: string) {
   // Extrair ISBN (priorizar ISBN-13)
   const bookIsbn =
     isbn ||
-    bookInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_13")
+    (bookInfo.industryIdentifiers as Array<{ type: string; identifier: string }> | undefined)?.find((id) => id.type === "ISBN_13")
       ?.identifier ||
-    bookInfo.industryIdentifiers?.find((id: any) => id.type === "ISBN_10")
+    (bookInfo.industryIdentifiers as Array<{ type: string; identifier: string }> | undefined)?.find((id) => id.type === "ISBN_10")
       ?.identifier;
 
   // Extrair ano de publicação

@@ -9,7 +9,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   getUserTypeLabel,
-  getUserStatusLabel,
   getLoanLimits,
   getNotificationTypeLabel,
   getNotificationTypeOptions,
@@ -223,7 +222,7 @@ export default function Profile() {
     initialData: [],
   });
 
-  const { data: documents = [], refetch: refetchDocuments } = useQuery<any[]>({
+  const { data: documents = [], refetch: refetchDocuments } = useQuery<Array<Record<string, unknown>>>({
     queryKey: ["user-documents"],
     enabled: authState === "auth",
     queryFn: async () => {

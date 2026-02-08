@@ -107,7 +107,7 @@ export async function PATCH(
       );
 
       // Atualizar status da sessão se fornecido
-      const updateData: any = {};
+      const updateData: Record<string, unknown> = {};
       if (validatedData.status) {
         updateData.status = validatedData.status;
       }
@@ -155,7 +155,7 @@ export async function PATCH(
                 status: NotificationStatus.PENDING,
                 title: "Conta ativada! 🎉",
                 message: `Parabéns! Você completou a formação "${trainingSession.title}". Sua conta está agora ativa e você pode usar todos os serviços da biblioteca.`,
-                metadata: metadata as any,
+                metadata: metadata as Record<string, unknown>,
               },
             });
           }),
