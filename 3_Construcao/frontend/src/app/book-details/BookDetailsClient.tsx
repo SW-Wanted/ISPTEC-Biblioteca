@@ -468,7 +468,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                           const count =
                             book.available_copies ?? availableCopies.length;
                           if (count === 0) return "Indisponível no momento";
-                          return `${count} exemplar(es) disponível(is)`;
+                          else if (count === 1) return "1 exemplar (Indisp. para empréstimo)";
+                          return `${count} exemplares disponíveis`;
                         })()}
                       </p>
                       {queueReservations.length > 0 &&
