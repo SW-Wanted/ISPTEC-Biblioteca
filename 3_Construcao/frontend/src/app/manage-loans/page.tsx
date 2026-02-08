@@ -7,7 +7,13 @@ import { createPageUrl } from "@/utils";
 import { api, type Loan, type Reservation } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { format, differenceInDays, differenceInHours, isPast } from "date-fns";
+import {
+  format,
+  differenceInDays,
+  differenceInHours,
+  isPast,
+  startOfDay,
+} from "date-fns";
 import {
   BookMarked,
   Search,
@@ -25,6 +31,8 @@ import {
   XCircle,
   ClipboardCheck,
   Bell,
+  RefreshCw,
+  Ban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +59,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +86,9 @@ import {
 export default function ManageLoans() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [showRenewDialog, setShowRenewDialog] = useState(false);
+  const [showDamagedDialog, setShowDamagedDialog] = useState(false);
+  const [showLostDialog, setShowLostDialog] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
@@ -246,6 +258,72 @@ export default function ManageLoans() {
     },
   });
 
+  const renewLoanMutation = useMutation<void, Error, Loan>({
+    mutationFn: async (loan) => {
+      const renewalCount = loan.renewal_count ?? 0;
+      const maxRenewals = loan.max_renewals ?? 0;
+      if (renewalCount >= maxRenewals) {
+        throw new Error("Limite de renovações atingido (máx: 2)");
+      }
+      await api.loans.renew(loan.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manage-loans"] });
+      setShowRenewDialog(false);
+      setSelectedLoan(null);
+      toast.success("Empréstimo renovado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Erro ao renovar empréstimo");
+    },
+  });
+
+  const markDamagedMutation = useMutation<void, Error, Loan>({
+    mutationFn: async (loan) => {
+      const res = await fetch(`/api/loans/${loan.id}/damaged`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao marcar como danificado");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manage-loans"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-books"] });
+      setShowDamagedDialog(false);
+      setSelectedLoan(null);
+      toast.success("Livro marcado como danificado. Multa aplicada.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const markLostMutation = useMutation<void, Error, Loan>({
+    mutationFn: async (loan) => {
+      const res = await fetch(`/api/loans/${loan.id}/lost`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao marcar como perdido");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["manage-loans"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-books"] });
+      setShowLostDialog(false);
+      setSelectedLoan(null);
+      toast.success("Livro marcado como perdido. Multa aplicada.");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const approveMutation = useMutation({
     mutationFn: async (reservation: Reservation) => {
       const loan = await api.entities.Loan.create({
@@ -309,14 +387,19 @@ export default function ManageLoans() {
       return { label: "Devolvido", color: "bg-slate-100 text-slate-700" };
     if (!loan.due_date)
       return { label: "Sem data", color: "bg-slate-100 text-slate-700" };
-    if (isPast(new Date(loan.due_date))) {
-      const days = differenceInDays(new Date(), new Date(loan.due_date));
+
+    // Normalizar datas para início do dia
+    const dueDate = startOfDay(new Date(loan.due_date));
+    const today = startOfDay(new Date());
+
+    if (isPast(dueDate)) {
+      const days = differenceInDays(today, dueDate);
       return {
         label: `${days} dia(s) atraso`,
         color: "bg-red-100 text-red-700",
       };
     }
-    const daysLeft = differenceInDays(new Date(loan.due_date), new Date());
+    const daysLeft = differenceInDays(dueDate, today);
     if (daysLeft <= 2)
       return {
         label: `${daysLeft} dia(s) restante(s)`,
@@ -565,7 +648,10 @@ export default function ManageLoans() {
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
                 <DropdownMenuItem
                   onClick={() => {
                     setSelectedLoan(loan);
@@ -574,6 +660,39 @@ export default function ManageLoans() {
                 >
                   <Undo2 className="w-4 h-4 mr-2" />
                   Registrar Devolução
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedLoan(loan);
+                    setShowRenewDialog(true);
+                  }}
+                  disabled={
+                    (loan.renewal_count ?? 0) >= (loan.max_renewals ?? 0)
+                  }
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Renovar Empréstimo
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedLoan(loan);
+                    setShowDamagedDialog(true);
+                  }}
+                  className="text-orange-600"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Marcar como Danificado
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedLoan(loan);
+                    setShowLostDialog(true);
+                  }}
+                  className="text-red-600"
+                >
+                  <Ban className="w-4 h-4 mr-2" />
+                  Marcar como Perdido
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1331,6 +1450,172 @@ export default function ManageLoans() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Renovar Empr\u00e9stimo */}
+      <Dialog open={showRenewDialog} onOpenChange={setShowRenewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renovar Empr\u00e9stimo</DialogTitle>
+            <DialogDescription>
+              Confirmar renova\u00e7\u00e3o do empr\u00e9stimo de &quot;
+              {selectedLoan?.book_title}&quot;.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLoan && (
+            <div className="py-4 space-y-4">
+              <div className="p-4 bg-slate-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Membro:</span>
+                  <span className="font-medium">
+                    {selectedLoan.member_name}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Renova\u00e7\u00f5es:</span>
+                  <span>
+                    {(selectedLoan.renewal_count ?? 0) + 1} de{" "}
+                    {selectedLoan.max_renewals ?? 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Novo prazo:</span>
+                  <span className="font-medium">
+                    +{selectedLoan.copy_id?.includes("TEACHER") ? 15 : 5}{" "}
+                    dias
+                  </span>
+                </div>
+              </div>
+              {(selectedLoan.renewal_count ?? 0) + 1 >=
+                (selectedLoan.max_renewals ?? 0) && (
+                <div className="p-4 bg-orange-50 rounded-lg">
+                  <div className="flex items-center gap-2 text-orange-700">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="font-medium">
+                      \u00daltima renova\u00e7\u00e3o
+                    </span>
+                  </div>
+                  <p className="text-sm text-orange-600 mt-1">
+                    Esta ser\u00e1 a \u00faltima renova\u00e7\u00e3o permitida
+                    para este empr\u00e9stimo (m\u00e1x: 2).
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRenewDialog(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedLoan) renewLoanMutation.mutate(selectedLoan);
+              }}
+              disabled={renewLoanMutation.isPending || !selectedLoan}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {renewLoanMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Confirmar Renova\u00e7\u00e3o
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Marcar como Danificado */}
+      <AlertDialog open={showDamagedDialog} onOpenChange={setShowDamagedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-700">
+              <AlertTriangle className="w-5 h-5" />
+              Marcar Livro como Danificado
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja marcar o livro &quot;
+              {selectedLoan?.book_title}&quot; como <strong>danificado</strong>?
+              <br />
+              <br />
+              <strong>A\u00e7\u00f5es autom\u00e1ticas:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>
+                  Condi\u00e7\u00e3o do exemplar: <strong>MAU</strong>
+                </li>
+                <li>
+                  Status do exemplar: <strong>DANIFICADO</strong>
+                </li>
+                <li>
+                  Multa aplicada ao membro: <strong>500 Kz</strong>
+                </li>
+                <li>
+                  Exemplar enviado para manuten\u00e7\u00e3o (indispon\u00edvel
+                  para empr\u00e9stimo)
+                </li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedLoan) markDamagedMutation.mutate(selectedLoan);
+              }}
+              className="bg-orange-600 hover:bg-orange-700"
+              disabled={markDamagedMutation.isPending}
+            >
+              {markDamagedMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Confirmar - Danificado
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog: Marcar como Perdido */}
+      <AlertDialog open={showLostDialog} onOpenChange={setShowLostDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-700">
+              <Ban className="w-5 h-5" />
+              Marcar Livro como Perdido
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja marcar o livro &quot;
+              {selectedLoan?.book_title}&quot; como <strong>perdido</strong>?
+              <br />
+              <br />
+              <strong>Ações automáticas:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>
+                  EStado do exemplar: <strong>PERDIDO</strong>
+                </li>
+                <li>
+                  Multa aplicada ao membro: <strong>1.500 Kz</strong>
+                </li>
+                <li>
+                  Exemplar permanentemente removido do acervo disponível
+                </li>
+                <li>Contador de cópias totais será decrementado</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedLoan) markLostMutation.mutate(selectedLoan);
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={markLostMutation.isPending}
+            >
+              {markLostMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Confirmar - Perdido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
