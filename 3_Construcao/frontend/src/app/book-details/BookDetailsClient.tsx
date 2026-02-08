@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
+  AlertTriangle,
   BookOpen,
   CheckCircle,
   ChevronLeft,
@@ -216,6 +217,9 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
   const hasActiveLoanForBook = activeLoans.some(
     (loan: { book_id?: string | null }) => loan.book_id === bookId,
   );
+  // 🔒 Desabilitar reserva quando há apenas 1 exemplar disponível
+  const hasOnlyOneCopy =
+    (book?.available_copies ?? availableCopies.length) === 1;
   const reserveButtonDisabled =
     isLoading ||
     isCopiesLoading ||
@@ -223,7 +227,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     isLoansLoading ||
     reserveMutation.isPending ||
     !book ||
-    hasActiveLoanForBook;
+    hasActiveLoanForBook ||
+    hasOnlyOneCopy;
 
   const shouldShowReserveSkeleton =
     isUserLoading ||
@@ -407,34 +412,64 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
             <Card
               className={cn(
                 "border-2 mb-6",
-                availableCopies.length > 0 || (book.available_copies ?? 0) > 0
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "border-orange-200 bg-orange-50",
+                (() => {
+                  const count = book.available_copies ?? availableCopies.length;
+                  if (count === 0) return "border-orange-200 bg-orange-50";
+                  if (count === 1) return "border-red-200 bg-red-50";
+                  if (count <= 3) return "border-amber-200 bg-amber-50";
+                  return "border-emerald-200 bg-emerald-50";
+                })(),
               )}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {availableCopies.length > 0 ||
-                    (book.available_copies ?? 0) > 0 ? (
-                      <CheckCircle className="w-8 h-8 text-emerald-600" />
-                    ) : (
-                      <AlertCircle className="w-8 h-8 text-orange-600" />
-                    )}
+                    {(() => {
+                      const count =
+                        book.available_copies ?? availableCopies.length;
+
+                      if (count === 0) {
+                        return (
+                          <AlertCircle className="w-8 h-8 text-orange-600" />
+                        );
+                      }
+
+                      if (count === 1) {
+                        return (
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        );
+                      }
+
+                      if (count <= 3) {
+                        return (
+                          <AlertCircle className="w-8 h-8 text-amber-600" />
+                        );
+                      }
+
+                      return (
+                        <CheckCircle className="w-8 h-8 text-emerald-600" />
+                      );
+                    })()}
                     <div>
                       <p
                         className={cn(
                           "font-semibold text-lg",
-                          availableCopies.length > 0 ||
-                            (book.available_copies ?? 0) > 0
-                            ? "text-emerald-800"
-                            : "text-orange-800",
+                          (() => {
+                            const count =
+                              book.available_copies ?? availableCopies.length;
+                            if (count === 0) return "text-orange-800";
+                            if (count === 1) return "text-red-800";
+                            if (count <= 3) return "text-amber-800";
+                            return "text-emerald-800";
+                          })(),
                         )}
                       >
-                        {availableCopies.length > 0 ||
-                        (book.available_copies ?? 0) > 0
-                          ? `${book.available_copies ?? availableCopies.length} exemplar(es) disponível(is)`
-                          : "Indisponível no momento"}
+                        {(() => {
+                          const count =
+                            book.available_copies ?? availableCopies.length;
+                          if (count === 0) return "Indisponível no momento";
+                          return `${count} exemplar(es) disponível(is)`;
+                        })()}
                       </p>
                       {queueReservations.length > 0 &&
                         !(book.available_copies ?? 0) && (
@@ -455,21 +490,37 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                         Já reservado
                       </Badge>
                     ) : (
-                      <Button
-                        onClick={() => setShowReserveDialog(true)}
-                        disabled={reserveButtonDisabled}
-                        className={
-                          (book.available_copies ?? 0) > 0 ||
-                          availableCopies.length > 0
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-orange-600 hover:bg-orange-700"
-                        }
-                      >
-                        {(book.available_copies ?? 0) > 0 ||
-                        availableCopies.length > 0
-                          ? "Reservar para Levantamento"
-                          : "Entrar na Fila de Espera"}
-                      </Button>
+                      (() => {
+                        const count =
+                          book.available_copies ?? availableCopies.length;
+                        const hasAvailable = count > 0;
+
+                        const buttonColor =
+                          count === 1
+                            ? "bg-red-600 hover:bg-red-700"
+                            : count <= 3
+                              ? "bg-amber-600 hover:bg-amber-700"
+                              : hasAvailable
+                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                : "bg-orange-600 hover:bg-orange-700";
+
+                        return (
+                          <Button
+                            onClick={() => setShowReserveDialog(true)}
+                            disabled={reserveButtonDisabled}
+                            className={buttonColor}
+                            title={
+                              hasOnlyOneCopy
+                                ? "Apenas 1 exemplar disponível - não pode ser reservado"
+                                : ""
+                            }
+                          >
+                            {hasAvailable
+                              ? "Reservar para Levantamento"
+                              : "Entrar na Fila de Espera"}
+                          </Button>
+                        );
+                      })()
                     )
                   ) : shouldShowReserveSkeleton ? (
                     <Skeleton className="h-10 w-56" />
