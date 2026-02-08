@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { api } from "@/api/apiClient";
+import { api, Member } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -195,7 +195,7 @@ export default function ManageMembers() {
 
     // Verificar se tem eliminação pendente (status INACTIVE por pedido de eliminação)
     const status = member.status?.toUpperCase();
-    if (status === "INACTIVE" || (member as any).deletion_requested) {
+    if (status === "INACTIVE" || (member as Member).deletion_requested) {
       return <Badge className="bg-gray-100 text-gray-700">Inativo</Badge>;
     }
 
@@ -509,10 +509,10 @@ export default function ManageMembers() {
                                 alt={member.name || "Perfil"}
                                 width={40}
                                 height={40}
-                                className="rounded-full object-cover"
+                                className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600">
+                              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600 shrink-0 aspect-square">
                                 {member.name?.charAt(0)?.toUpperCase() ||
                                   member.email?.charAt(0)?.toUpperCase() ||
                                   "U"}
@@ -563,7 +563,10 @@ export default function ManageMembers() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                              align="end"
+                              onCloseAutoFocus={(e) => e.preventDefault()}
+                            >
                               <DropdownMenuItem
                                 onClick={() =>
                                   window.open(
