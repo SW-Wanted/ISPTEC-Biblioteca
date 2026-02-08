@@ -244,8 +244,8 @@ export default function ManageBooks() {
       total_copies: book.total_copies || 1,
       available_copies: book.available_copies || 1,
       cover_url: book.cover_url || "",
-      material_type: (book as any).material_type || "BOOK",
-      loan_policy: (book as any).loan_policy || "STANDARD",
+      material_type: (book as { material_type?: string }).material_type || "BOOK",
+      loan_policy: (book as { loan_policy?: string }).loan_policy || "STANDARD",
     });
     setSelectedBook(book);
     setIsEditing(true);

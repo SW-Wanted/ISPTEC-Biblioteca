@@ -115,7 +115,7 @@ export async function POST(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = String(error?.message ?? "");
     if (message.includes("USER_HAS_ACTIVE_SESSION")) {
       return NextResponse.json(

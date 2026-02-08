@@ -12,10 +12,10 @@ import { Prisma } from "@prisma/client";
  * Retorna configurações públicas para exibição nas páginas (Help, Home, etc.)
  * Não requer autenticação pois são informações públicas
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Buscar políticas de empréstimo
-    let loanPolicies: Record<
+    const loanPolicies: Record<
       string,
       { loanDays: number; maxBooks: number; maxRenewals: number }
     > = {};
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Buscar configurações do sistema
-    let systemPolicies: Record<string, string> = {};
+    const systemPolicies: Record<string, string> = {};
 
     try {
       const dbSystemPolicies = await prisma.systemPolicy.findMany({
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Buscar multas (opcional, apenas valores)
-    let fines: Record<string, number> = {};
+    const fines: Record<string, number> = {};
 
     try {
       const dbFines = await prisma.fineConfiguration.findMany({
@@ -128,7 +128,12 @@ export async function GET(request: NextRequest) {
     };
 
     // Buscar FAQs ativas
-    let faqs: any[] = [];
+    let faqs: Array<{
+      id: string;
+      question: string;
+      answer: string;
+      order: number;
+    }> = [];
     try {
       faqs = await prisma.fAQ.findMany({
         where: { isActive: true },

@@ -48,7 +48,7 @@ type UnifiedLogEntry = {
   action: string; // Descrição da ação
   userName: string;
   userEmail: string;
-  details?: string | Record<string, any>;
+  details?: string | Record<string, unknown>;
 };
 
 // Mapear categorias baseado no tipo de atividade
@@ -167,7 +167,7 @@ export function ConsolidatedAuditLogs() {
 
     // Adicionar audit logs (configurações)
     if (auditData?.audits) {
-      auditData.audits.forEach((audit: any) => {
+      auditData.audits.forEach((audit: unknown) => {
         logs.push({
           id: audit.id,
           timestamp: new Date(audit.changedAt),
@@ -183,7 +183,7 @@ export function ConsolidatedAuditLogs() {
 
     // Adicionar activity logs (operações)
     if (activityLogsData?.logs) {
-      activityLogsData.logs.forEach((log: any) => {
+      activityLogsData.logs.forEach((log: unknown) => {
         logs.push({
           id: log.id,
           timestamp: new Date(log.createdAt),

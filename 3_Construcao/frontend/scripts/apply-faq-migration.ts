@@ -12,7 +12,7 @@ async function main() {
 
   try {
     // Verificar se a tabela já existe
-    const tableExists = await prisma.$queryRaw<any[]>`
+    const tableExists = await prisma.$queryRaw<Array<{ exists: boolean }>>`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 

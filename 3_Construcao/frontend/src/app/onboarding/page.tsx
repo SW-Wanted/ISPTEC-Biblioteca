@@ -14,7 +14,7 @@ import {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [user, setUser] = React.useState<any>(null);
+  const [user, setUser] = React.useState<{ status?: string; activation_status?: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   useEffect(() => {

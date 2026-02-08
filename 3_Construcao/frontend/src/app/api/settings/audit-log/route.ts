@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
@@ -19,7 +18,7 @@ async function requireSettingsAdmin() {
   const isAdmin =
     user &&
     [UserType.SUPERVISOR, UserType.LIBRARIAN, UserType.STAFF].includes(
-      user.type as any,
+      user.type as UserType,
     );
   if (!isAdmin) return null;
 

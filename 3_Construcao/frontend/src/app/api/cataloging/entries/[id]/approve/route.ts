@@ -160,7 +160,7 @@ export async function POST(
             publisherId,
             extractedByOCR: true,
             ocrConfidence: entry.enrichedData
-              ? (entry.enrichedData as any).confidence
+              ? (entry.enrichedData as Record<string, unknown>).confidence as number | null
               : null,
             // Criar relações BookAuthor (criar novos autores sempre)
             authors: {

@@ -209,7 +209,7 @@ export default function Services() {
       setActiveService(null);
       toast.success("Cacifo reservado com sucesso!");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "";
       if (message.includes("USER_HAS_ACTIVE_LOCKER")) {
         toast.error(
@@ -247,7 +247,7 @@ export default function Services() {
       setActiveService(null);
       toast.success("Computador reservado! Faça check-in no balcão.");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       const message = error?.message || "";
       if (message.includes("USER_HAS_ACTIVE_SESSION")) {
         toast.error(
@@ -282,7 +282,7 @@ export default function Services() {
       });
       toast.success("Reserva de cacifo cancelada");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao cancelar reserva");
     },
   });
@@ -304,7 +304,7 @@ export default function Services() {
       });
       toast.success("Reserva de computador cancelada");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao cancelar reserva");
     },
   });

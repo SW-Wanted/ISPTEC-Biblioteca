@@ -99,7 +99,7 @@ export async function POST(
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message = String(error?.message ?? "");
     if (message.includes("NOT_FOUND")) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

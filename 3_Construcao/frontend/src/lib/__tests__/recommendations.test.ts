@@ -51,7 +51,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "João Silva" } }],
             },
           },
-        } as any,
+        } as unknown,
       ]);
 
       // Mock de livros recomendados
@@ -111,7 +111,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Sofia Rodrigues" } }],
           copies: [{ id: "copy6", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
@@ -143,7 +143,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "Autor Teste" } }],
             },
           },
-        } as any,
+        } as unknown,
       ]);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
@@ -158,7 +158,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Outro Autor" } }],
           copies: [{ id: "copy2", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
@@ -187,7 +187,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "Isaac Asimov" } }],
             },
           },
-        } as any,
+        } as unknown,
       ]);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
@@ -213,7 +213,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Jane Austen" } }],
           copies: [{ id: "copy3", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
@@ -244,7 +244,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Autor Popular" } }],
           copies: [{ id: "copy1", loans: Array(20).fill({ id: "loan" }) }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
@@ -273,7 +273,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "Autor" } }],
             },
           },
-        } as any,
+        } as unknown,
       ]);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
@@ -288,7 +288,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Autor" } }],
           copies: [{ id: "copy2", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 
@@ -310,7 +310,7 @@ describe("Sistema de Recomendações - RF026", () => {
         categoryId: "cat1",
         category: { id: "cat1", name: "Ficção" },
         authors: [{ author: { name: "Autor Base" } }],
-      } as any);
+      } as unknown);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
@@ -324,7 +324,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Outro Autor" } }],
           copies: [{ id: "copy2", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       const result = await getSimilarBooks(baseBookId, 5);
 
@@ -342,7 +342,7 @@ describe("Sistema de Recomendações - RF026", () => {
         categoryId: "cat1",
         category: { id: "cat1", name: "Categoria" },
         authors: [{ author: { name: "Autor" } }],
-      } as any);
+      } as unknown);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
         {
@@ -356,7 +356,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "Autor" } }],
           copies: [{ id: "copy2", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       const result = await getSimilarBooks(baseBookId, 5);
 
@@ -393,7 +393,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "A" } }],
             },
           },
-        } as any,
+        } as unknown,
       ]);
 
       vi.mocked(prisma.book.findMany).mockResolvedValue(
@@ -409,7 +409,7 @@ describe("Sistema de Recomendações - RF026", () => {
             category: { name: "Cat" },
             authors: [{ author: { name: "A" } }],
             copies: [{ id: `copy${i + 2}`, loans: [] }],
-          })) as any,
+          })) as unknown,
       );
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
@@ -441,7 +441,7 @@ describe("Sistema de Recomendações - RF026", () => {
               authors: [{ author: { name: "A" } }],
             },
           },
-        })) as any,
+        })) as unknown,
       );
 
       vi.mocked(prisma.book.findMany).mockResolvedValue([
@@ -456,7 +456,7 @@ describe("Sistema de Recomendações - RF026", () => {
           authors: [{ author: { name: "A" } }],
           copies: [{ id: "copy4", loans: [] }],
         },
-      ] as any);
+      ] as unknown);
 
       vi.mocked(prisma.bookRecommendation.findMany).mockResolvedValue([]);
 

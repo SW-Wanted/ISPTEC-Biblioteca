@@ -12,7 +12,6 @@ import {
   CheckCheck,
   Clock,
   CreditCard,
-  RefreshCw,
   Settings,
   ChevronRight,
   FileText,
@@ -24,7 +23,6 @@ import { cn } from "@/lib/utils";
 import {
   getNotificationActionUrl,
   getNotificationActionType,
-  hasNotificationAction,
 } from "@/lib/notification-helpers";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,7 +57,7 @@ async function httpJson<T>(input: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-function getNotificationIcon(metadata: any) {
+function getNotificationIcon(metadata: unknown) {
   const actionType = getNotificationActionType(metadata);
 
   switch (actionType) {
@@ -90,22 +88,6 @@ function getNotificationIcon(metadata: any) {
       return <Bell className="w-4 h-4 text-slate-600" />;
   }
 }
-
-const handleNotificationClick = async (notification: ApiNotification) => {
-  try {
-    // Marcar como lida
-    await markAsReadMutation.mutateAsync(notification.id!);
-
-    // Navegar para URL da metadata ou fallback para /notifications
-    const actionUrl = getNotificationActionUrl(notification.metadata);
-    const targetUrl = actionUrl || "/notifications";
-
-    setIsOpen(false);
-    router.push(targetUrl);
-  } catch (error) {
-    console.error("Erro ao processar notificação:", error);
-  }
-};
 
 export default function NotificationCenter({ user }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -217,6 +199,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
     }
   }, [email, recentNotifications]);
 
+  // const handleNotificationClick = async (notification: ApiNotification) => {
   const handleNotificationClick = async (notification: ApiNotification) => {
     try {
       // Marcar como lida se ainda não foi

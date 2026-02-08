@@ -400,9 +400,9 @@ function AdminSettingsPage() {
   });
 
   // Form states
-  const [selectedFine, setSelectedFine] = useState<any>(null);
-  const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
-  const [selectedSystemPolicy, setSelectedSystemPolicy] = useState<any>(null);
+  const [selectedFine, setSelectedFine] = useState<Record<string, unknown> | null>(null);
+  const [selectedPolicy, setSelectedPolicy] = useState<Record<string, { loanDays?: number | string; maxLoans?: number | string; maxBooks?: number | string; maxRenewals?: number | string; renewalLimit?: number | string }> | null>(null);
+  const [selectedSystemPolicy, setSelectedSystemPolicy] = useState<Record<string, unknown>>({}); 
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryDesc, setNewCategoryDesc] = useState("");
@@ -446,8 +446,8 @@ function AdminSettingsPage() {
     if (!draggingFaqId || draggingFaqId === targetFaqId) return;
 
     const faqs = faqsData?.faqs || [];
-    const draggingFaq = faqs.find((f: any) => f.id === draggingFaqId);
-    const targetFaq = faqs.find((f: any) => f.id === targetFaqId);
+    const draggingFaq = faqs.find((f: { id: string; order: number }) => f.id === draggingFaqId);
+    const targetFaq = faqs.find((f: { id: string; order: number }) => f.id === targetFaqId);
 
     if (!draggingFaq || !targetFaq) return;
 
@@ -468,9 +468,9 @@ function AdminSettingsPage() {
       ]);
 
       toast.success("FAQs reordenadas!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao reordenar:", error);
-      toast.error(error.message || "Erro ao reordenar FAQs");
+      toast.error(error instanceof Error ? error.message : "Erro ao reordenar FAQs");
     } finally {
       setDraggingFaqId(null);
       setDragOverFaqId(null);
@@ -561,7 +561,7 @@ function AdminSettingsPage() {
                   <div className="space-y-4">
                     {fineTypes.map((type) => {
                       const config = (finesData?.fineConfigurations || []).find(
-                        (f: any) => f.type === type,
+                        (f: { type: string }) => f.type === type,
                       );
                       return (
                         <div
@@ -618,7 +618,7 @@ function AdminSettingsPage() {
                               updateFineMutation.isPending ||
                               selectedFine?.[type] === "" ||
                               (selectedFine?.[type] !== undefined &&
-                                isNaN(selectedFine?.[type]))
+                                isNaN(Number(selectedFine?.[type])))
                             }
                           >
                             <Edit2 className="w-4 h-4" />
@@ -662,7 +662,7 @@ function AdminSettingsPage() {
                         {userTypes.map((userType) => {
                           const policy = (
                             policiesData?.loanPolicies || []
-                          ).find((p: any) => p.userType === userType);
+                          ).find((p: { userType: string }) => p.userType === userType);
                           return (
                             <TableRow key={userType}>
                               <TableCell className="font-medium">
@@ -792,7 +792,7 @@ function AdminSettingsPage() {
                   </div>
                 ) : (
                   (systemPoliciesData?.systemPolicies || []).map(
-                    (policy: any) => (
+                    (policy: unknown) => (
                       <div key={policy.key} className="p-4 border rounded-lg">
                         <Label className="font-medium">
                           {formatSystemPolicyKey(policy.key)}
@@ -943,7 +943,7 @@ function AdminSettingsPage() {
                         Nenhuma categoria encontrada.
                       </div>
                     ) : (
-                      (categoriesData?.categories || []).map((cat: any) => (
+                      (categoriesData?.categories || []).map((cat: unknown) => (
                         <div
                           key={cat.id}
                           className="p-3 border rounded-lg space-y-3"
@@ -1148,12 +1148,12 @@ function AdminSettingsPage() {
                   <div className="space-y-3">
                     {(faqsData?.faqs || []).length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
-                        Nenhuma FAQ cadastrada. Clique em "Nova FAQ" para criar.
+                        Nenhuma FAQ cadastrada. Clique em &quot;Nova FAQ&quot; para criar.
                       </div>
                     ) : (
                       (faqsData?.faqs || [])
-                        .sort((a: any, b: any) => a.order - b.order)
-                        .map((faq: any) => (
+                        .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+                        .map((faq: { id: string; question: string; answer: string; order: number; isActive: boolean }) => (
                           <div
                             key={faq.id}
                             draggable

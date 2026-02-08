@@ -37,22 +37,22 @@ async function deleteUser() {
     console.log(
       `   Participações em formação: ${user.trainingParticipations.length}`,
     );
-    console.log(`   Documentos: ${user.documents.length}`);
+    console.log(`   Documentos: ${user.userDocuments.length}`);
     console.log(`   Logs de atividade: ${user.activityLogs.length}`);
     console.log(`   Notificações: ${user.notifications.length}`);
 
     console.log("\n🗑️  Deletando dados relacionados...");
 
     // Deletar em ordem (respeitando foreign keys)
-    const deletedAccounts = await prisma.account.deleteMany({
-      where: { userId: user.id },
-    });
-    console.log(`   ✓ ${deletedAccounts.count} contas OAuth deletadas`);
+    // const deletedAccounts = await prisma.account.deleteMany({
+    //   where: { userId: user.id },
+    // });
+    // console.log(`   ✓ ${deletedAccounts.count} contas OAuth deletadas`);
 
-    const deletedSessions = await prisma.session.deleteMany({
-      where: { userId: user.id },
-    });
-    console.log(`   ✓ ${deletedSessions.count} sessões deletadas`);
+    // const deletedSessions = await prisma.session.deleteMany({
+    //   where: { userId: user.id },
+    // });
+    // console.log(`   ✓ ${deletedSessions.count} sessões deletadas`);
 
     const deletedLoans = await prisma.loan.deleteMany({
       where: { userId: user.id },
@@ -71,7 +71,7 @@ async function deleteUser() {
       `   ✓ ${deletedParticipations.count} participações em formação deletadas`,
     );
 
-    const deletedDocuments = await prisma.memberDocument.deleteMany({
+    const deletedDocuments = await prisma.userDocument.deleteMany({
       where: { userId: user.id },
     });
     console.log(`   ✓ ${deletedDocuments.count} documentos deletados`);

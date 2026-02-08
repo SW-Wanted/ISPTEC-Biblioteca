@@ -36,13 +36,6 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FileText } from "lucide-react";
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendente",
-  in_progress: "Em andamento",
-  completed: "Concluida",
-  cancelled: "Cancelada",
-};
-
 const TYPE_LABELS: Record<string, string> = {
   bibliography: "Levantamento Bibliografico",
   cataloging: "Catalogacao na Fonte",
@@ -105,7 +98,7 @@ export default function SpecialRequestsAdminPage() {
       setSelectedRequest(null);
       setResponseText("");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao actualizar solicitacao");
     },
   });

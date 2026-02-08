@@ -204,7 +204,7 @@ export default function AdminComputersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-computer-sessions"] });
       toast.success("Computador libertado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao libertar computador");
     },
   });
@@ -223,7 +223,7 @@ export default function AdminComputersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-computer-sessions"] });
       toast.success("Sessao renovada");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao renovar sessao");
     },
   });
@@ -246,7 +246,7 @@ export default function AdminComputersPage() {
       });
       toast.success("Reserva aceite");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao aceitar reserva");
     },
   });
@@ -268,7 +268,7 @@ export default function AdminComputersPage() {
       });
       toast.success("Reserva rejeitada");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao rejeitar reserva");
     },
   });
@@ -295,7 +295,7 @@ export default function AdminComputersPage() {
       setCreateForm({ number: "", location: "", status: "available" });
       toast.success("Computador adicionado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao adicionar computador");
     },
   });
@@ -323,7 +323,7 @@ export default function AdminComputersPage() {
       setEditingComputer(null);
       toast.success("Computador actualizado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao actualizar computador");
     },
   });
@@ -342,7 +342,7 @@ export default function AdminComputersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-computers"] });
       toast.success("Computador eliminado");
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast.error(error?.message ?? "Erro ao eliminar computador");
     },
   });

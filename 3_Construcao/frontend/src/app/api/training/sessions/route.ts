@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Construir filtros Prisma
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (filters.status) {
       where.status = filters.status;

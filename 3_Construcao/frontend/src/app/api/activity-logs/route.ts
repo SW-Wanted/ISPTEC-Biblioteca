@@ -128,7 +128,7 @@ export type ActivityLogDTO = {
   action: string;
   entityType: string | null;
   entityId: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: string;
