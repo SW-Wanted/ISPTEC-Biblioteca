@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { HeroCarousel } from "@/components/hero-carousel";
+import { useBookPolicyBadge } from "@/hooks/use-book-policy-badge";
 
 type MemberRow = {
   member_type?: string | null;
@@ -39,6 +40,7 @@ export default function Home() {
     ReturnType<typeof api.auth.me>
   > | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const getPolicyBadge = useBookPolicyBadge();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -442,12 +444,25 @@ export default function Home() {
                           <BookOpen className="w-12 h-12 text-slate-300" />
                         </div>
                       )}
-                      {book.available_copies != null &&
-                        book.available_copies > 0 && (
-                          <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
-                            Disponível
+                      {(() => {
+                        const available = book.available_copies ?? 0;
+                        const total = book.total_copies ?? 0;
+                        const policy = getPolicyBadge(available, total);
+                        return (
+                          <Badge
+                            className={cn(
+                              "absolute top-2 right-2 text-[10px]",
+                              available > 0
+                                ? policy.className
+                                : "bg-red-500 text-white",
+                            )}
+                          >
+                            {available > 0
+                              ? `${available} disp. • ${policy.label}`
+                              : "Indisponível"}
                           </Badge>
-                        )}
+                        );
+                      })()}
                     </div>
                     <CardContent className="p-3">
                       <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-amber-600 transition-colors">
