@@ -258,7 +258,7 @@ export async function POST(
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error("❌ Erro de validação:", error.errors);
+      console.error("❌ Erro de validação:", error.issues);
       return NextResponse.json(
         { error: "Dados inválidos", details: error.issues },
         { status: 400 },

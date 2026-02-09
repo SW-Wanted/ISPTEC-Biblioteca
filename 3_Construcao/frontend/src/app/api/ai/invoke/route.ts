@@ -110,9 +110,9 @@ export async function POST(request: NextRequest) {
     console.error("Stack trace:", error instanceof Error ? error.stack : "N/A");
 
     if (error instanceof z.ZodError) {
-      console.error("❌ Erro de validação Zod:", error.errors);
+      console.error("❌ Erro de validação Zod:", error.issues);
       return NextResponse.json(
-        { error: "Dados inválidos", details: error.errors },
+        { error: "Dados inválidos", details: error.issues },
         { status: 400 },
       );
     }

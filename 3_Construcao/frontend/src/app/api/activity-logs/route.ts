@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
       select: { type: true },
     });
 
-    if (!user || ![UserType.LIBRARIAN, UserType.CATALOGER, UserType.SUPERVISOR].includes(user.type)) {
+    const allowedTypes: UserType[] = [UserType.LIBRARIAN, UserType.CATALOGER, UserType.SUPERVISOR];
+    if (!user || !allowedTypes.includes(user.type)) {
       return NextResponse.json(
         { error: "Sem permissão para acessar logs de atividade" },
         { status: 403 },
@@ -89,11 +90,11 @@ export async function GET(request: NextRequest) {
       logs: logs.map((log) => ({
         id: log.id,
         userId: log.userId,
-        userName: log.user.name,
-        userEmail: log.user.email,
-        type: log.type,
+        userName: log.user?.name ?? "Desconhecido",
+        userEmail: log.user?.email ?? "N/A",
+        type: log.action, // ActivityLog não tem 'type', usar 'action'
         action: log.action,
-        entityType: log.entityType,
+        entityType: log.entity,
         entityId: log.entityId,
         metadata: log.metadata,
         ipAddress: log.ipAddress,

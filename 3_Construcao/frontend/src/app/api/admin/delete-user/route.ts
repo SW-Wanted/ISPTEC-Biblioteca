@@ -64,7 +64,7 @@ export async function DELETE(request: NextRequest) {
     console.log(`✓ ${trainingParticipants.count} participações deletadas`);
 
     console.log("Deletando documentos...");
-    const memberDocuments = await prisma.memberDocument.deleteMany({
+    const memberDocuments = await prisma.userDocument.deleteMany({
       where: { userId: user.id },
     });
     console.log(`✓ ${memberDocuments.count} documentos deletados`);
@@ -95,17 +95,17 @@ export async function DELETE(request: NextRequest) {
     });
     console.log(`✓ ${passwordResetTokens.count} tokens deletados`);
 
-    console.log("Deletando contas OAuth...");
-    const accounts = await prisma.account.deleteMany({
-      where: { userId: user.id },
-    });
-    console.log(`✓ ${accounts.count} contas deletadas`);
+    // console.log("Deletando contas OAuth...");
+    // const accounts = await prisma.account.deleteMany({
+    //   where: { userId: user.id },
+    // });
+    // console.log(`✓ ${accounts.count} contas deletadas`);
 
-    console.log("Deletando sessões...");
-    const sessions = await prisma.session.deleteMany({
-      where: { userId: user.id },
-    });
-    console.log(`✓ ${sessions.count} sessões deletadas`);
+    // console.log("Deletando sessões...");
+    // const sessions = await prisma.session.deleteMany({
+    //   where: { userId: user.id },
+    // });
+    // console.log(`✓ ${sessions.count} sessões deletadas`);
 
     // Deletar usuário
     console.log("Deletando usuário...");
@@ -126,8 +126,8 @@ export async function DELETE(request: NextRequest) {
         loans: loans.count,
         reservations: reservations.count,
         passwordResetTokens: passwordResetTokens.count,
-        accounts: accounts.count,
-        sessions: sessions.count,
+        // accounts: accounts.count,
+        // sessions: sessions.count,
       },
     });
   } catch (error) {

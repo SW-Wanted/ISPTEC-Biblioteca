@@ -18,7 +18,7 @@ const enrichSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { isbn, title, author } =
+    const { isbn, title, author, publisher } =
       enrichSchema.parse(body);
 
     // Validar que ao menos ISBN ou título foi fornecido
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Dados inválidos", details: error.errors },
+        { error: "Dados inválidos", details: error.issues },
         { status: 400 },
       );
     }
@@ -122,6 +122,27 @@ export async function POST(request: NextRequest) {
  * Combina todos os dados disponíveis e mapeia idioma
  */
 function normalizeGoogleBooksData(bookInfo: Record<string, unknown>, isbn?: string) {
+  // Helper para acessar propriedades com segurança
+  const getStringProp = (key: string): string | undefined => {
+    const val = bookInfo[key];
+    return typeof val === 'string' ? val : undefined;
+  };
+  
+  const getNumberProp = (key: string): number | undefined => {
+    const val = bookInfo[key];
+    return typeof val === 'number' ? val : undefined;
+  };
+  
+  const getArrayProp = (key: string): unknown[] | undefined => {
+    const val = bookInfo[key];
+    return Array.isArray(val) ? val : undefined;
+  };
+  
+  const getObjectProp = (key: string): Record<string, unknown> | undefined => {
+    const val = bookInfo[key];
+    return val && typeof val === 'object' && !Array.isArray(val) ? val as Record<string, unknown> : undefined;
+  };
+
   // Extrair ISBN (priorizar ISBN-13)
   const bookIsbn =
     isbn ||
@@ -132,8 +153,9 @@ function normalizeGoogleBooksData(bookInfo: Record<string, unknown>, isbn?: stri
 
   // Extrair ano de publicação
   let publicationYear = null;
-  if (bookInfo.publishedDate) {
-    const yearMatch = bookInfo.publishedDate.match(/\d{4}/);
+  const publishedDate = getStringProp('publishedDate');
+  if (publishedDate) {
+    const yearMatch = publishedDate.match(/\d{4}/);
     publicationYear = yearMatch ? parseInt(yearMatch[0]) : null;
   }
 
@@ -157,82 +179,98 @@ function normalizeGoogleBooksData(bookInfo: Record<string, unknown>, isbn?: stri
     ita: "it",
   };
 
-  const rawLanguage = bookInfo.language?.toLowerCase();
+  const rawLanguage = getStringProp('language')?.toLowerCase();
   const normalizedLanguage = rawLanguage
     ? languageMap[rawLanguage] || rawLanguage.slice(0, 2)
     : "pt";
 
   // Extrair dimensões do livro (se disponível)
-  const dimensions = bookInfo.dimensions
-    ? `${bookInfo.dimensions.height} x ${bookInfo.dimensions.width} x ${bookInfo.dimensions.thickness}`
+  const dimensions = getObjectProp('dimensions');
+  const dimensionsStr = dimensions
+    ? `${dimensions.height} x ${dimensions.width} x ${dimensions.thickness}`
     : null;
 
   // Extrair edição (do título ou campo específico)
   let edition = null;
-  if (bookInfo.title) {
-    const editionMatch = bookInfo.title.match(/(\d+)[ªº°]?\s*(ed|edição)/i);
+  const title = getStringProp('title');
+  if (title) {
+    const editionMatch = title.match(/(\d+)[ªº°]?\s*(ed|edição)/i);
     edition = editionMatch ? editionMatch[1] + "ª" : null;
   }
 
   // Extrair palavras-chave das categorias
-  const keywords = bookInfo.categories
-    ? bookInfo.categories.flatMap((cat: string) =>
-        cat.split("/").map((k: string) => k.trim()),
+  const categories = getArrayProp('categories');
+  const keywords = categories
+    ? categories.flatMap((cat) =>
+        typeof cat === 'string' ? cat.split("/").map((k) => k.trim()) : []
       )
     : [];
 
   // Buscar capa de melhor qualidade
+  const imageLinks = getObjectProp('imageLinks');
   const coverUrl =
-    bookInfo.imageLinks?.extraLarge ||
-    bookInfo.imageLinks?.large ||
-    bookInfo.imageLinks?.medium ||
-    bookInfo.imageLinks?.thumbnail ||
-    bookInfo.imageLinks?.smallThumbnail ||
+    (imageLinks?.extraLarge as string | undefined) ||
+    (imageLinks?.large as string | undefined) ||
+    (imageLinks?.medium as string | undefined) ||
+    (imageLinks?.thumbnail as string | undefined) ||
+    (imageLinks?.smallThumbnail as string | undefined) ||
     null;
 
   // Limpar descrição HTML
-  const cleanDescription = bookInfo.description
-    ? bookInfo.description.replace(/<[^>]*>/g, "").trim()
+  const description = getStringProp('description');
+  const cleanDescription = description
+    ? description.replace(/<[^>]*>/g, "").trim()
+    : null;
+
+  // Extrair thumbnail
+  const thumbnail = imageLinks?.thumbnail;
+  const thumbnailUrl = typeof thumbnail === 'string' ? thumbnail : null;
+
+  // Extrair industry identifiers para googleBooksId
+  const industryIdentifiers = getArrayProp('industryIdentifiers');
+  const firstIdentifier = industryIdentifiers?.[0];
+  const googleBooksId = firstIdentifier && typeof firstIdentifier === 'object' && firstIdentifier !== null && 'identifier' in firstIdentifier
+    ? (firstIdentifier as { identifier: string }).identifier
     : null;
 
   return {
     // Dados básicos
     isbn: bookIsbn,
-    title: bookInfo.title || null,
-    subtitle: bookInfo.subtitle || null,
+    title: getStringProp('title') || null,
+    subtitle: getStringProp('subtitle') || null,
     edition,
 
     // Autores e editora
-    authors: bookInfo.authors || null,
-    publisher: bookInfo.publisher || null,
+    authors: getArrayProp('authors') || null,
+    publisher: getStringProp('publisher') || null,
 
     // Publicação
     publicationYear,
-    publishedDate: bookInfo.publishedDate || null, // Data completa original
+    publishedDate: getStringProp('publishedDate') || null, // Data completa original
 
     // Características físicas
-    pages: bookInfo.pageCount || null,
+    pages: getNumberProp('pageCount') || null,
     language: normalizedLanguage,
     dimensions,
 
     // Conteúdo
     description: cleanDescription,
-    categories: bookInfo.categories || null,
+    categories: getArrayProp('categories') || null,
     keywords: keywords.length > 0 ? keywords : null,
 
     // Mídia
     coverUrl,
-    thumbnail: bookInfo.imageLinks?.thumbnail || null,
+    thumbnail: thumbnailUrl,
 
     // Classificações
-    averageRating: bookInfo.averageRating || null,
-    ratingsCount: bookInfo.ratingsCount || null,
-    maturityRating: bookInfo.maturityRating || null,
+    averageRating: getNumberProp('averageRating') || null,
+    ratingsCount: getNumberProp('ratingsCount') || null,
+    maturityRating: getStringProp('maturityRating') || null,
 
     // Metadados Google Books
-    googleBooksId: bookInfo.industryIdentifiers?.[0]?.identifier || null,
-    previewLink: bookInfo.previewLink || null,
-    infoLink: bookInfo.infoLink || null,
+    googleBooksId,
+    previewLink: getStringProp('previewLink') || null,
+    infoLink: getStringProp('infoLink') || null,
 
     // Origem
     source: "Google Books",

@@ -792,7 +792,7 @@ function AdminSettingsPage() {
                   </div>
                 ) : (
                   (systemPoliciesData?.systemPolicies || []).map(
-                    (policy: unknown) => (
+                    (policy: { key: string; value: string; description?: string }) => (
                       <div key={policy.key} className="p-4 border rounded-lg">
                         <Label className="font-medium">
                           {formatSystemPolicyKey(policy.key)}
@@ -805,9 +805,7 @@ function AdminSettingsPage() {
                           <div className="flex-1">
                             <Input
                               value={
-                                selectedSystemPolicy?.[policy.key] ??
-                                policy.value ??
-                                ""
+                                String(selectedSystemPolicy?.[policy.key] ?? policy.value ?? "")
                               }
                               onChange={(e) =>
                                 setSelectedSystemPolicy({
@@ -841,7 +839,7 @@ function AdminSettingsPage() {
                                 key: policy.key,
                                 value:
                                   policy.key in (selectedSystemPolicy || {})
-                                    ? selectedSystemPolicy[policy.key]
+                                    ? String(selectedSystemPolicy[policy.key])
                                     : policy.value,
                                 description:
                                   policy.description ||
@@ -943,7 +941,7 @@ function AdminSettingsPage() {
                         Nenhuma categoria encontrada.
                       </div>
                     ) : (
-                      (categoriesData?.categories || []).map((cat: unknown) => (
+                      (categoriesData?.categories || []).map((cat: { id: string; name: string; description?: string; parent?: { name: string }; parentId?: string | null; childrenCount?: number }) => (
                         <div
                           key={cat.id}
                           className="p-3 border rounded-lg space-y-3"
@@ -963,7 +961,7 @@ function AdminSettingsPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              {cat.childrenCount > 0 && (
+                              {(cat.childrenCount ?? 0) > 0 && (
                                 <Badge>{cat.childrenCount} subcategorias</Badge>
                               )}
                               <Button

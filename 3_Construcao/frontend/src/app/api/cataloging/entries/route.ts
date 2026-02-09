@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { UserType, CatalogStatus } from "@prisma/client";
+import { UserType, CatalogStatus, Prisma } from "@prisma/client";
 
 /**
  * POST /api/cataloging/entries
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const allowedTypes = [
+    const allowedTypes: UserType[] = [
       UserType.LIBRARIAN,
       UserType.CATALOGER,
       UserType.SUPERVISOR,
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         extractedISBN: data.extractedISBN,
         extractedPublisher: data.extractedPublisher,
         extractedYear: data.extractedYear,
-        enrichedData: data.enrichedData as Record<string, unknown> | null,
+        enrichedData: data.enrichedData ? (data.enrichedData as Prisma.InputJsonValue) : Prisma.JsonNull,
         status: CatalogStatus.PENDING,
       },
     });
