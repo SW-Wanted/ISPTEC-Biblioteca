@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
@@ -90,7 +91,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password";
+    pathname === "/forgot-password" ||
+    pathname === "/auth-error";
+
+  // Public pages that should render without sidebar for unauthenticated users
+  const isPublicPage = pathname === "/help" || pathname === "/not-found";
 
   // Carregar utilizador autenticado com React Query
   const { data: user, isLoading: isUserLoading } = useQuery({
@@ -107,11 +112,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  // Verificar se é admin baseado no UserType
+  // Verificar se é admin baseado no UserType E se está ACTIVE
   const isAdmin =
-    user?.type === "SUPERVISOR" ||
-    user?.type === "LIBRARIAN" ||
-    user?.type === "STAFF";
+    (user?.type === "SUPERVISOR" ||
+      user?.type === "LIBRARIAN" ||
+      user?.type === "STAFF") &&
+    user?.activationStatus === "ACTIVE";
 
   const router = useRouter();
 
@@ -122,16 +128,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isProfilePage = pathname.startsWith("/profile"); // Permitir acesso ao perfil para upload de documentos
     const isServicesPage = pathname.startsWith("/services"); // Permitir acesso a formações para PENDING_TRAINING
     const isNotificationsPage = pathname.startsWith("/notifications"); // Permitir acesso a notificações
+    const isHelpPage = pathname.startsWith("/help"); // Permitir acesso à página de ajuda
     const isApiPage = pathname.startsWith("/api"); // Permitir chamadas API
+
+    // Supervisores, bibliotecários e staff não precisam de activação
+    const isAdminType =
+      user?.type === "SUPERVISOR" ||
+      user?.type === "LIBRARIAN" ||
+      user?.type === "STAFF";
 
     if (
       user &&
       user.activationStatus !== "ACTIVE" &&
+      !isAdminType &&
       !isAuthPage &&
       !isOnboardingPage &&
       !isProfilePage &&
       !isServicesPage &&
       !isNotificationsPage &&
+      !isHelpPage &&
       !isApiPage
     ) {
       console.log(
@@ -183,6 +198,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // Render without sidebar for unauthenticated users on public pages
+  // (help, not-found, or any page accessed without login)
+  if (isPublicPage && !isUserLoading && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        {/* Simple public header */}
+        <header className="h-16 px-6 flex items-center justify-between border-b border-slate-200 bg-white">
+          <Link href="/" className="flex items-center gap-3">
+            <Image
+              src="/isptec-logo-square.png"
+              alt="ISPTEC"
+              width={36}
+              height={36}
+              className="rounded-xl"
+            />
+            <div>
+              <span className="font-bold text-slate-800">ISPTEC</span>
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider ml-2">
+                Biblioteca
+              </span>
+            </div>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/help">
+              <Button variant="ghost" size="sm">
+                <HelpCircle className="w-4 h-4 mr-1" />
+                Ajuda
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button size="sm">Entrar</Button>
+            </Link>
+          </div>
+        </header>
+        <main>{children}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Mobile Header */}
@@ -197,7 +251,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
 
         <div className="flex items-center gap-2">
-          <BookOpen className="w-7 h-7 text-indigo-600" />
+          <Image
+            src="/isptec-logo-square.png"
+            alt="ISPTEC"
+            width={32}
+            height={32}
+            className="rounded"
+          />
           <span className="font-bold text-lg text-slate-800">ISPTEC</span>
         </div>
 
@@ -237,9 +297,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
+            <Image
+              src="/isptec-logo-square.png"
+              alt="ISPTEC"
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
             <div>
               <h1 className="font-bold text-slate-800">ISPTEC</h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider">
@@ -274,14 +338,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                   active
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-amber-50 text-amber-700"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                 )}
               >
                 <Icon
                   className={cn(
                     "w-5 h-5",
-                    active ? "text-indigo-600" : "text-slate-400",
+                    active ? "text-amber-600" : "text-slate-400",
                   )}
                 />
                 {item.name}
@@ -322,14 +386,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                       active
-                        ? "bg-indigo-50 text-indigo-700"
+                        ? "bg-amber-50 text-amber-700"
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
                     <Icon
                       className={cn(
                         "w-5 h-5",
-                        active ? "text-indigo-600" : "text-slate-400",
+                        active ? "text-amber-600" : "text-slate-400",
                       )}
                     />
                     {item.name}
@@ -358,10 +422,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   type="button"
                   className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-semibold">
-                    {user.full_name?.charAt(0) ||
-                      user.email?.charAt(0)?.toUpperCase()}
-                  </div>
+                  {user.profile_image_url ? (
+                    <img
+                      src={user.profile_image_url}
+                      alt=""
+                      className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold shrink-0 aspect-square">
+                      {user.full_name?.charAt(0) ||
+                        user.email?.charAt(0)?.toUpperCase()}
+                    </div>
+                  )}
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-slate-800 truncate">
                       {user.full_name || "Utilizador"}
@@ -442,7 +514,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main
         className={cn("transition-all duration-300 pt-16 lg:pt-0", "lg:ml-72")}
       >
-        <div className="min-h-screen">{children}</div>
+        <div className="min-h-screen overflow-x-hidden">{children}</div>
       </main>
     </div>
   );

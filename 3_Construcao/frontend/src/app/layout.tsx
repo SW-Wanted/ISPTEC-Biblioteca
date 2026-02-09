@@ -6,8 +6,8 @@ import { AppShell } from "@/components/app-shell"
 import { AppProviders } from "@/components/app-providers"
 
 export const metadata: Metadata = {
-  title: "ISPTEC • Biblioteca",
-  description: "Sistema de Gestão de Biblioteca Universitária (ISPTEC)",
+  title: "ISPTEC | Biblioteca",
+  description: "ISPTEC - Sistema de Gestão de Biblioteca Universitária",
 }
 
 export default function RootLayout({

@@ -5,7 +5,13 @@ import Image from "next/image";
 import { Link } from "@/lib/router";
 import { createPageUrl } from "@/utils";
 import { api, type Book } from "@/api/apiClient";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   Library,
   Search,
@@ -16,6 +22,9 @@ import {
   Camera,
   Loader2,
   MoreHorizontal,
+  Archive,
+  Layers,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,11 +75,81 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useBookPolicyBadge } from "@/hooks/use-book-policy-badge";
+
+type CopyRow = {
+  id: string;
+  barcode: string;
+  rfidTag?: string | null;
+  status: string;
+  condition?: string | null;
+  location: string;
+  notes?: string | null;
+  createdAt: string;
+  loans?: {
+    id: string;
+    status: string;
+    dueDate: string;
+    user: { name: string; email: string };
+  }[];
+  reservation?: {
+    userName: string;
+    userEmail: string;
+  } | null;
+};
+
+function copyStatusBadge(status: string) {
+  switch (status) {
+    case "AVAILABLE":
+      return (
+        <Badge className="bg-emerald-100 text-emerald-700">Disponível</Badge>
+      );
+    case "BORROWED":
+      return <Badge className="bg-blue-100 text-blue-700">Emprestado</Badge>;
+    case "RESERVED":
+      return <Badge className="bg-amber-100 text-amber-700">Reservado</Badge>;
+    case "MAINTENANCE":
+      return <Badge className="bg-slate-100 text-slate-700">Manutenção</Badge>;
+    case "LOST":
+      return <Badge className="bg-red-100 text-red-700">Perdido</Badge>;
+    case "DAMAGED":
+      return (
+        <Badge className="bg-orange-100 text-orange-700">Danificado</Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function conditionLabel(c?: string | null) {
+  switch (c) {
+    case "EXCELLENT":
+      return "Excelente";
+    case "GOOD":
+      return "Bom";
+    case "FAIR":
+      return "Razoável";
+    case "POOR":
+      return "Mau";
+    default:
+      return "—";
+  }
+}
 
 export default function ManageBooks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCopiesDialog, setShowCopiesDialog] = useState(false);
+  const [editingCopy, setEditingCopy] = useState<CopyRow | null>(null);
+  const [showAddCopyForm, setShowAddCopyForm] = useState(false);
+  const [copyForm, setCopyForm] = useState({
+    barcode: "",
+    location: "",
+    condition: "GOOD",
+    rfidTag: "",
+    notes: "",
+  });
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -119,9 +198,11 @@ export default function ManageBooks() {
     refetchInterval: 60000,
   });
 
+  const getPolicyBadge = useBookPolicyBadge();
+
   type BookFormData = typeof formData;
 
-  const createBookMutation = useMutation<void, Error, BookFormData>({
+  const createBookMutation = useMutation<Book, Error, BookFormData>({
     mutationFn: async (data) => {
       console.log("📝 FormData recebido:", data);
 
@@ -190,16 +271,62 @@ export default function ManageBooks() {
 
   const deleteBookMutation = useMutation({
     mutationFn: async (bookId: string) => {
-      await api.entities.Book.delete(bookId);
+      // Soft delete: archive the book instead of hard delete
+      const res = await fetch(`/api/books/${bookId}/copies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao arquivar livro");
+      }
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["manage-books"] });
       setShowDeleteDialog(false);
       setSelectedBook(null);
-      toast.success("Livro removido!");
+      toast.success(data.message || "Livro arquivado!");
     },
-    onError: () => {
-      toast.error("Erro ao remover livro");
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Mutation for adding/removing copies
+  const copyMutation = useMutation({
+    mutationFn: async (
+      payload: Record<string, unknown> & { bookId: string },
+    ) => {
+      const { bookId, ...body } = payload;
+      const res = await fetch(`/api/books/${bookId}/copies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao gerir exemplares");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["manage-books"] });
+      queryClient.invalidateQueries({ queryKey: ["book-copies"] });
+      setEditingCopy(null);
+      setShowAddCopyForm(false);
+      setCopyForm({
+        barcode: "",
+        location: "",
+        condition: "GOOD",
+        rfidTag: "",
+        notes: "",
+      });
+      toast.success(data.message);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -317,7 +444,7 @@ export default function ManageBooks() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Library className="w-7 h-7 text-indigo-600" />
+              <Library className="w-7 h-7 text-amber-600" />
               Gestão de Livros
             </h1>
             <p className="text-slate-500 mt-1">
@@ -444,19 +571,39 @@ export default function ManageBooks() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            "font-medium",
-                            (book.available_copies ?? 0) > 0
-                              ? "text-emerald-600"
-                              : "text-red-600",
-                          )}
-                        >
-                          {book.available_copies ?? 0}
-                        </span>
-                        <span className="text-slate-400">
-                          /{book.total_copies}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            <span
+                              className={cn(
+                                (book.available_copies ?? 0) > 0
+                                  ? "text-emerald-600"
+                                  : "text-red-600",
+                              )}
+                            >
+                              {book.available_copies ?? 0}
+                            </span>
+                            <span className="text-slate-400">
+                              /{book.total_copies}
+                            </span>
+                          </span>
+                          {(() => {
+                            const policy = getPolicyBadge(
+                              book.available_copies ?? 0,
+                              book.total_copies ?? 0,
+                            );
+                            return (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0",
+                                  policy.className,
+                                )}
+                              >
+                                {policy.label}
+                              </Badge>
+                            );
+                          })()}
+                        </div>
                       </TableCell>
                       <TableCell className="text-slate-600">
                         {book.location || "-"}
@@ -472,7 +619,10 @@ export default function ManageBooks() {
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent
+                            align="end"
+                            onCloseAutoFocus={(e) => e.preventDefault()}
+                          >
                             <DropdownMenuItem onClick={() => handleEdit(book)}>
                               <Edit2 className="w-4 h-4 mr-2" />
                               Editar
@@ -487,14 +637,24 @@ export default function ManageBooks() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedBook(book);
+                                setShowCopiesDialog(true);
+                              }}
+                            >
+                              <Layers className="w-4 h-4 mr-2" />
+                              Gerir Exemplares
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
                               className="text-red-600"
                               onClick={() => {
                                 setSelectedBook(book);
                                 setShowDeleteDialog(true);
                               }}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Remover
+                              <Archive className="w-4 h-4 mr-2" />
+                              Arquivar Livro
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -763,10 +923,11 @@ export default function ManageBooks() {
                       setFormData({
                         ...formData,
                         total_copies: newTotal,
-                        available_copies: Math.min(
-                          formData.available_copies,
-                          newTotal,
-                        ),
+                        // Ao adicionar, available_copies = total_copies
+                        // Ao editar, não alterar available_copies automaticamente
+                        available_copies: isEditing
+                          ? formData.available_copies
+                          : newTotal,
                       });
                     }}
                     className={
@@ -776,45 +937,29 @@ export default function ManageBooks() {
                     }
                     placeholder="Mínimo: 1"
                   />
-                </div>
-                <div>
-                  <Label>
-                    Cópias Disponíveis <span className="text-red-600">*</span>
-                  </Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max={formData.total_copies}
-                    value={formData.available_copies || ""}
-                    onChange={(e) => {
-                      const value =
-                        e.target.value === ""
-                          ? ""
-                          : parseInt(e.target.value, 10);
-                      const newAvailable =
-                        typeof value === "number" && !isNaN(value) ? value : 0;
-                      setFormData({
-                        ...formData,
-                        available_copies: Math.min(
-                          newAvailable,
-                          formData.total_copies,
-                        ),
-                      });
-                    }}
-                    className={
-                      formData.available_copies < 0 ||
-                      formData.available_copies > formData.total_copies
-                        ? "border-red-300"
-                        : ""
-                    }
-                    placeholder={`Máximo: ${formData.total_copies}`}
-                  />
-                  {formData.available_copies > formData.total_copies && (
-                    <p className="text-xs text-red-600 mt-1">
-                      Não pode exceder {formData.total_copies}
+                  {!isEditing && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Cópias disponíveis serão definidas automaticamente com o
+                      mesmo valor.
                     </p>
                   )}
                 </div>
+                {isEditing && (
+                  <div>
+                    <Label>Cópias Disponíveis</Label>
+                    <Input
+                      type="number"
+                      value={formData.available_copies}
+                      readOnly
+                      disabled
+                      className="bg-slate-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Valor calculado automaticamente (empréstimos, devoluções,
+                      perdas).
+                    </p>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <Label>Localização</Label>
                   <Input
@@ -923,10 +1068,11 @@ export default function ManageBooks() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover Livro</AlertDialogTitle>
+            <AlertDialogTitle>Arquivar Livro</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover &quot;{selectedBook?.title}&quot;?
-              Esta ação não pode ser desfeita.
+              Tem certeza que deseja arquivar &quot;{selectedBook?.title}&quot;?
+              O livro ficará indisponível na biblioteca mas os seus dados e
+              histórico serão preservados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -940,11 +1086,508 @@ export default function ManageBooks() {
               {deleteBookMutation.isPending && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
-              Remover
+              Arquivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Individual Copy Management Dialog */}
+      <CopyManagementDialog
+        book={selectedBook}
+        open={showCopiesDialog}
+        onOpenChange={(open) => {
+          setShowCopiesDialog(open);
+          if (!open) {
+            setSelectedBook(null);
+            setEditingCopy(null);
+            setShowAddCopyForm(false);
+          }
+        }}
+        editingCopy={editingCopy}
+        setEditingCopy={setEditingCopy}
+        showAddCopyForm={showAddCopyForm}
+        setShowAddCopyForm={setShowAddCopyForm}
+        copyForm={copyForm}
+        setCopyForm={setCopyForm}
+        copyMutation={copyMutation}
+        queryClient={queryClient}
+      />
     </div>
+  );
+}
+
+// --- Copy Management Dialog Component ---
+
+function CopyManagementDialog({
+  book,
+  open,
+  onOpenChange,
+  editingCopy,
+  setEditingCopy,
+  showAddCopyForm,
+  setShowAddCopyForm,
+  copyForm,
+  setCopyForm,
+  copyMutation,
+  queryClient,
+}: {
+  book: Book | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingCopy: CopyRow | null;
+  setEditingCopy: (c: CopyRow | null) => void;
+  showAddCopyForm: boolean;
+  setShowAddCopyForm: (v: boolean) => void;
+  copyForm: {
+    barcode: string;
+    location: string;
+    condition: string;
+    rfidTag: string;
+    notes: string;
+  };
+  setCopyForm: (f: {
+    barcode: string;
+    location: string;
+    condition: string;
+    rfidTag: string;
+    notes: string;
+  }) => void;
+  copyMutation: UseMutationResult<
+    unknown,
+    Error,
+    Record<string, unknown> & { bookId: string }
+  >;
+  queryClient: QueryClient;
+}) {
+  const { data: copiesData, isLoading: copiesLoading } = useQuery<{
+    copies: CopyRow[];
+  }>({
+    queryKey: ["book-copies", book?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/books/${book!.id}/copies`);
+      if (!res.ok) throw new Error("Erro ao carregar exemplares");
+      return res.json();
+    },
+    enabled: open && !!book?.id,
+    refetchInterval: open ? 10000 : false,
+  });
+
+  const copies = copiesData?.copies ?? [];
+
+  const [deleteCopyId, setDeleteCopyId] = useState<string | null>(null);
+
+  const handleCreateCopy = () => {
+    if (!book) return;
+    copyMutation.mutate({
+      bookId: book.id,
+      action: "create",
+      barcode: copyForm.barcode.trim(),
+      location: copyForm.location.trim(),
+      condition: copyForm.condition,
+      rfidTag: copyForm.rfidTag.trim() || undefined,
+      notes: copyForm.notes.trim() || undefined,
+    });
+  };
+
+  const handleUpdateCopy = () => {
+    if (!book || !editingCopy) return;
+    copyMutation.mutate({
+      bookId: book.id,
+      action: "update",
+      copyId: editingCopy.id,
+      barcode: copyForm.barcode.trim(),
+      location: copyForm.location.trim(),
+      condition: copyForm.condition,
+      status: copyForm.notes, // reusing notes field temporarily for status in edit
+      rfidTag: copyForm.rfidTag.trim() || undefined,
+    });
+  };
+
+  const handleDeleteCopy = (copyId: string) => {
+    if (!book) return;
+    copyMutation.mutate(
+      { bookId: book.id, action: "delete", copyId },
+      {
+        onSuccess: () => {
+          setDeleteCopyId(null);
+          queryClient.invalidateQueries({ queryKey: ["book-copies", book.id] });
+        },
+      },
+    );
+  };
+
+  const startEditing = (copy: CopyRow) => {
+    setEditingCopy(copy);
+    setShowAddCopyForm(false);
+    setCopyForm({
+      barcode: copy.barcode,
+      location: copy.location,
+      condition: copy.condition || "GOOD",
+      rfidTag: copy.rfidTag || "",
+      notes: copy.status, // store status in notes for editing
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingCopy(null);
+    setShowAddCopyForm(false);
+    setCopyForm({
+      barcode: "",
+      location: "",
+      condition: "GOOD",
+      rfidTag: "",
+      notes: "",
+    });
+  };
+
+  const summaryBadges = {
+    total: copies.length,
+    available: copies.filter((c) => c.status === "AVAILABLE").length,
+    borrowed: copies.filter((c) => c.status === "BORROWED").length,
+    maintenance: copies.filter((c) =>
+      ["MAINTENANCE", "LOST", "DAMAGED"].includes(c.status),
+    ).length,
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            <Layers className="w-5 h-5" />
+            Exemplares — {book?.title}
+          </DialogTitle>
+          <DialogDescription>
+            Gerir exemplares individuais deste livro. Cada exemplar tem código
+            de barras, localização e estado próprios.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+          {/* Summary badges */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <Badge variant="outline">Total: {summaryBadges.total}</Badge>
+            <Badge className="bg-emerald-100 text-emerald-700">
+              Disponíveis: {summaryBadges.available}
+            </Badge>
+            <Badge className="bg-blue-100 text-blue-700">
+              Emprestados: {summaryBadges.borrowed}
+            </Badge>
+            {summaryBadges.maintenance > 0 && (
+              <Badge className="bg-slate-100 text-slate-700">
+                Manutenção/Outros: {summaryBadges.maintenance}
+              </Badge>
+            )}
+
+            {/* Show sync button if counters are inconsistent */}
+            {book &&
+              (book.total_copies !== summaryBadges.total ||
+                book.available_copies !== summaryBadges.available) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                  onClick={() => {
+                    copyMutation.mutate(
+                      { bookId: book.id, action: "sync" },
+                      {
+                        onSuccess: () => {
+                          queryClient.invalidateQueries({
+                            queryKey: ["manage-books"],
+                          });
+                          queryClient.invalidateQueries({
+                            queryKey: ["book-copies"],
+                          });
+                        },
+                      },
+                    );
+                  }}
+                  disabled={copyMutation.isPending}
+                >
+                  {copyMutation.isPending ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : null}
+                  Sincronizar Contadores
+                </Button>
+              )}
+          </div>
+
+          {/* Copies table */}
+          {copiesLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : copies.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Layers className="w-12 h-12 mx-auto mb-2 text-slate-300" />
+              <p>Nenhum exemplar registado.</p>
+              <p className="text-sm">Adicione o primeiro exemplar abaixo.</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Código de Barras</TableHead>
+                    <TableHead>Localização</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Condição</TableHead>
+                    <TableHead>Utilizador</TableHead>
+                    <TableHead className="text-right">Acções</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {copies.map((copy, idx) => {
+                    const activeLoan = copy.loans?.[0];
+                    const canEdit = !["BORROWED"].includes(copy.status);
+                    const canDelete = !["BORROWED"].includes(copy.status);
+                    return (
+                      <TableRow key={copy.id}>
+                        <TableCell className="font-mono text-xs">
+                          {idx + 1}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {copy.barcode}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {copy.location}
+                        </TableCell>
+                        <TableCell>{copyStatusBadge(copy.status)}</TableCell>
+                        <TableCell className="text-sm">
+                          {conditionLabel(copy.condition)}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {activeLoan ? (
+                            <span
+                              className="text-blue-600"
+                              title={activeLoan.user.email}
+                            >
+                              {activeLoan.user.name}
+                            </span>
+                          ) : copy.status === "RESERVED" && copy.reservation ? (
+                            <span
+                              className="text-amber-600"
+                              title={copy.reservation.userEmail}
+                            >
+                              {copy.reservation.userName}
+                              <span className="text-xs text-slate-400 ml-1">
+                                (reserva)
+                              </span>
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={!canEdit}
+                              onClick={() => startEditing(copy)}
+                              title="Editar"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={!canDelete}
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => setDeleteCopyId(copy.id)}
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Add/Edit Copy Form */}
+          {(showAddCopyForm || editingCopy) && (
+            <div
+              data-copy-form
+              className="border rounded-lg p-4 space-y-3 bg-slate-50"
+            >
+              <h4 className="font-medium text-sm">
+                {editingCopy
+                  ? `Editar Exemplar — ${editingCopy.barcode}`
+                  : "Novo Exemplar"}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Código de Barras *</Label>
+                  <Input
+                    value={copyForm.barcode}
+                    onChange={(e) =>
+                      setCopyForm({ ...copyForm, barcode: e.target.value })
+                    }
+                    placeholder="Ex: LIV-001-001"
+                    disabled={!!editingCopy}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Localização *</Label>
+                  <Input
+                    value={copyForm.location}
+                    onChange={(e) =>
+                      setCopyForm({ ...copyForm, location: e.target.value })
+                    }
+                    placeholder="Ex: A1-P1-E3"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Condição</Label>
+                  <Select
+                    value={copyForm.condition}
+                    onValueChange={(v) =>
+                      setCopyForm({ ...copyForm, condition: v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EXCELLENT">Excelente</SelectItem>
+                      <SelectItem value="GOOD">Bom</SelectItem>
+                      <SelectItem value="FAIR">Razoável</SelectItem>
+                      <SelectItem value="POOR">Mau</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editingCopy && (
+                  <div>
+                    <Label className="text-xs">Estado</Label>
+                    <Select
+                      value={copyForm.notes}
+                      onValueChange={(v) =>
+                        setCopyForm({ ...copyForm, notes: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AVAILABLE">Disponível</SelectItem>
+                        <SelectItem value="MAINTENANCE">Manutenção</SelectItem>
+                        <SelectItem value="DAMAGED">Danificado</SelectItem>
+                        <SelectItem value="LOST">Perdido</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs">RFID Tag (opcional)</Label>
+                  <Input
+                    value={copyForm.rfidTag}
+                    onChange={(e) =>
+                      setCopyForm({ ...copyForm, rfidTag: e.target.value })
+                    }
+                    placeholder="Tag RFID"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={cancelEdit}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={editingCopy ? handleUpdateCopy : handleCreateCopy}
+                  disabled={
+                    !copyForm.barcode.trim() ||
+                    !copyForm.location.trim() ||
+                    copyMutation.isPending
+                  }
+                >
+                  {copyMutation.isPending && (
+                    <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                  )}
+                  {editingCopy ? "Guardar" : "Adicionar"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <DialogFooter className="gap-2 sm:gap-0 shrink-0 border-t pt-4 bg-white relative z-10">
+          {!showAddCopyForm && !editingCopy && (
+            <Button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Limpar estado de edição sem fechar o formulário
+                setEditingCopy(null);
+                setCopyForm({
+                  barcode: "",
+                  location: "",
+                  condition: "GOOD",
+                  rfidTag: "",
+                  notes: "",
+                });
+                setShowAddCopyForm(true);
+                // Auto-scroll para o formulário
+                setTimeout(() => {
+                  const form = document.querySelector("[data-copy-form]");
+                  if (form) {
+                    form.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                    });
+                  }
+                }, 100);
+              }}
+              type="button"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Exemplar
+            </Button>
+          )}
+        </DialogFooter>
+
+        {/* Delete confirmation */}
+        <AlertDialog
+          open={!!deleteCopyId}
+          onOpenChange={(open) => {
+            if (!open) setDeleteCopyId(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar Exemplar</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza? O exemplar será permanentemente removido. Esta
+                acção não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteCopyId) handleDeleteCopy(deleteCopyId);
+                }}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {copyMutation.isPending && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -110,7 +110,7 @@ export default function MyReservations() {
       case "active":
         return {
           label: `Posição ${reservation.queue_position} na fila`,
-          color: "bg-indigo-100 text-indigo-700",
+          color: "bg-amber-100 text-amber-700",
           icon: Clock,
         };
       case "collected":
@@ -188,7 +188,7 @@ export default function MyReservations() {
                         `BookDetails?id=${reservation.book_id}`,
                       )}
                     >
-                      <h3 className="font-semibold text-slate-800 hover:text-indigo-600 transition-colors line-clamp-2">
+                      <h3 className="font-semibold text-slate-800 hover:text-amber-600 transition-colors line-clamp-2">
                         {reservation.book_title || "Título não disponível"}
                       </h3>
                     </Link>
@@ -294,7 +294,7 @@ export default function MyReservations() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Clock className="w-7 h-7 text-indigo-600" />
+            <Clock className="w-7 h-7 text-amber-600" />
             Minhas Reservas
           </h1>
           <p className="text-slate-500 mt-1">
@@ -305,7 +305,7 @@ export default function MyReservations() {
         <div className="grid grid-cols-3 gap-4 mb-8">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4 text-center">
-              <p className="text-3xl font-bold text-indigo-600">
+              <p className="text-3xl font-bold text-amber-600">
                 {activeReservations.filter((r) => r.status === "active").length}
               </p>
               <p className="text-xs text-slate-500 mt-1">Na Fila</p>

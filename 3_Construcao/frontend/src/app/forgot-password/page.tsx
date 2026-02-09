@@ -1,69 +1,89 @@
 "use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Mail } from 'lucide-react';
+import React, { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowLeft, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
-      await fetch('/api/auth/password-reset/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/auth/password-reset/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
       setIsSuccess(true);
     } catch (error) {
-      console.error('Erro ao enviar email:', error);
+      console.error("Erro ao enviar email:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-md">
         <div className="relative overflow-hidden border-0 shadow-2xl bg-white/95 backdrop-blur-sm rounded-2xl">
           {/* Gradient Top Border */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200" />
-          
+          <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-400 via-amber-500 to-amber-400" />
+
           <div className="p-8 sm:p-10 md:pt-12 md:pb-10 md:px-10">
             <div className="flex flex-col space-y-6 sm:space-y-8">
               {/* Back Button */}
               <Link href="/login">
                 <button className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors text-sm font-medium">
                   <ArrowLeft className="w-4 h-4" />
-                  Back to sign in
+                  Voltar ao início de sessão
                 </button>
               </Link>
+
+              {/* Logo */}
+              <div className="flex justify-center">
+                <Image
+                  src="/isptec-logo-full.png"
+                  alt="ISPTEC Logo"
+                  width={128}
+                  height={48}
+                  className="object-contain"
+                  priority
+                />
+              </div>
 
               {!isSuccess ? (
                 <>
                   {/* Header */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-center">
                     <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                      Reset your password
+                      Recuperar palavra-passe
                     </h1>
                     <p className="text-slate-500 text-sm sm:text-base">
-                      Enter your email and we&apos;ll send you a link to reset your password
+                      Insira o seu email e enviaremos um link para redefinir a
+                      sua palavra-passe
                     </p>
                   </div>
 
                   {/* Form */}
-                  <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+                  <form
+                    onSubmit={handleSubmit}
+                    className="space-y-4 sm:space-y-5"
+                  >
                     {/* Email Field */}
                     <div className="space-y-1.5">
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-700">
+                      <Label
+                        htmlFor="email"
+                        className="text-sm font-medium text-slate-700"
+                      >
                         Email
                       </Label>
                       <div className="relative">
@@ -71,7 +91,7 @@ export default function ForgotPasswordPage() {
                         <Input
                           type="email"
                           id="email"
-                          placeholder="you@example.com"
+                          placeholder="seunome@isptec.co.ao"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
@@ -86,7 +106,7 @@ export default function ForgotPasswordPage() {
                       disabled={isLoading}
                       className="w-full h-11 sm:h-12 bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-sm rounded-xl transition-all duration-200"
                     >
-                      {isLoading ? 'Sending...' : 'Send reset link'}
+                      {isLoading ? "A enviar..." : "Enviar link de recuperação"}
                     </Button>
                   </form>
                 </>
@@ -109,25 +129,21 @@ export default function ForgotPasswordPage() {
                         />
                       </svg>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <h2 className="text-2xl font-bold text-slate-900">
-                        Check your email
+                        Verifique o seu email
                       </h2>
                       <p className="text-slate-500 text-sm">
-                        We&apos;ve sent a password reset link to
+                        Enviámos um link de recuperação para
                       </p>
-                      <p className="text-slate-700 font-medium">
-                        {email}
-                      </p>
+                      <p className="text-slate-700 font-medium">{email}</p>
                     </div>
 
                     <div className="pt-4">
                       <Link href="/login">
-                        <Button
-                          className="w-full h-11 sm:h-12 bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-sm rounded-xl transition-all duration-200"
-                        >
-                          Back to sign in
+                        <Button className="w-full h-11 sm:h-12 bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-sm rounded-xl transition-all duration-200">
+                          Voltar ao início de sessão
                         </Button>
                       </Link>
                     </div>
@@ -135,11 +151,11 @@ export default function ForgotPasswordPage() {
                     <button
                       onClick={() => {
                         setIsSuccess(false);
-                        setEmail('');
+                        setEmail("");
                       }}
                       className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
                     >
-                      Didn&apos;t receive the email? Try again
+                      Não recebeu o email? Tente novamente
                     </button>
                   </div>
                 </>
@@ -151,6 +167,16 @@ export default function ForgotPasswordPage() {
         {/* Spacer for mobile */}
         <div className="mt-8 text-center text-xs text-slate-400 sm:hidden">
           <p>&nbsp;</p>
+        </div>
+
+        {/* Help link */}
+        <div className="mt-4 text-center">
+          <Link
+            href="/help"
+            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Precisa de ajuda?
+          </Link>
         </div>
       </div>
     </div>

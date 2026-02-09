@@ -58,23 +58,469 @@ import {
   getSystemPolicyUnit,
 } from "@/lib/settings-labels";
 import { ConsolidatedAuditLogs } from "@/components/ConsolidatedAuditLogs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DEFAULT_COPY_CLASSIFICATION_RULES,
+  COPY_CLASSIFICATION_COLORS,
+} from "@/lib/sgbu-rules";
+import type { CopyClassificationRule } from "@/lib/sgbu-rules";
+
+const LOAN_POLICY_OPTIONS = [
+  { value: "NO_LOAN", label: "Não Empresta" },
+  { value: "SHORT_TERM", label: "Curto Prazo (2 dias)" },
+  { value: "DAILY", label: "Diário (1 dia)" },
+  { value: "STANDARD", label: "Normal (conforme utilizador)" },
+  { value: "EXTENDED", label: "Estendido (30 dias)" },
+];
+
+function CopyClassificationTab() {
+  const queryClient = useQueryClient();
+  const [editingRules, setEditingRules] = useState<
+    CopyClassificationRule[] | null
+  >(null);
+
+  const { data: rulesData, isLoading } = useQuery({
+    queryKey: ["copy-classification-rules"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/copy-classification");
+      if (!res.ok) throw new Error("Erro ao carregar regras");
+      return res.json() as Promise<{ rules: CopyClassificationRule[] }>;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const rules =
+    editingRules ?? rulesData?.rules ?? DEFAULT_COPY_CLASSIFICATION_RULES;
+
+  const saveMutation = useMutation({
+    mutationFn: async (newRules: CopyClassificationRule[]) => {
+      const res = await fetch("/api/settings/copy-classification", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rules: newRules }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao salvar");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["copy-classification-rules"],
+      });
+      setEditingRules(null);
+      toast.success("Regras de classificação atualizadas!");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const updateRule = (
+    index: number,
+    field: keyof CopyClassificationRule,
+    value: unknown,
+  ) => {
+    const updated = [...rules];
+    updated[index] = { ...updated[index], [field]: value };
+    setEditingRules(updated);
+  };
+
+  const addRule = () => {
+    const lastRule = rules[rules.length - 1];
+    const nextFrom = lastRule?.toCopy
+      ? lastRule.toCopy + 1
+      : (lastRule?.fromCopy ?? 0) + 1;
+    setEditingRules([
+      ...rules,
+      {
+        color: "WHITE",
+        label: "Nova Regra",
+        fromCopy: nextFrom,
+        toCopy: null,
+        loanPolicy: "STANDARD",
+        maxLoanDays: null,
+        description: "",
+      },
+    ]);
+  };
+
+  const removeRule = (index: number) => {
+    if (rules.length <= 1) {
+      toast.error("É necessário pelo menos uma regra");
+      return;
+    }
+    const updated = rules.filter((_, i) => i !== index);
+    setEditingRules(updated);
+  };
+
+  const resetToDefaults = () => {
+    setEditingRules([...DEFAULT_COPY_CLASSIFICATION_RULES]);
+  };
+
+  const isEditing = editingRules !== null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          Classificação de Exemplares
+        </CardTitle>
+        <CardDescription>
+          Configure as regras de classificação dos exemplares por cor (Vermelho,
+          Amarelo, Branco). Cada exemplar de um livro é classificado conforme a
+          sua posição numérica, determinando a sua política de empréstimo.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Visual explanation */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {rules.map((rule, ruleIdx) => {
+            const colors =
+              COPY_CLASSIFICATION_COLORS[rule.color] ??
+              COPY_CLASSIFICATION_COLORS.WHITE;
+            return (
+              <div key={ruleIdx} className={`p-4 rounded-lg ${colors.bg}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`w-3 h-3 rounded-full ${colors.dot}`} />
+                  <span className={`font-semibold text-sm ${colors.text}`}>
+                    {rule.label}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  Exemplar
+                  {rule.toCopy === null
+                    ? `es ${rule.fromCopy}+`
+                    : rule.fromCopy === rule.toCopy
+                      ? ` ${rule.fromCopy}`
+                      : `es ${rule.fromCopy}-${rule.toCopy}`}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {rule.description}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Cor</TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead className="w-[100px]">De</TableHead>
+                  <TableHead className="w-[100px]">Até</TableHead>
+                  <TableHead>Política de Empréstimo</TableHead>
+                  <TableHead className="w-[100px]">Max Dias</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rules.map((rule, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <Select
+                        value={rule.color}
+                        onValueChange={(val) => updateRule(index, "color", val)}
+                      >
+                        <SelectTrigger className="w-[90px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="RED">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-red-500" />
+                              Vermelho
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="YELLOW">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                              Amarelo
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="WHITE">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-slate-400" />
+                              Branco
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={rule.label}
+                        onChange={(e) =>
+                          updateRule(index, "label", e.target.value)
+                        }
+                        className="w-full min-w-[90px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={rule.fromCopy}
+                        onChange={(e) =>
+                          updateRule(
+                            index,
+                            "fromCopy",
+                            parseInt(e.target.value) || 1,
+                          )
+                        }
+                        className="w-[70px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={rule.toCopy ?? ""}
+                        onChange={(e) =>
+                          updateRule(
+                            index,
+                            "toCopy",
+                            e.target.value === ""
+                              ? null
+                              : parseInt(e.target.value) || null,
+                          )
+                        }
+                        className="w-[70px]"
+                        placeholder="∞"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={rule.loanPolicy}
+                        onValueChange={(val) =>
+                          updateRule(index, "loanPolicy", val)
+                        }
+                      >
+                        <SelectTrigger className="w-full min-w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOAN_POLICY_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={rule.maxLoanDays ?? ""}
+                        onChange={(e) =>
+                          updateRule(
+                            index,
+                            "maxLoanDays",
+                            e.target.value === ""
+                              ? null
+                              : parseInt(e.target.value) || null,
+                          )
+                        }
+                        className="w-[70px]"
+                        placeholder="Auto"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={rule.description}
+                        onChange={(e) =>
+                          updateRule(index, "description", e.target.value)
+                        }
+                        className="w-full min-w-[150px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeRule(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={addRule}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Adicionar Regra
+                </Button>
+                <Button variant="ghost" size="sm" onClick={resetToDefaults}>
+                  Restaurar Padrão
+                </Button>
+              </div>
+              {isEditing && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingRules(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => saveMutation.mutate(rules)}
+                    disabled={saveMutation.isPending}
+                  >
+                    {saveMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />A
+                        guardar...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-1" />
+                        Guardar Alterações
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Example visualization */}
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+              <p className="text-sm font-medium text-slate-700 mb-3">
+                Exemplo: Livro com 10 exemplares
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 10 }, (_, i) => {
+                  const copyNum = i + 1;
+                  const matchingRule = rules.find(
+                    (r) =>
+                      copyNum >= r.fromCopy &&
+                      (r.toCopy === null || copyNum <= r.toCopy),
+                  );
+                  const colors =
+                    COPY_CLASSIFICATION_COLORS[
+                      matchingRule?.color ?? "WHITE"
+                    ] ?? COPY_CLASSIFICATION_COLORS.WHITE;
+                  return (
+                    <div
+                      key={copyNum}
+                      className={`w-10 h-10 rounded-lg ${colors.bg} flex items-center justify-center text-sm font-medium ${colors.text} border`}
+                      title={matchingRule?.description ?? "Sem classificação"}
+                    >
+                      {copyNum}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-4 mt-3">
+                {rules.map((rule, legendIdx) => {
+                  const colors =
+                    COPY_CLASSIFICATION_COLORS[rule.color] ??
+                    COPY_CLASSIFICATION_COLORS.WHITE;
+                  return (
+                    <div
+                      key={legendIdx}
+                      className="flex items-center gap-1.5 text-xs text-slate-600"
+                    >
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full ${colors.dot}`}
+                      />
+                      {rule.label}:{" "}
+                      {rule.loanPolicy === "NO_LOAN"
+                        ? "Não empresta"
+                        : rule.maxLoanDays
+                          ? `${rule.maxLoanDays} dias`
+                          : "Normal"}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("fines");
+  const [activeTab, setActiveTab] = useState<string>("categories");
+
+  // Fetch current user to check role
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isSupervisor = currentUser?.type === "SUPERVISOR";
+
+  // Tabs acessíveis conforme role
+  const allTabs = [
+    "fines",
+    "policies",
+    "copies",
+    "system",
+    "categories",
+    "faqs",
+    "audit",
+  ];
+  const nonSupervisorTabs = ["categories", "faqs"];
+  const allowedTabs = isSupervisor ? allTabs : nonSupervisorTabs;
 
   // Sincronizar tab com URL hash
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (
       hash &&
-      ["fines", "policies", "system", "categories", "faqs", "audit"].includes(
-        hash,
-      )
+      [
+        "fines",
+        "policies",
+        "copies",
+        "system",
+        "categories",
+        "faqs",
+        "audit",
+      ].includes(hash)
     ) {
-      setActiveTab(hash);
+      // Se não é supervisor e a tab não é permitida, redirecionar
+      if (allowedTabs.includes(hash)) {
+        setActiveTab(hash);
+      } else {
+        setActiveTab(allowedTabs[0]);
+      }
+    } else {
+      setActiveTab(allowedTabs[0]);
     }
-  }, []);
+  }, [currentUser]);
 
   // Atualizar URL quando tab mudar
   const handleTabChange = (value: string) => {
@@ -505,7 +951,7 @@ function AdminSettingsPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Settings className="w-7 h-7 text-indigo-600" />
+              <Settings className="w-7 h-7 text-amber-600" />
               Políticas da Biblioteca
             </h1>
             <p className="text-slate-500 mt-1">
@@ -520,25 +966,36 @@ function AdminSettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-4"
         >
-          <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-6">
-            <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
-              Multas
+          <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-7">
+            {isSupervisor && (
+              <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
+                Multas
+              </TabsTrigger>
+            )}
+            {isSupervisor && (
+              <TabsTrigger value="policies" className="flex-1 min-w-[120px]">
+                Empréstimos
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="copies" className="flex-1 min-w-[120px]">
+              Exemplares
             </TabsTrigger>
-            <TabsTrigger value="policies" className="flex-1 min-w-[120px]">
-              Empréstimos
-            </TabsTrigger>
-            <TabsTrigger value="system" className="flex-1 min-w-[120px]">
-              Sistema
-            </TabsTrigger>
+            {isSupervisor && (
+              <TabsTrigger value="system" className="flex-1 min-w-[120px]">
+                Sistema
+              </TabsTrigger>
+            )}
             <TabsTrigger value="categories" className="flex-1 min-w-[120px]">
               Categorias
             </TabsTrigger>
             <TabsTrigger value="faqs" className="flex-1 min-w-[120px]">
               FAQs
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
-              Auditoria
-            </TabsTrigger>
+            {isSupervisor && (
+              <TabsTrigger value="audit" className="flex-1 min-w-[120px]">
+                Auditoria
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Multas Tab */}
@@ -1148,7 +1605,7 @@ function AdminSettingsPage() {
                   <div className="space-y-3">
                     {(faqsData?.faqs || []).length === 0 ? (
                       <div className="text-center py-8 text-muted-foreground">
-                        Nenhuma FAQ cadastrada. Clique em "Nova FAQ" para criar.
+                        Nenhuma FAQ cadastrada. Clique em &quot;Nova FAQ&quot; para criar.
                       </div>
                     ) : (
                       (faqsData?.faqs || [])
@@ -1349,6 +1806,11 @@ function AdminSettingsPage() {
               </div>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Tab de Classificação de Exemplares */}
+          <TabsContent value="copies" className="space-y-4">
+            <CopyClassificationTab />
+          </TabsContent>
 
           {/* Tab de Auditoria Consolidada */}
           <TabsContent value="audit" className="space-y-4">

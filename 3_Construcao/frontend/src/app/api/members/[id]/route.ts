@@ -34,6 +34,8 @@ async function requireActiveUser() {
 // ---------------------------------------------------------------------------
 
 const updateProfileSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").optional(),
+  registration_number: z.string().optional(),
   email: z.string().email("Email inválido").optional(),
   phone: z.string().optional(),
   preferred_notification: z
@@ -90,7 +92,8 @@ export async function PATCH(
     );
   }
 
-  const { email, phone, preferred_notification } = validation.data;
+  const { name, registration_number, email, phone, preferred_notification } =
+    validation.data;
 
   try {
     // Verificar se email já está em uso (se estiver mudando)
@@ -108,13 +111,36 @@ export async function PATCH(
       }
     }
 
+    // Verificar se nº de matrícula já está em uso
+    if (registration_number) {
+      const existingReg = await prisma.user.findFirst({
+        where: {
+          registrationNumber: registration_number,
+          NOT: { id: memberId },
+        },
+        select: { id: true },
+      });
+
+      if (existingReg) {
+        return NextResponse.json(
+          { error: "Este número de matrícula já está em uso" },
+          { status: 409 },
+        );
+      }
+    }
+
     // Preparar dados para atualização
     const updateData: {
+      name?: string;
+      registrationNumber?: string | null;
       email?: string;
-      phone?: string;
+      phone?: string | null;
       preferredNotification?: "EMAIL" | "SMS" | "PUSH" | "IN_APP";
     } = {};
 
+    if (name) updateData.name = name;
+    if (registration_number !== undefined)
+      updateData.registrationNumber = registration_number || null;
     if (email) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone || null;
     if (preferred_notification)

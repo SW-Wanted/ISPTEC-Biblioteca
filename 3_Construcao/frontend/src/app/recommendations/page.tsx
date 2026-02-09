@@ -11,6 +11,8 @@ import { Sparkles, BookOpen, Star, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { useBookPolicyBadge } from "@/hooks/use-book-policy-badge";
 
 type BookLike = {
   id: string;
@@ -18,12 +20,14 @@ type BookLike = {
   cover_url?: string | null;
   authors?: string[];
   available_copies?: number;
+  total_copies?: number;
   average_rating?: number;
 } & Record<string, unknown>;
 
 type BookCardProps = { book: BookLike };
 
 function BookCard({ book }: BookCardProps) {
+  const getPolicyBadge = useBookPolicyBadge();
   return (
     <Link to={createPageUrl(`BookDetails?id=${book.id}`)}>
       <Card className="group hover:shadow-md transition-all duration-300 cursor-pointer border-0 bg-white shadow-sm overflow-hidden h-full">
@@ -43,14 +47,26 @@ function BookCard({ book }: BookCardProps) {
               <BookOpen className="w-12 h-12 text-slate-300" />
             </div>
           )}
-          {(book.available_copies ?? 0) > 0 && (
-            <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
-              Disponível
-            </Badge>
-          )}
+          {(() => {
+            const available = book.available_copies ?? 0;
+            const total = book.total_copies ?? 0;
+            const policy = getPolicyBadge(available, total);
+            return (
+              <Badge
+                className={cn(
+                  "absolute top-2 right-2 text-[10px]",
+                  available > 0 ? policy.className : "bg-red-500 text-white",
+                )}
+              >
+                {available > 0
+                  ? `${available} disp. • ${policy.label}`
+                  : "Indisponível"}
+              </Badge>
+            );
+          })()}
         </div>
         <CardContent className="p-3">
-          <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+          <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-amber-600 transition-colors">
             {book.title}
           </h3>
           <p className="text-xs text-slate-500 mt-1 line-clamp-1">
@@ -88,7 +104,7 @@ function BookSection({
   return (
     <section className="mb-10">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+        <div className="w-10 h-10 bg-linear-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
           <Icon className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -222,7 +238,7 @@ export default function Recommendations() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-14 h-14 bg-linear-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
+            <div className="w-14 h-14 bg-linear-to-br from-orange-500 to-pink-600 rounded-2xl flex items-center justify-center">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
             <div>

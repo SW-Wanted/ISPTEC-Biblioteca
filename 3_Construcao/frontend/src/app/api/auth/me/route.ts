@@ -15,5 +15,6 @@ export async function GET() {
     full_name: session.user.name ?? null,
     type: session.user.type ?? null,
     activationStatus: session.user.activationStatus ?? null,
+    profile_image_url: session.user.profileImageUrl ?? null,
   });
 }

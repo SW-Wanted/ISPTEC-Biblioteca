@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -185,9 +186,17 @@ model User {
   blockedReason     String?
   blockedAt         DateTime?
   
+  // Imagens de perfil
+  profileImageUrl   String?         // Foto de perfil (Cloudinary)
+  coverImageUrl     String?         // Imagem de fundo (Cloudinary)
+  
   // Preferências
   preferredNotification NotificationType @default(EMAIL)
   language          String          @default("pt")
+  
+  // Eliminação de conta
+  deletionRequestedAt DateTime?     // Data do pedido de eliminação
+  deletionScheduledAt DateTime?     // Data prevista para eliminação real
   
   // Timestamps
   createdAt         DateTime        @default(now())
@@ -352,6 +361,7 @@ model Book {
   reservations    Reservation[]
   recommendations BookRecommendation[]
   reviews         BookReview[]
+  fines           Fine[]
   
   @@index([isbn])
   @@index([categoryId])
@@ -523,6 +533,7 @@ model Fine {
   id              String     @id @default(cuid())
   userId          String
   loanId          String?
+  bookId          String?    // Book affected by lost/damaged fine
   type            FineType
   amount          Decimal    @db.Decimal(10, 2)
   status          FineStatus @default(PENDING)
@@ -543,10 +554,12 @@ model Fine {
   
   user            User       @relation(fields: [userId], references: [id])
   loan            Loan?      @relation(fields: [loanId], references: [id])
+  book            Book?      @relation(fields: [bookId], references: [id])
   
   @@index([userId])
   @@index([status])
   @@index([type])
+  @@index([bookId])
 }
 
 // ============================================

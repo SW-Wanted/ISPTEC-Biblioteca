@@ -27,6 +27,7 @@ export const DEFAULT_SYSTEM_POLICIES: Record<string, string> = {
   CONTACT_PHONE: "+244 XXX XXX XXX",
   CONTACT_EMAIL: "biblioteca@isptec.ao",
   CONTACT_LOCATION: "Campus ISPTEC, Luanda",
+  account_deletion_grace_days: "30",
 };
 
 export async function getFineAmount(

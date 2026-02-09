@@ -105,6 +105,7 @@ export default function Services() {
   const [user, setUser] = useState<Awaited<
     ReturnType<typeof api.auth.me>
   > | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeService, setActiveService] = useState<string | null>(null);
   const [requestForm, setRequestForm] = useState({
     type: "",
@@ -121,6 +122,8 @@ export default function Services() {
         setUser(userData);
       } catch {
         window.location.href = createPageUrl("Home");
+      } finally {
+        setIsLoading(false);
       }
     };
     loadUser();
@@ -148,7 +151,11 @@ export default function Services() {
 
   const { data: lockerReservations = [] } = useQuery<LockerReservationRow[]>({
     queryKey: ["locker-reservations", user?.email],
-    queryFn: () => api.entities.LockerReservation.filter({ status: "pending" }),
+    queryFn: () =>
+      api.entities.LockerReservation.filter({
+        status: "pending",
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as LockerReservationRow[],
     refetchInterval: 10000,
@@ -159,7 +166,10 @@ export default function Services() {
   >({
     queryKey: ["computer-reservations", user?.email],
     queryFn: () =>
-      api.entities.ComputerReservation.filter({ status: "pending" }),
+      api.entities.ComputerReservation.filter({
+        status: "pending",
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as ComputerReservationRow[],
     refetchInterval: 10000,
@@ -167,7 +177,11 @@ export default function Services() {
 
   const { data: lockerRentals = [] } = useQuery<LockerRentalRow[]>({
     queryKey: ["locker-rentals", user?.email],
-    queryFn: () => api.entities.LockerRental.filter({ endTime: null }),
+    queryFn: () =>
+      api.entities.LockerRental.filter({
+        endTime: null,
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as LockerRentalRow[],
     refetchInterval: 10000,
@@ -175,7 +189,11 @@ export default function Services() {
 
   const { data: computerSessions = [] } = useQuery<ComputerSessionRow[]>({
     queryKey: ["computer-sessions", user?.email],
-    queryFn: () => api.entities.ComputerSession.filter({ endTime: null }),
+    queryFn: () =>
+      api.entities.ComputerSession.filter({
+        endTime: null,
+        user_id: user?.id,
+      }),
     enabled: !!user?.email,
     initialData: [] as ComputerSessionRow[],
     refetchInterval: 10000,
@@ -352,7 +370,7 @@ export default function Services() {
       description: "Reserve uma estação por 2 horas",
       available: availableComputers.length,
       total: computers.length,
-      color: "from-purple-500 to-pink-500",
+      color: "from-orange-500 to-pink-500",
     },
     {
       id: "bibliography",
@@ -373,7 +391,7 @@ export default function Services() {
       icon: GraduationCap,
       title: "Formações",
       description: "Agende formação em bases de dados",
-      color: "from-indigo-500 to-violet-500",
+      color: "from-amber-500 to-violet-500",
     },
   ];
 
@@ -398,6 +416,15 @@ export default function Services() {
     }
   };
 
+  // Renderização de loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-amber-600" />
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   return (
@@ -405,7 +432,7 @@ export default function Services() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Computer className="w-7 h-7 text-indigo-600" />
+            <Computer className="w-7 h-7 text-amber-600" />
             Serviços da Biblioteca
           </h1>
           <p className="text-slate-500 mt-1">
@@ -417,7 +444,7 @@ export default function Services() {
         <div className="grid md:grid-cols-2 gap-4 mb-6">
           <TrainingRequestCard
             user={{
-              id: user.id,
+              id: user.id ?? "",
               activationStatus: user.activationStatus || "ACTIVE",
             }}
           />
@@ -432,6 +459,32 @@ export default function Services() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="services">
+            {/* Alerta para usuários não ativos */}
+            {user?.activationStatus !== "ACTIVE" && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium text-amber-900">
+                    Conta em ativação
+                  </p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Para aceder aos serviços da biblioteca, complete o processo
+                    de ativação da sua conta em{" "}
+                    <a
+                      href="/onboarding"
+                      className="underline hover:text-amber-900"
+                    >
+                      Ativação de Conta
+                    </a>
+                    . Se tiver dúvidas, consulte a página de{" "}
+                    <a href="/help" className="underline hover:text-amber-900">
+                      Ajuda
+                    </a>
+                    .
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {services.map((service, index) => {
                 const isLocker = service.id === "locker";
@@ -461,6 +514,9 @@ export default function Services() {
                     ? !computerBusy
                     : true;
 
+                // Desabilitar serviços para usuários não ativos
+                const isUserActive = user?.activationStatus === "ACTIVE";
+
                 return (
                   <motion.div
                     key={service.id}
@@ -469,8 +525,15 @@ export default function Services() {
                     transition={{ duration: 0.3, delay: index * 0.1 }}
                   >
                     <Card
-                      className="border-0 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden"
-                      onClick={() => setActiveService(service.id)}
+                      className={cn(
+                        "border-0 shadow-sm transition-all duration-300 overflow-hidden",
+                        isUserActive
+                          ? "hover:shadow-md cursor-pointer"
+                          : "opacity-50 cursor-not-allowed",
+                      )}
+                      onClick={() =>
+                        isUserActive && setActiveService(service.id)
+                      }
                     >
                       <CardContent className="p-6">
                         <div
@@ -510,7 +573,7 @@ export default function Services() {
                         )}
                         <Button
                           variant="link"
-                          className="p-0 h-auto mt-3 text-indigo-600"
+                          className="p-0 h-auto mt-3 text-amber-600"
                           disabled={!canReserve && (isLocker || isComputer)}
                         >
                           {service.id === "locker" || service.id === "computer"
@@ -691,19 +754,21 @@ export default function Services() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {availableLockers.map((locker) => (
-                  <Button
-                    key={locker.id}
-                    variant="outline"
-                    className="h-16 flex flex-col"
-                    onClick={() => reserveLockerMutation.mutate(locker)}
-                    disabled={reserveLockerMutation.isPending}
-                  >
-                    <KeyRound className="w-5 h-5 mb-1" />
-                    <span className="text-xs">{locker.number}</span>
-                  </Button>
-                ))}
+              <div className="max-h-[400px] overflow-y-auto pr-2">
+                <div className="grid grid-cols-4 gap-2">
+                  {availableLockers.map((locker) => (
+                    <Button
+                      key={locker.id}
+                      variant="outline"
+                      className="h-16 flex flex-col"
+                      onClick={() => reserveLockerMutation.mutate(locker)}
+                      disabled={reserveLockerMutation.isPending}
+                    >
+                      <KeyRound className="w-5 h-5 mb-1" />
+                      <span className="text-xs">{locker.number}</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -812,37 +877,39 @@ export default function Services() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {[...new Set(availableComputers.map((c) => c.location))].map(
-                  (location) => (
-                    <div key={location}>
-                      <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {location}
-                      </p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {availableComputers
-                          .filter((c) => c.location === location)
-                          .map((computer) => (
-                            <Button
-                              key={computer.id}
-                              variant="outline"
-                              className="h-14 flex flex-col"
-                              onClick={() =>
-                                reserveComputerMutation.mutate(computer)
-                              }
-                              disabled={reserveComputerMutation.isPending}
-                            >
-                              <Computer className="w-4 h-4 mb-1" />
-                              <span className="text-xs">
-                                PC {computer.number}
-                              </span>
-                            </Button>
-                          ))}
+              <div className="max-h-[400px] overflow-y-auto pr-2">
+                <div className="space-y-3">
+                  {[...new Set(availableComputers.map((c) => c.location))].map(
+                    (location) => (
+                      <div key={location}>
+                        <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {location}
+                        </p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {availableComputers
+                            .filter((c) => c.location === location)
+                            .map((computer) => (
+                              <Button
+                                key={computer.id}
+                                variant="outline"
+                                className="h-14 flex flex-col"
+                                onClick={() =>
+                                  reserveComputerMutation.mutate(computer)
+                                }
+                                disabled={reserveComputerMutation.isPending}
+                              >
+                                <Computer className="w-4 h-4 mb-1" />
+                                <span className="text-xs">
+                                  PC {computer.number}
+                                </span>
+                              </Button>
+                            ))}
+                        </div>
                       </div>
-                    </div>
-                  ),
-                )}
+                    ),
+                  )}
+                </div>
               </div>
             )}
           </div>

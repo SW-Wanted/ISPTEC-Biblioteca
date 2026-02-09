@@ -66,7 +66,7 @@ function getNotificationIcon(metadata: any) {
     case "document_review":
     case "document_approved":
     case "document_rejected":
-      return <FileText className="w-4 h-4 text-purple-600" />;
+      return <FileText className="w-4 h-4 text-orange-600" />;
     case "training_available":
     case "training_scheduled":
     case "training_reminder":
@@ -313,7 +313,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                     "w-full text-left block p-4 hover:bg-slate-50 transition-colors",
                     notification.status !== "READ" &&
                       notification.status !== "read" &&
-                      "bg-indigo-50/50",
+                      "bg-amber-50/50",
                   )}
                 >
                   <div className="flex gap-3">
@@ -322,7 +322,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                         "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                         notification.status !== "READ" &&
                           notification.status !== "read"
-                          ? "bg-indigo-100"
+                          ? "bg-amber-100"
                           : "bg-slate-100",
                       )}
                     >
@@ -354,7 +354,7 @@ export default function NotificationCenter({ user }: NotificationCenterProps) {
                     </div>
                     {notification.status !== "READ" &&
                       notification.status !== "read" && (
-                        <div className="w-2 h-2 bg-indigo-500 rounded-full shrink-0 mt-2" />
+                        <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0 mt-2" />
                       )}
                   </div>
                 </button>

@@ -414,7 +414,7 @@ export default function Cataloging() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Camera className="w-7 h-7 text-indigo-600" />
+            <Camera className="w-7 h-7 text-amber-600" />
             Catalogação Inteligente
           </h1>
           <p className="text-slate-500 mt-1">
@@ -434,7 +434,7 @@ export default function Cataloging() {
                   className={cn(
                     "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all",
                     step >= s.num
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-amber-600 text-white"
                       : "bg-slate-200 text-slate-500",
                   )}
                 >
@@ -444,7 +444,7 @@ export default function Cataloging() {
                   className={cn(
                     "text-xs mt-2",
                     step >= s.num
-                      ? "text-indigo-600 font-medium"
+                      ? "text-amber-600 font-medium"
                       : "text-slate-400",
                   )}
                 >
@@ -455,7 +455,7 @@ export default function Cataloging() {
                 <div
                   className={cn(
                     "w-20 h-1 mx-2 rounded",
-                    step > s.num ? "bg-indigo-600" : "bg-slate-200",
+                    step > s.num ? "bg-amber-600" : "bg-slate-200",
                   )}
                 />
               )}
@@ -490,18 +490,18 @@ export default function Cataloging() {
                   className={cn(
                     "border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all",
                     isExtracting
-                      ? "border-indigo-300 bg-indigo-50"
-                      : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50",
+                      ? "border-amber-300 bg-amber-50"
+                      : "border-slate-300 hover:border-amber-400 hover:bg-amber-50/50",
                   )}
                 >
                   {isExtracting ? (
                     <div className="space-y-4">
-                      <Loader2 className="w-16 h-16 text-indigo-600 mx-auto animate-spin" />
+                      <Loader2 className="w-16 h-16 text-amber-600 mx-auto animate-spin" />
                       <div>
-                        <p className="font-medium text-indigo-800">
+                        <p className="font-medium text-amber-800">
                           Processando imagem...
                         </p>
-                        <p className="text-sm text-indigo-600 mt-1">
+                        <p className="text-sm text-amber-600 mt-1">
                           Extraindo dados com IA
                         </p>
                       </div>
@@ -524,8 +524,8 @@ export default function Cataloging() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="w-20 h-20 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto">
-                        <Camera className="w-10 h-10 text-indigo-600" />
+                      <div className="w-20 h-20 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto">
+                        <Camera className="w-10 h-10 text-amber-600" />
                       </div>
                       <div>
                         <p className="font-medium text-slate-800">
@@ -834,17 +834,11 @@ export default function Cataloging() {
                           value={formData.total_copies}
                           onChange={(e) => {
                             const newValue = e.target.value;
-                            const newTotal = parseInt(newValue) || 0;
                             setFormData({
                               ...formData,
                               total_copies: newValue,
-                              available_copies:
-                                newTotal > 0
-                                  ? Math.min(
-                                      parseInt(formData.available_copies) || 0,
-                                      newTotal,
-                                    ).toString()
-                                  : formData.available_copies,
+                              // Catalogação = criação nova, available = total
+                              available_copies: newValue,
                             });
                           }}
                           className={
@@ -855,48 +849,10 @@ export default function Cataloging() {
                           }
                           placeholder="1"
                         />
-                      </div>
-                      <div>
-                        <Label>
-                          Cópias Disponíveis{" "}
-                          <span className="text-red-600">*</span>
-                        </Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={formData.total_copies || undefined}
-                          value={formData.available_copies}
-                          onChange={(e) => {
-                            const newValue = e.target.value;
-                            const newAvail = parseInt(newValue) || 0;
-                            const maxTotal =
-                              parseInt(formData.total_copies) || 999;
-                            setFormData({
-                              ...formData,
-                              available_copies:
-                                newAvail <= maxTotal
-                                  ? newValue
-                                  : maxTotal.toString(),
-                            });
-                          }}
-                          className={
-                            !formData.available_copies ||
-                            parseInt(formData.available_copies) < 0 ||
-                            (formData.total_copies &&
-                              parseInt(formData.available_copies) >
-                                parseInt(formData.total_copies))
-                              ? "border-red-300"
-                              : ""
-                          }
-                          placeholder="1"
-                        />
-                        {formData.total_copies &&
-                          parseInt(formData.available_copies) >
-                            parseInt(formData.total_copies) && (
-                            <p className="text-xs text-red-600 mt-1">
-                              Não pode exceder {formData.total_copies}
-                            </p>
-                          )}
+                        <p className="text-xs text-slate-500 mt-1">
+                          Cópias disponíveis serão definidas automaticamente com
+                          o mesmo valor.
+                        </p>
                       </div>
                       <div className="md:col-span-2">
                         <Label>Localização</Label>

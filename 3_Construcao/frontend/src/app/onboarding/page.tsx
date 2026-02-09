@@ -89,7 +89,7 @@ export default function OnboardingPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-orange-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-slate-800 mb-2">
@@ -119,7 +119,7 @@ export default function OnboardingPage() {
                 key={step.id}
                 className={`${
                   isCurrent
-                    ? "border-indigo-500 shadow-lg"
+                    ? "border-amber-500 shadow-lg"
                     : isCompleted
                       ? "border-green-200 bg-green-50"
                       : "border-slate-200 opacity-60"
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
                         isCompleted
                           ? "bg-green-500 text-white"
                           : isCurrent
-                            ? "bg-indigo-500 text-white"
+                            ? "bg-amber-500 text-white"
                             : "bg-slate-200 text-slate-400"
                       }`}
                     >
@@ -153,7 +153,7 @@ export default function OnboardingPage() {
                   {isCurrent && !isLocked && (
                     <Button
                       onClick={step.action}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700"
+                      className="w-full bg-amber-600 hover:bg-amber-700"
                     >
                       {step.buttonText}
                     </Button>
@@ -179,7 +179,7 @@ export default function OnboardingPage() {
             Precisa de ajuda?{" "}
             <a
               href="/help"
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-amber-600 hover:text-amber-700 font-medium"
             >
               Contacte o suporte
             </a>

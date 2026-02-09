@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { HeroCarousel } from "@/components/hero-carousel";
+import { useBookPolicyBadge } from "@/hooks/use-book-policy-badge";
 
 type MemberRow = {
   member_type?: string | null;
@@ -38,6 +40,7 @@ export default function Home() {
     ReturnType<typeof api.auth.me>
   > | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const getPolicyBadge = useBookPolicyBadge();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -175,16 +178,17 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-amber-50/30">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-linear-to-br from-indigo-600 via-purple-600 to-indigo-800" />
-        <div className="absolute inset-0 opacity-30">
+        {/* Background Image com Overlay */}
+        <HeroCarousel />
+        <div className="absolute inset-0 opacity-30 z-[3] pointer-events-none">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-amber-400/20 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+        <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
           <div className="max-w-4xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -192,12 +196,20 @@ export default function Home() {
               transition={{ duration: 0.5 }}
             >
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
+                <span className="block text-amber-400">ISPTEC</span>
                 Biblioteca Universitária
-                <span className="block text-indigo-200">ISPTEC</span>
               </h1>
-              <p className="text-lg text-indigo-100 mb-8 max-w-2xl mx-auto">
-                Acesse milhares de livros, faça empréstimos online e gerencie
-                suas leituras de forma simples e moderna.
+              <p className="text-lg text-amber-100 mb-8 max-w-2xl mx-auto">
+                A Biblioteca tem capacidade para mais de 150 000 livros,
+                possuindo um acervo electrónico e digital característico do
+                século XXI onde se incluem livros e artigos electrónicos e
+                acesso a bases de dados científicas.
+              </p>
+              <p className="text-lg text-amber-100 mb-8 max-w-2xl mx-auto">
+                {" "}
+                Cobrindo as áreas lecionadas na instituição, a Biblioteca possui
+                um acervo rico e diversificado tendo neste momento mais de
+                25.000 exemplares.
               </p>
             </motion.div>
 
@@ -220,7 +232,7 @@ export default function Home() {
                 />
                 <Button
                   type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 rounded-xl px-6"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-amber-600 hover:bg-amber-700 rounded-xl px-6"
                 >
                   Pesquisar
                 </Button>
@@ -237,7 +249,7 @@ export default function Home() {
               >
                 <Link to={createPageUrl("MyLoans")}>
                   <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-xl flex items-center gap-3 hover:bg-white/20 transition-colors">
-                    <BookMarked className="w-5 h-5 text-indigo-200" />
+                    <BookMarked className="w-5 h-5 text-amber-200" />
                     <span className="text-white font-medium">
                       {activeLoans.length} Empréstimos ativos
                     </span>
@@ -245,7 +257,7 @@ export default function Home() {
                 </Link>
                 <Link to={createPageUrl("MyReservations")}>
                   <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-xl flex items-center gap-3 hover:bg-white/20 transition-colors">
-                    <Clock className="w-5 h-5 text-indigo-200" />
+                    <Clock className="w-5 h-5 text-amber-200" />
                     <span className="text-white font-medium">
                       {activeReservations.length} Reservas
                     </span>
@@ -300,11 +312,11 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <Card className="bg-linear-to-r from-indigo-500 to-purple-600 border-0 text-white overflow-hidden">
+            <Card className="bg-linear-to-r from-amber-500 to-orange-600 border-0 text-white overflow-hidden">
               <CardContent className="p-6 relative">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
                 <div className="relative">
-                  <p className="text-indigo-100 text-sm">Bem-vindo de volta,</p>
+                  <p className="text-amber-100 text-sm">Bem-vindo de volta,</p>
                   <h2 className="text-2xl font-bold mt-1">
                     {user.full_name || "Utilizador"}
                   </h2>
@@ -332,7 +344,7 @@ export default function Home() {
               label: "Pesquisar",
               desc: "Encontre livros",
               page: "SearchBooks",
-              color: "from-blue-500 to-blue-600",
+              color: "from-amber-500 to-amber-600",
             },
             {
               icon: BookMarked,
@@ -346,14 +358,14 @@ export default function Home() {
               label: "Reservas",
               desc: "Fila de espera",
               page: "MyReservations",
-              color: "from-amber-500 to-orange-500",
+              color: "from-orange-500 to-orange-600",
             },
             {
               icon: Sparkles,
               label: "Recomendações",
               desc: "Para você",
               page: "Recommendations",
-              color: "from-purple-500 to-pink-500",
+              color: "from-yellow-500 to-amber-500",
             },
           ].map((action, index) => (
             <motion.div
@@ -373,7 +385,7 @@ export default function Home() {
                     >
                       <action.icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">
+                    <h3 className="font-semibold text-slate-800 group-hover:text-amber-600 transition-colors">
                       {action.label}
                     </h3>
                     <p className="text-sm text-slate-500 mt-1">{action.desc}</p>
@@ -398,7 +410,7 @@ export default function Home() {
             <Link to={createPageUrl("SearchBooks?sort=popular")}>
               <Button
                 variant="ghost"
-                className="text-indigo-600 hover:text-indigo-700"
+                className="text-amber-600 hover:text-amber-700"
               >
                 Ver todos
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -432,15 +444,28 @@ export default function Home() {
                           <BookOpen className="w-12 h-12 text-slate-300" />
                         </div>
                       )}
-                      {book.available_copies != null &&
-                        book.available_copies > 0 && (
-                          <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">
-                            Disponível
+                      {(() => {
+                        const available = book.available_copies ?? 0;
+                        const total = book.total_copies ?? 0;
+                        const policy = getPolicyBadge(available, total);
+                        return (
+                          <Badge
+                            className={cn(
+                              "absolute top-2 right-2 text-[10px]",
+                              available > 0
+                                ? policy.className
+                                : "bg-red-500 text-white",
+                            )}
+                          >
+                            {available > 0
+                              ? `${available} disp. • ${policy.label}`
+                              : "Indisponível"}
                           </Badge>
-                        )}
+                        );
+                      })()}
                     </div>
                     <CardContent className="p-3">
-                      <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                      <h3 className="font-medium text-sm text-slate-800 line-clamp-2 group-hover:text-amber-600 transition-colors">
                         {book.title}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-1">
@@ -465,9 +490,9 @@ export default function Home() {
 
         {/* Info Cards */}
         <section className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="border-0 bg-linear-to-br from-blue-50 to-indigo-50 shadow-sm">
+          <Card className="border-0 bg-linear-to-br from-amber-50 to-orange-50 shadow-sm">
             <CardContent className="p-6">
-              <Calendar className="w-10 h-10 text-indigo-600 mb-4" />
+              <Calendar className="w-10 h-10 text-amber-600 mb-4" />
               <h3 className="font-semibold text-slate-800">
                 Horário de Funcionamento
               </h3>
@@ -497,9 +522,9 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 bg-linear-to-br from-purple-50 to-pink-50 shadow-sm sm:col-span-2 lg:col-span-1">
+          <Card className="border-0 bg-linear-to-br from-orange-50 to-amber-50 shadow-sm sm:col-span-2 lg:col-span-1">
             <CardContent className="p-6">
-              <Sparkles className="w-10 h-10 text-purple-600 mb-4" />
+              <Sparkles className="w-10 h-10 text-amber-600 mb-4" />
               <h3 className="font-semibold text-slate-800">
                 Precisa de Ajuda?
               </h3>
@@ -508,7 +533,7 @@ export default function Home() {
                 equipe.
               </p>
               <Link to={createPageUrl("Chatbot")}>
-                <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+                <Button className="mt-4 bg-amber-600 hover:bg-amber-700">
                   Iniciar Conversa
                 </Button>
               </Link>

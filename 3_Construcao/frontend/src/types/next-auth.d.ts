@@ -6,6 +6,7 @@ declare module "next-auth" {
     id: string;
     type: UserType;
     activationStatus?: AccountActivationStatus;
+    profileImageUrl?: string | null;
   }
 
   interface Session {
@@ -13,6 +14,8 @@ declare module "next-auth" {
       id?: string;
       type?: UserType;
       activationStatus?: AccountActivationStatus;
+      deletionPending?: boolean;
+      profileImageUrl?: string | null;
     } & DefaultSession["user"];
   }
 }
@@ -22,5 +25,7 @@ declare module "next-auth/jwt" {
     id?: string;
     type?: UserType;
     activationStatus?: AccountActivationStatus;
+    deletionPending?: boolean;
+    profileImageUrl?: string | null;
   }
 }

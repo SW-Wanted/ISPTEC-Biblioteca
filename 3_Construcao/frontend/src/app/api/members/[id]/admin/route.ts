@@ -65,8 +65,15 @@ const adminUpdateSchema = z.object({
   fineAmount: z.number().positive().optional(),
   fineReason: z.string().min(1).max(500).optional(),
   fineType: z
-    .enum(["LATE_RETURN", "DAMAGED_BOOK", "LOST_BOOK", "OTHER"])
+    .enum([
+      "LATE_RETURN",
+      "LOCKER_OVERTIME",
+      "LOST_CREDENTIAL",
+      "DAMAGED_BOOK",
+      "LOST_BOOK",
+    ])
     .optional(),
+  bookId: z.string().optional(), // Book affected by lost/damaged fine
 });
 
 // ---------------------------------------------------------------------------
@@ -102,7 +109,7 @@ export async function PATCH(
     );
   }
 
-  const { action, newRole, reason, fineAmount, fineReason, fineType } =
+  const { action, newRole, reason, fineAmount, fineReason, fineType, bookId } =
     validation.data;
 
   // Find target member
@@ -165,6 +172,7 @@ export async function PATCH(
           where: { id: memberId },
           data: {
             status: UserStatus.INACTIVE,
+            activationStatus: AccountActivationStatus.PENDING_DOCUMENTS,
           },
         });
 
@@ -287,8 +295,9 @@ export async function PATCH(
             userId: memberId,
             amount: fineAmount,
             reason: fineReason,
-            type: (fineType as FineType) || FineType.OTHER,
+            type: (fineType as FineType) || FineType.LATE_RETURN,
             status: "PENDING",
+            bookId: bookId || null,
           },
         });
 
@@ -300,10 +309,30 @@ export async function PATCH(
           },
         });
 
+        // If lost/damaged book with bookId, decrement totalCopies
+        if (
+          bookId &&
+          (fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK")
+        ) {
+          await prisma.book.update({
+            where: { id: bookId },
+            data: {
+              totalCopies: { decrement: 1 },
+            },
+          });
+
+          await logActivity(
+            admin.id,
+            "BOOK_INVENTORY_DECREASED",
+            `Livro perdido/danificado: totalCopies decrementado para livro ${bookId}`,
+            bookId,
+          );
+        }
+
         await logActivity(
           admin.id,
           "FINE_APPLIED",
-          `Admin ${admin.name} aplicou multa de ${fineAmount} Kz a ${member.name}: ${fineReason}`,
+          `Admin ${admin.name} aplicou multa de ${fineAmount} Kz a ${member.name}: ${fineReason}${bookId ? ` (Livro: ${bookId})` : ""}`,
           memberId,
         );
 
@@ -332,7 +361,7 @@ export async function PATCH(
 async function logActivity(
   userId: string,
   action: string,
-  details: string,
+  description: string,
   targetId: string,
 ) {
   try {
@@ -340,8 +369,8 @@ async function logActivity(
       data: {
         userId,
         action,
-        details,
-        entityType: "User",
+        description,
+        entity: "User",
         entityId: targetId,
       },
     });

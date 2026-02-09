@@ -233,7 +233,7 @@ export default function Notifications() {
   const getNotificationIcon = (notification: Notification) => {
     switch (notification.action_type) {
       case "renew":
-        return <RefreshCw className="w-5 h-5 text-indigo-600" />;
+        return <RefreshCw className="w-5 h-5 text-amber-600" />;
       case "pay_fine":
         return <CreditCard className="w-5 h-5 text-red-600" />;
       case "collect_reservation":
@@ -243,7 +243,7 @@ export default function Notifications() {
       case "view_services":
         return <KeyRound className="w-5 h-5 text-blue-600" />;
       case "view_documents":
-        return <FileText className="w-5 h-5 text-purple-600" />;
+        return <FileText className="w-5 h-5 text-orange-600" />;
       default:
         return <Bell className="w-5 h-5 text-slate-600" />;
     }
@@ -283,7 +283,7 @@ export default function Notifications() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Bell className="w-7 h-7 text-indigo-600" />
+              <Bell className="w-7 h-7 text-amber-600" />
               Notificações
             </h1>
             <p className="text-slate-500 mt-1">
@@ -314,9 +314,9 @@ export default function Notifications() {
           <TabsContent value="notifications">
             {/* Actions Bar */}
             {selectedNotifications.length > 0 && (
-              <Card className="border-0 shadow-sm mb-4 bg-indigo-50">
+              <Card className="border-0 shadow-sm mb-4 bg-amber-50">
                 <CardContent className="p-3 flex items-center justify-between">
-                  <span className="text-sm text-indigo-700">
+                  <span className="text-sm text-amber-700">
                     {selectedNotifications.length} selecionada(s)
                   </span>
                   <div className="flex gap-2">
@@ -468,7 +468,7 @@ export default function Notifications() {
                         className={cn(
                           "border-0 shadow-sm transition-all duration-300 hover:shadow-md",
                           notification.status !== "read" &&
-                            "bg-indigo-50/50 ring-1 ring-indigo-100",
+                            "bg-amber-50/50 ring-1 ring-amber-100",
                         )}
                       >
                         <CardContent className="p-4">
@@ -503,7 +503,7 @@ export default function Notifications() {
                                 className={cn(
                                   "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
                                   notification.status !== "read"
-                                    ? "bg-indigo-100"
+                                    ? "bg-amber-100"
                                     : "bg-slate-100",
                                 )}
                               >
@@ -537,7 +537,7 @@ export default function Notifications() {
                                   <Button
                                     variant="link"
                                     size="sm"
-                                    className="h-auto p-0 mt-2 text-indigo-600"
+                                    className="h-auto p-0 mt-2 text-amber-600"
                                   >
                                     {notification.action_type === "renew" &&
                                       "Renovar agora"}
@@ -552,7 +552,7 @@ export default function Notifications() {
                               </div>
                             </div>
                             {notification.status !== "read" && (
-                              <div className="w-2 h-2 bg-indigo-500 rounded-full shrink-0 mt-2" />
+                              <div className="w-2 h-2 bg-amber-500 rounded-full shrink-0 mt-2" />
                             )}
                           </div>
                         </CardContent>

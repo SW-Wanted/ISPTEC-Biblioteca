@@ -100,13 +100,13 @@ export default function SpecialRequestsAdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["special-requests"] });
-      toast.success("Solicitacao actualizada");
+      toast.success("Solicitação actualizada");
       setResponseDialogOpen(false);
       setSelectedRequest(null);
       setResponseText("");
     },
     onError: (error: any) => {
-      toast.error(error?.message ?? "Erro ao actualizar solicitacao");
+      toast.error(error?.message ?? "Erro ao actualizar solicitação");
     },
   });
 
@@ -129,8 +129,8 @@ export default function SpecialRequestsAdminPage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <FileText className="w-7 h-7 text-indigo-600" />
-            Solicitacoes Especiais
+            <FileText className="w-7 h-7 text-amber-600" />
+            Solicitações Especiais
           </h1>
           <p className="text-slate-500 mt-1">
             Gerencie pedidos de levantamento bibliografico, catalogacao e
@@ -147,7 +147,7 @@ export default function SpecialRequestsAdminPage() {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Titulo, descricao ou utilizador"
+                  placeholder="Titulo, descrição ou utilizador"
                 />
               </div>
               <div className="w-full md:w-52">
@@ -178,7 +178,7 @@ export default function SpecialRequestsAdminPage() {
                   <TableHead>Titulo</TableHead>
                   <TableHead>Utilizador</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Accoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -214,7 +214,7 @@ export default function SpecialRequestsAdminPage() {
                 {!isLoading && filtered.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-6">
-                      Nenhuma solicitacao encontrada
+                      Nenhuma solicitação encontrada
                     </TableCell>
                   </TableRow>
                 )}
@@ -329,7 +329,7 @@ export default function SpecialRequestsAdminPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Concluir solicitacao</DialogTitle>
+            <DialogTitle>Concluir solicitação</DialogTitle>
             <DialogDescription>
               Registe a resposta que sera enviada ao utilizador.
             </DialogDescription>

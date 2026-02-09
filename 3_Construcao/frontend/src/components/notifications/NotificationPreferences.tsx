@@ -72,7 +72,7 @@ const notificationTypes = [
     label: 'Status de Solicitações',
     description: 'Atualizações sobre suas solicitações de serviços',
     icon: FileText,
-    color: 'text-indigo-600 bg-indigo-100'
+    color: 'text-amber-600 bg-amber-100'
   },
   {
     id: 'renewal_success',
@@ -132,8 +132,8 @@ export default function NotificationPreferences({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <channel.icon className="w-5 h-5 text-indigo-600" />
+                  <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                    <channel.icon className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
                     <p className="font-medium text-slate-800">{channel.label}</p>

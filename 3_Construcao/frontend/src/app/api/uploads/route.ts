@@ -133,7 +133,9 @@ function fileToDataUrl(buffer: Buffer, mimeType: string): string {
 // Input validation
 // ---------------------------------------------------------------------------
 
-const folderSchema = z.enum(["covers", "documents", "ocr"]).default("covers");
+const folderSchema = z
+  .enum(["covers", "documents", "ocr", "profiles"])
+  .default("covers");
 
 // ---------------------------------------------------------------------------
 // POST /api/uploads
