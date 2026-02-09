@@ -6,18 +6,18 @@ A tabela FAQ ainda não existe no banco de dados, causando erro 500 ao tentar cr
 
 ## ✅ Solução
 
-Como estás usando **Prisma Accelerate** (DATABASE_URL não está disponível localmente), precisas aplicar a migration diretamente no banco de produção.
+Como estamos usando **Prisma Accelerate** (DATABASE_URL não está disponível localmente), precisaremos aplicar a migration diretamente no banco de produção.
 
 ### Opção 1: Via Prisma Studio / Dashboard do Prisma Accelerate
 
 1. Acede ao [Prisma Data Platform](https://console.prisma.io/)
-2. Seleciona o teu projeto
-3. Vai a "Data Browser"
-4. Executa o SQL da migration manualmente
+2. Selecionar o teu projeto
+3. Ir em "Data Browser"
+4. Executar o SQL da migration manualmente
 
 ### Opção 2: Via SQL Client (pgAdmin, psql, etc.)
 
-Conecta-te ao banco PostgreSQL e executa o seguinte SQL:
+Conectar ao banco PostgreSQL e executa o seguinte SQL:
 
 ```sql
 -- CreateTable
@@ -75,12 +75,12 @@ Após aplicar a migration, testa:
    Deve retornar as 5 FAQs padrão.
 
 2. **Via Admin:**
-   - Acede a Admin → Settings → FAQs
-   - Deves ver as 5 FAQs padrão
-   - Tenta criar uma nova FAQ
+   - Aceder a Admin → Settings → FAQs
+   - Ver-se-a as 5 FAQs padrão
+   - Tentar criar uma nova FAQ
 
 3. **Via Help Page:**
-   - Acede à página de Ajuda
+   - Aceder à página de Ajuda
    - As FAQs devem aparecer dinamicamente do banco
 
 ## 📋 Estado Atual do Sistema
@@ -100,12 +100,10 @@ Após aplicar a migration, testa:
 
 ## 🚀 Próximos Passos
 
-Depois de aplicar a migration, reinicia o servidor:
+Depois de aplicar a migration, reiniciar o servidor:
 
 ```bash
 # Terminal npm
 Ctrl+C
 npm run dev
 ```
-
-Tudo deve funcionar perfeitamente! 🎉

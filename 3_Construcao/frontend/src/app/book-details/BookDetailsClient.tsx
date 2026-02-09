@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
+  AlertTriangle,
   BookOpen,
   CheckCircle,
   ChevronLeft,
@@ -216,6 +217,9 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
   const hasActiveLoanForBook = activeLoans.some(
     (loan: { book_id?: string | null }) => loan.book_id === bookId,
   );
+  // 🔒 Desabilitar reserva quando há apenas 1 exemplar disponível
+  const hasOnlyOneCopy =
+    (book?.available_copies ?? availableCopies.length) === 1;
   const reserveButtonDisabled =
     isLoading ||
     isCopiesLoading ||
@@ -223,7 +227,8 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     isLoansLoading ||
     reserveMutation.isPending ||
     !book ||
-    hasActiveLoanForBook;
+    hasActiveLoanForBook ||
+    hasOnlyOneCopy;
 
   const shouldShowReserveSkeleton =
     isUserLoading ||
@@ -297,13 +302,13 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
     typeof book.total_reviews === "number" ? book.total_reviews : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12">
+    <div className="min-h-screen bg-slate-50 pb-12 overflow-x-hidden max-w-full">
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-2 text-sm">
             <Link
               to={createPageUrl("SearchBooks")}
-              className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+              className="text-slate-500 hover:text-amber-600 transition-colors flex items-center gap-1"
             >
               <ChevronLeft className="w-4 h-4" />
               Pesquisa
@@ -362,7 +367,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
               {book.category && (
                 <Badge
                   variant="secondary"
-                  className="bg-indigo-50 text-indigo-700"
+                  className="bg-amber-50 text-amber-700"
                 >
                   {book.category}
                 </Badge>
@@ -407,34 +412,65 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
             <Card
               className={cn(
                 "border-2 mb-6",
-                availableCopies.length > 0 || (book.available_copies ?? 0) > 0
-                  ? "border-emerald-200 bg-emerald-50"
-                  : "border-orange-200 bg-orange-50",
+                (() => {
+                  const count = book.available_copies ?? availableCopies.length;
+                  if (count === 0) return "border-orange-200 bg-orange-50";
+                  if (count === 1) return "border-red-200 bg-red-50";
+                  if (count <= 3) return "border-amber-200 bg-amber-50";
+                  return "border-emerald-200 bg-emerald-50";
+                })(),
               )}
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {availableCopies.length > 0 ||
-                    (book.available_copies ?? 0) > 0 ? (
-                      <CheckCircle className="w-8 h-8 text-emerald-600" />
-                    ) : (
-                      <AlertCircle className="w-8 h-8 text-orange-600" />
-                    )}
+                    {(() => {
+                      const count =
+                        book.available_copies ?? availableCopies.length;
+
+                      if (count === 0) {
+                        return (
+                          <AlertCircle className="w-8 h-8 text-orange-600" />
+                        );
+                      }
+
+                      if (count === 1) {
+                        return (
+                          <AlertTriangle className="w-8 h-8 text-red-600" />
+                        );
+                      }
+
+                      if (count <= 3) {
+                        return (
+                          <AlertCircle className="w-8 h-8 text-amber-600" />
+                        );
+                      }
+
+                      return (
+                        <CheckCircle className="w-8 h-8 text-emerald-600" />
+                      );
+                    })()}
                     <div>
                       <p
                         className={cn(
                           "font-semibold text-lg",
-                          availableCopies.length > 0 ||
-                            (book.available_copies ?? 0) > 0
-                            ? "text-emerald-800"
-                            : "text-orange-800",
+                          (() => {
+                            const count =
+                              book.available_copies ?? availableCopies.length;
+                            if (count === 0) return "text-orange-800";
+                            if (count === 1) return "text-red-800";
+                            if (count <= 3) return "text-amber-800";
+                            return "text-emerald-800";
+                          })(),
                         )}
                       >
-                        {availableCopies.length > 0 ||
-                        (book.available_copies ?? 0) > 0
-                          ? `${book.available_copies ?? availableCopies.length} exemplar(es) disponível(is)`
-                          : "Indisponível no momento"}
+                        {(() => {
+                          const count =
+                            book.available_copies ?? availableCopies.length;
+                          if (count === 0) return "Indisponível no momento";
+                          else if (count === 1) return "1 exemplar (Indisp. para empréstimo)";
+                          return `${count} exemplares disponíveis`;
+                        })()}
                       </p>
                       {queueReservations.length > 0 &&
                         !(book.available_copies ?? 0) && (
@@ -451,25 +487,41 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                         Já levantado
                       </Badge>
                     ) : hasExistingReservation ? (
-                      <Badge className="bg-indigo-100 text-indigo-700 py-2 px-4">
+                      <Badge className="bg-amber-100 text-amber-700 py-2 px-4">
                         Já reservado
                       </Badge>
                     ) : (
-                      <Button
-                        onClick={() => setShowReserveDialog(true)}
-                        disabled={reserveButtonDisabled}
-                        className={
-                          (book.available_copies ?? 0) > 0 ||
-                          availableCopies.length > 0
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-orange-600 hover:bg-orange-700"
-                        }
-                      >
-                        {(book.available_copies ?? 0) > 0 ||
-                        availableCopies.length > 0
-                          ? "Reservar para Levantamento"
-                          : "Entrar na Fila de Espera"}
-                      </Button>
+                      (() => {
+                        const count =
+                          book.available_copies ?? availableCopies.length;
+                        const hasAvailable = count > 0;
+
+                        const buttonColor =
+                          count === 1
+                            ? "bg-red-600 hover:bg-red-700"
+                            : count <= 3
+                              ? "bg-amber-600 hover:bg-amber-700"
+                              : hasAvailable
+                                ? "bg-emerald-600 hover:bg-emerald-700"
+                                : "bg-orange-600 hover:bg-orange-700";
+
+                        return (
+                          <Button
+                            onClick={() => setShowReserveDialog(true)}
+                            disabled={reserveButtonDisabled}
+                            className={buttonColor}
+                            title={
+                              hasOnlyOneCopy
+                                ? "Apenas 1 exemplar disponível - não pode ser reservado"
+                                : ""
+                            }
+                          >
+                            {hasAvailable
+                              ? "Reservar para Levantamento"
+                              : "Entrar na Fila de Espera"}
+                          </Button>
+                        );
+                      })()
                     )
                   ) : shouldShowReserveSkeleton ? (
                     <Skeleton className="h-10 w-56" />
@@ -530,7 +582,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                     <div>
                       <p className="text-slate-500">Localização</p>
                       <p className="font-medium text-slate-800 flex items-center gap-1">
-                        <MapPin className="w-4 h-4 text-indigo-600" />
+                        <MapPin className="w-4 h-4 text-amber-600" />
                         {book.location}
                       </p>
                     </div>
@@ -577,7 +629,7 @@ export default function BookDetailsClient({ bookId }: BookDetailsClientProps) {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 font-medium">
                               {review.user_name?.charAt(0) || "U"}
                             </div>
                             <span className="font-medium text-slate-800">

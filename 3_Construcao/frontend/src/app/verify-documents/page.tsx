@@ -10,7 +10,7 @@ export default function DocumentsVerificationPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <FileCheck className="w-7 h-7 text-indigo-600" />
+              <FileCheck className="w-7 h-7 text-amber-600" />
               Verificação de Documentos
             </h1>
             <p className="text-slate-500 mt-1">

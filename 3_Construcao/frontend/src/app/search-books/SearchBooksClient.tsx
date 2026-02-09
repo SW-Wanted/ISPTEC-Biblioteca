@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
-import Image from 'next/image';
-import type { CheckedState } from '@radix-ui/react-checkbox';
-import { Link, useSearchParams } from '@/lib/router';
-import { createPageUrl } from '@/utils';
-import { api } from '@/api/apiClient';
-import { useQuery } from '@tanstack/react-query';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from "react";
+import Image from "next/image";
+import type { CheckedState } from "@radix-ui/react-checkbox";
+import { Link, useSearchParams } from "@/lib/router";
+import { createPageUrl } from "@/utils";
+import { api } from "@/api/apiClient";
+import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Filter,
@@ -16,8 +16,9 @@ import {
   X,
   Grid3X3,
   List,
-  SlidersHorizontal
-} from 'lucide-react';
+  SlidersHorizontal,
+} from "lucide-react";
+import { useBookPolicyBadge } from "@/hooks/use-book-policy-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,7 +67,12 @@ function FilterSidebar({
     <div className="space-y-6">
       <div>
         <h4 className="font-medium text-slate-800 mb-3">Categoria</h4>
-        <Select value={filters.category || 'all'} onValueChange={(v) => setFilters({ ...filters, category: v === 'all' ? '' : v })}>
+        <Select
+          value={filters.category || "all"}
+          onValueChange={(v) =>
+            setFilters({ ...filters, category: v === "all" ? "" : v })
+          }
+        >
           <SelectTrigger>
             <SelectValue placeholder="Todas as categorias" />
           </SelectTrigger>
@@ -83,7 +89,12 @@ function FilterSidebar({
 
       <div>
         <h4 className="font-medium text-slate-800 mb-3">Idioma</h4>
-        <Select value={filters.language || 'all'} onValueChange={(v) => setFilters({ ...filters, language: v === 'all' ? '' : v })}>
+        <Select
+          value={filters.language || "all"}
+          onValueChange={(v) =>
+            setFilters({ ...filters, language: v === "all" ? "" : v })
+          }
+        >
           <SelectTrigger>
             <SelectValue placeholder="Todos os idiomas" />
           </SelectTrigger>
@@ -105,7 +116,10 @@ function FilterSidebar({
             setFilters({ ...filters, available: checked === true })
           }
         />
-        <label htmlFor="available" className="text-sm text-slate-700 cursor-pointer">
+        <label
+          htmlFor="available"
+          className="text-sm text-slate-700 cursor-pointer"
+        >
           Apenas disponíveis
         </label>
       </div>
@@ -122,73 +136,87 @@ function FilterSidebar({
 
 export default function SearchBooksClient() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
-  const [viewMode, setViewMode] = useState('grid');
+  const getPolicyBadge = useBookPolicyBadge();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [viewMode, setViewMode] = useState("grid");
   const [filters, setFilters] = useState<FiltersState>({
-    category: searchParams.get('category') || '',
-    language: searchParams.get('language') || '',
-    available: searchParams.get('available') === 'true',
-    year: searchParams.get('year') || ''
+    category: searchParams.get("category") || "",
+    language: searchParams.get("language") || "",
+    available: searchParams.get("available") === "true",
+    year: searchParams.get("year") || "",
   });
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'relevance');
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "relevance");
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ["categories"],
     queryFn: () => api.entities.Category.list(),
-    initialData: []
+    initialData: [],
   });
 
   const categoryOptions = categories.filter(
-    (c): c is { id: string; name: string } => typeof c.name === 'string' && c.name.trim().length > 0
+    (c): c is { id: string; name: string } =>
+      typeof c.name === "string" && c.name.trim().length > 0,
   );
 
   const { data: books = [], isLoading } = useQuery({
-    queryKey: ['books', searchQuery, filters, sortBy],
+    queryKey: ["books", searchQuery, filters, sortBy],
     queryFn: async () => {
-      let sortField = '-created_date';
-      if (sortBy === 'popular') sortField = '-total_loans';
-      if (sortBy === 'newest') sortField = '-created_date';
-      if (sortBy === 'title') sortField = 'title';
-      if (sortBy === 'rating') sortField = '-average_rating';
+      let sortField = "-created_date";
+      if (sortBy === "popular") sortField = "-total_loans";
+      if (sortBy === "newest") sortField = "-created_date";
+      if (sortBy === "title") sortField = "title";
+      if (sortBy === "rating") sortField = "-average_rating";
 
       const allBooks = await api.entities.Book.list(sortField, 100);
 
-      return allBooks.filter(book => {
+      return allBooks.filter((book) => {
         if (searchQuery) {
           const query = searchQuery.toLowerCase();
           const matchesTitle = book.title?.toLowerCase().includes(query);
-          const matchesAuthor = book.authors?.some(a => a.toLowerCase().includes(query));
+          const matchesAuthor = book.authors?.some((a) =>
+            a.toLowerCase().includes(query),
+          );
           const matchesISBN = book.isbn?.toLowerCase().includes(query);
           if (!matchesTitle && !matchesAuthor && !matchesISBN) return false;
         }
-        if (filters.category && book.category !== filters.category) return false;
-        if (filters.language && book.language !== filters.language) return false;
-        if (filters.available && (book.available_copies ?? 0) === 0) return false;
-        if (filters.year && book.publication_year?.toString() !== filters.year) return false;
+        if (filters.category && book.category !== filters.category)
+          return false;
+        if (filters.language && book.language !== filters.language)
+          return false;
+        if (filters.available && (book.available_copies ?? 0) === 0)
+          return false;
+        if (filters.year && book.publication_year?.toString() !== filters.year)
+          return false;
         return true;
       });
     },
-    initialData: []
+    initialData: [],
   });
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (searchQuery) params.set('q', searchQuery);
-    if (filters.category) params.set('category', filters.category);
-    if (filters.language) params.set('language', filters.language);
-    if (filters.available) params.set('available', 'true');
-    if (sortBy !== 'relevance') params.set('sort', sortBy);
+    if (searchQuery) params.set("q", searchQuery);
+    if (filters.category) params.set("category", filters.category);
+    if (filters.language) params.set("language", filters.language);
+    if (filters.available) params.set("available", "true");
+    if (sortBy !== "relevance") params.set("sort", sortBy);
     setSearchParams(params);
   };
 
   const clearFilters = () => {
-    setFilters({ category: '', language: '', available: false, year: '' });
-    setSearchQuery('');
+    setFilters({ category: "", language: "", available: false, year: "" });
+    setSearchQuery("");
     setSearchParams({});
   };
 
-  const hasActiveFilters = Boolean(filters.category || filters.language || filters.available || filters.year || searchQuery);
+  const hasActiveFilters = Boolean(
+    filters.category ||
+    filters.language ||
+    filters.available ||
+    filters.year ||
+    searchQuery,
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -202,10 +230,13 @@ export default function SearchBooksClient() {
                 placeholder="Pesquisar por título, autor ou ISBN..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 py-6 rounded-xl border-slate-200 focus-visible:ring-indigo-500"
+                className="pl-12 py-6 rounded-xl border-slate-200 focus-visible:ring-amber-500"
               />
             </div>
-            <Button type="submit" className="px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700">
+            <Button
+              type="submit"
+              className="px-8 rounded-xl bg-amber-600 hover:bg-amber-700"
+            >
               Pesquisar
             </Button>
             <Sheet>
@@ -219,7 +250,13 @@ export default function SearchBooksClient() {
                   <SheetTitle>Filtros</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6">
-                  <FilterSidebar filters={filters} setFilters={setFilters} categories={categoryOptions} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
+                  <FilterSidebar
+                    filters={filters}
+                    setFilters={setFilters}
+                    categories={categoryOptions}
+                    hasActiveFilters={hasActiveFilters}
+                    clearFilters={clearFilters}
+                  />
                 </div>
               </SheetContent>
             </Sheet>
@@ -235,7 +272,13 @@ export default function SearchBooksClient() {
                 <Filter className="w-5 h-5" />
                 Filtros
               </h3>
-              <FilterSidebar filters={filters} setFilters={setFilters} categories={categoryOptions} hasActiveFilters={hasActiveFilters} clearFilters={clearFilters} />
+              <FilterSidebar
+                filters={filters}
+                setFilters={setFilters}
+                categories={categoryOptions}
+                hasActiveFilters={hasActiveFilters}
+                clearFilters={clearFilters}
+              />
             </Card>
           </aside>
 
@@ -243,10 +286,14 @@ export default function SearchBooksClient() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-semibold text-slate-800">
-                  {isLoading ? 'Pesquisando...' : `${books.length} resultado(s)`}
+                  {isLoading
+                    ? "Pesquisando..."
+                    : `${books.length} resultado(s)`}
                 </h2>
                 {searchQuery && (
-                  <p className="text-sm text-slate-500 mt-1">para &quot;{searchQuery}&quot;</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    para &quot;{searchQuery}&quot;
+                  </p>
                 )}
               </div>
 
@@ -266,14 +313,24 @@ export default function SearchBooksClient() {
 
                 <div className="hidden sm:flex border border-slate-200 rounded-lg overflow-hidden">
                   <button
-                    onClick={() => setViewMode('grid')}
-                    className={cn("p-2 transition-colors", viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600')}
+                    onClick={() => setViewMode("grid")}
+                    className={cn(
+                      "p-2 transition-colors",
+                      viewMode === "grid"
+                        ? "bg-amber-50 text-amber-600"
+                        : "text-slate-400 hover:text-slate-600",
+                    )}
                   >
                     <Grid3X3 className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => setViewMode('list')}
-                    className={cn("p-2 transition-colors", viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:text-slate-600')}
+                    onClick={() => setViewMode("list")}
+                    className={cn(
+                      "p-2 transition-colors",
+                      viewMode === "list"
+                        ? "bg-amber-50 text-amber-600"
+                        : "text-slate-400 hover:text-slate-600",
+                    )}
                   >
                     <List className="w-5 h-5" />
                   </button>
@@ -282,26 +339,52 @@ export default function SearchBooksClient() {
             </div>
 
             {isLoading ? (
-              <div className={cn("gap-4", viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'space-y-4')}>
-                {Array(8).fill(0).map((_, i) => (
-                  <Card key={i} className="border-0 shadow-sm overflow-hidden">
-                    <div className={viewMode === 'grid' ? '' : 'flex'}>
-                      <Skeleton className={viewMode === 'grid' ? 'aspect-2/3 w-full' : 'w-24 h-32'} />
-                      <div className={viewMode === 'grid' ? 'p-4' : 'p-4 flex-1'}>
-                        <Skeleton className="h-4 w-3/4 mb-2" />
-                        <Skeleton className="h-3 w-1/2" />
+              <div
+                className={cn(
+                  "gap-4",
+                  viewMode === "grid"
+                    ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                    : "space-y-4",
+                )}
+              >
+                {Array(8)
+                  .fill(0)
+                  .map((_, i) => (
+                    <Card
+                      key={i}
+                      className="border-0 shadow-sm overflow-hidden"
+                    >
+                      <div className={viewMode === "grid" ? "" : "flex"}>
+                        <Skeleton
+                          className={
+                            viewMode === "grid"
+                              ? "aspect-2/3 w-full"
+                              : "w-24 h-32"
+                          }
+                        />
+                        <div
+                          className={viewMode === "grid" ? "p-4" : "p-4 flex-1"}
+                        >
+                          <Skeleton className="h-4 w-3/4 mb-2" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))}
               </div>
             ) : books.length === 0 ? (
               <Card className="border-0 shadow-sm">
                 <CardContent className="p-12 text-center">
                   <BookOpen className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-800 mb-2">Nenhum livro encontrado</h3>
-                  <p className="text-slate-500 mb-4">Tente ajustar os filtros ou usar outros termos de pesquisa.</p>
-                  <Button variant="outline" onClick={clearFilters}>Limpar filtros</Button>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                    Nenhum livro encontrado
+                  </h3>
+                  <p className="text-slate-500 mb-4">
+                    Tente ajustar os filtros ou usar outros termos de pesquisa.
+                  </p>
+                  <Button variant="outline" onClick={clearFilters}>
+                    Limpar filtros
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -311,7 +394,12 @@ export default function SearchBooksClient() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className={cn("gap-4", viewMode === 'grid' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' : 'space-y-4')}
+                  className={cn(
+                    "gap-4",
+                    viewMode === "grid"
+                      ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                      : "space-y-4",
+                  )}
                 >
                   {books.map((book, index) => (
                     <motion.div
@@ -321,16 +409,20 @@ export default function SearchBooksClient() {
                       transition={{ duration: 0.3, delay: index * 0.05 }}
                     >
                       <Link to={createPageUrl(`BookDetails?id=${book.id}`)}>
-                        <Card className={cn(
-                          "group border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer",
-                          viewMode === 'list' && 'flex'
-                        )}>
-                          <div className={cn(
-                            "bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden shrink-0",
-                            viewMode === 'grid' ? 'aspect-2/3' : 'w-24 h-32'
-                          )}>
+                        <Card
+                          className={cn(
+                            "group border-0 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer",
+                            viewMode === "list" && "flex",
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "bg-linear-to-br from-slate-100 to-slate-200 relative overflow-hidden shrink-0",
+                              viewMode === "grid" ? "aspect-2/3" : "w-24 h-32",
+                            )}
+                          >
                             {book.cover_url ? (
-                              viewMode === 'grid' ? (
+                              viewMode === "grid" ? (
                                 <Image
                                   src={book.cover_url}
                                   alt={book.title}
@@ -356,27 +448,57 @@ export default function SearchBooksClient() {
                                 <BookOpen className="w-12 h-12 text-slate-300" />
                               </div>
                             )}
-                            {(book.available_copies ?? 0) > 0 && (
-                              <Badge className="absolute top-2 right-2 bg-emerald-500 text-white text-[10px]">{book.available_copies ?? 0} disp.</Badge>
-                            )}
-                            {(book.available_copies ?? 0) === 0 && (
-                              <Badge className="absolute top-2 right-2 bg-red-500 text-white text-[10px]">Indisponível</Badge>
-                            )}
+                            {(() => {
+                              const available = book.available_copies ?? 0;
+                              const total = book.total_copies ?? 0;
+                              const policy = getPolicyBadge(available, total);
+                              return (
+                                <Badge
+                                  className={cn(
+                                    "absolute top-2 right-2 text-[10px]",
+                                    available > 0
+                                      ? policy.className
+                                      : "bg-red-500 text-white",
+                                  )}
+                                >
+                                  {available > 0
+                                    ? `${available} disp. • ${policy.label}`
+                                    : "Indisponível"}
+                                </Badge>
+                              );
+                            })()}
                           </div>
-                          <CardContent className={cn(viewMode === 'grid' ? 'p-4' : 'p-4 flex-1')}>
-                            <h3 className={cn("font-medium text-slate-800 group-hover:text-indigo-600 transition-colors", viewMode === 'grid' ? 'text-sm line-clamp-2' : 'text-base')}>
+                          <CardContent
+                            className={cn(
+                              viewMode === "grid" ? "p-4" : "p-4 flex-1",
+                            )}
+                          >
+                            <h3
+                              className={cn(
+                                "font-medium text-slate-800 group-hover:text-amber-600 transition-colors",
+                                viewMode === "grid"
+                                  ? "text-sm line-clamp-2"
+                                  : "text-base",
+                              )}
+                            >
                               {book.title}
                             </h3>
-                            <p className="text-sm text-slate-500 mt-1 line-clamp-1">{book.authors?.join(', ') || 'Autor desconhecido'}</p>
+                            <p className="text-sm text-slate-500 mt-1 line-clamp-1">
+                              {book.authors?.join(", ") || "Autor desconhecido"}
+                            </p>
                             <div className="flex items-center gap-3 mt-2">
                               {(book.average_rating ?? 0) > 0 && (
                                 <div className="flex items-center gap-1">
                                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                                  <span className="text-xs text-slate-600">{(book.average_rating ?? 0).toFixed(1)}</span>
+                                  <span className="text-xs text-slate-600">
+                                    {(book.average_rating ?? 0).toFixed(1)}
+                                  </span>
                                 </div>
                               )}
                               {book.publication_year && (
-                                <span className="text-xs text-slate-400">{book.publication_year}</span>
+                                <span className="text-xs text-slate-400">
+                                  {book.publication_year}
+                                </span>
                               )}
                             </div>
                           </CardContent>

@@ -89,6 +89,8 @@ export async function GET(request: NextRequest) {
         isBlocked: true,
         blockedReason: true,
         totalFines: true,
+        deletionRequestedAt: true,
+        profileImageUrl: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -112,6 +114,8 @@ export async function GET(request: NextRequest) {
       is_blocked: user.isBlocked,
       blocked_reason: user.blockedReason,
       total_fines: Number(user.totalFines),
+      deletion_requested: !!user.deletionRequestedAt,
+      profile_image_url: user.profileImageUrl,
       created_date: user.createdAt.toISOString(),
       updated_date: user.updatedAt.toISOString(),
     }));

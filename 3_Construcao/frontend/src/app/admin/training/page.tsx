@@ -12,6 +12,10 @@ import {
   MapPin,
   GraduationCap,
   Eye,
+  Pencil,
+  Trash2,
+  Download,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +41,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -44,6 +58,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { downloadCSV, type CSVColumn } from "@/lib/csv-export";
 import { AuthGuard } from "@/components/AuthGuard";
 
 interface TrainingSession {
@@ -117,13 +133,26 @@ function AdminTrainingPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [selectedSession, setSelectedSession] =
     useState<TrainingSession | null>(null);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>(
     [],
   );
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "cancel" | "delete";
+    sessionId: string;
+  } | null>(null);
   const [createForm, setCreateForm] = useState({
+    title: "",
+    description: "",
+    location: "",
+    maxParticipants: "30",
+    scheduledDate: "",
+    duration: "120",
+  });
+  const [editForm, setEditForm] = useState({
     title: "",
     description: "",
     location: "",
@@ -135,7 +164,7 @@ function AdminTrainingPage() {
   const { data: sessionsData, isLoading } = useQuery({
     queryKey: ["training-sessions"],
     queryFn: async () => {
-      const res = await fetch("/api/training/sessions?upcoming=true");
+      const res = await fetch("/api/training/sessions?limit=100");
       if (!res.ok) throw new Error("Erro ao carregar sessoes");
       return res.json();
     },
@@ -227,6 +256,91 @@ function AdminTrainingPage() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: async ({
+      sessionId,
+      data,
+    }: {
+      sessionId: string;
+      data: Record<string, unknown>;
+    }) => {
+      const res = await fetch(`/api/training/sessions/${sessionId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao atualizar sessao");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["training-sessions"] });
+      setShowEditDialog(false);
+      setSelectedSession(null);
+      toast.success("Sessao atualizada com sucesso");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await fetch(`/api/training/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao eliminar sessao");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["training-sessions"] });
+      toast.success("Sessao eliminada com sucesso");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: async ({
+      sessionId,
+      participantIds,
+    }: {
+      sessionId: string;
+      participantIds: string[];
+    }) => {
+      const res = await fetch(
+        `/api/training/sessions/${sessionId}/attendance`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            participantIds,
+            status: "COMPLETED",
+            actualDate: new Date().toISOString(),
+          }),
+        },
+      );
+      if (!res.ok) throw new Error("Erro ao concluir sessao");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["training-sessions"] });
+      setShowDetailsDialog(false);
+      setSelectedSession(null);
+      setSelectedParticipants([]);
+      toast.success("Sessao concluida! Contas activadas automaticamente.");
+    },
+    onError: () => {
+      toast.error("Erro ao concluir sessao");
+    },
+  });
+
   const sessions: TrainingSession[] = sessionsData?.sessions || [];
 
   const summary = useMemo(() => {
@@ -287,10 +401,133 @@ function AdminTrainingPage() {
       toast.error("Seleccione pelo menos um participante");
       return;
     }
-    attendanceMutation.mutate({
-      sessionId: selectedSession.id,
-      participantIds: selectedParticipants,
+    if (selectedSession.status === "IN_PROGRESS") {
+      completeMutation.mutate({
+        sessionId: selectedSession.id,
+        participantIds: selectedParticipants,
+      });
+    } else {
+      attendanceMutation.mutate({
+        sessionId: selectedSession.id,
+        participantIds: selectedParticipants,
+      });
+    }
+  };
+
+  const handleOpenEdit = (session: TrainingSession) => {
+    setSelectedSession(session);
+    const d = new Date(session.scheduledDate);
+    const localDatetime = !isNaN(d.getTime())
+      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`
+      : "";
+    setEditForm({
+      title: session.title,
+      description: session.description || "",
+      location: session.location,
+      maxParticipants: String(session.maxParticipants),
+      scheduledDate: localDatetime,
+      duration: String(session.duration),
     });
+    setShowEditDialog(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedSession) return;
+    if (!editForm.title || !editForm.location || !editForm.scheduledDate) {
+      toast.error("Preencha os campos obrigatorios");
+      return;
+    }
+    editMutation.mutate({
+      sessionId: selectedSession.id,
+      data: {
+        title: editForm.title,
+        description: editForm.description || null,
+        location: editForm.location,
+        maxParticipants: parseInt(editForm.maxParticipants),
+        scheduledDate: new Date(editForm.scheduledDate).toISOString(),
+        duration: parseInt(editForm.duration),
+      },
+    });
+  };
+
+  const handleExportSessions = () => {
+    if (filtered.length === 0) {
+      toast.error("Nenhuma sessao para exportar");
+      return;
+    }
+    const columns: CSVColumn[] = [
+      { key: "title", label: "Titulo", formatter: (v) => String(v ?? "") },
+      {
+        key: "scheduledDate",
+        label: "Data",
+        formatter: (v) => {
+          const d = new Date(String(v));
+          return isNaN(d.getTime()) ? "" : format(d, "dd/MM/yyyy HH:mm");
+        },
+      },
+      { key: "location", label: "Local", formatter: (v) => String(v ?? "") },
+      {
+        key: "duration",
+        label: "Duracao (min)",
+        formatter: (v) => String(v ?? ""),
+      },
+      { key: "status", label: "Estado", formatter: (v) => String(v ?? "") },
+      {
+        key: "maxParticipants",
+        label: "Vagas",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "participants",
+        label: "Inscritos",
+        formatter: (v) => String(Array.isArray(v) ? v.length : 0),
+      },
+      {
+        key: "trainer",
+        label: "Formador",
+        formatter: (v: any) => v?.name ?? "",
+      },
+    ];
+    downloadCSV(filtered as any, columns, {
+      filename: `formacoes-${format(new Date(), "yyyyMMdd-HHmm")}.csv`,
+    });
+    toast.success("CSV exportado com sucesso");
+  };
+
+  const handleExportParticipants = (session: TrainingSession) => {
+    if (session.participants.length === 0) {
+      toast.error("Nenhum participante nesta sessao");
+      return;
+    }
+    const rows = session.participants.map((p) => ({
+      name: p.user.name,
+      email: p.user.email,
+      attended: p.attended ? "Sim" : "Nao",
+      session_title: session.title,
+      session_date: session.scheduledDate,
+    }));
+    const columns: CSVColumn[] = [
+      { key: "name", label: "Nome", formatter: (v) => String(v ?? "") },
+      { key: "email", label: "Email", formatter: (v) => String(v ?? "") },
+      { key: "attended", label: "Presente", formatter: (v) => String(v ?? "") },
+      {
+        key: "session_title",
+        label: "Sessao",
+        formatter: (v) => String(v ?? ""),
+      },
+      {
+        key: "session_date",
+        label: "Data",
+        formatter: (v) => {
+          const d = new Date(String(v));
+          return isNaN(d.getTime()) ? "" : format(d, "dd/MM/yyyy HH:mm");
+        },
+      },
+    ];
+    downloadCSV(rows as any, columns, {
+      filename: `participantes-${session.title.replace(/\s+/g, "-").toLowerCase()}-${format(new Date(), "yyyyMMdd")}.csv`,
+    });
+    toast.success("Lista de participantes exportada");
   };
 
   const toggleParticipant = (participantId: string) => {
@@ -308,8 +545,8 @@ function AdminTrainingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <GraduationCap className="w-7 h-7 text-indigo-600" />
-              Gestao de Formacoes
+              <GraduationCap className="w-7 h-7 text-amber-600" />
+              Gestão de Formações
             </h1>
             <p className="text-slate-500 mt-1">
               {summary.scheduled} agendada(s) • {summary.inProgress} em
@@ -317,10 +554,20 @@ function AdminTrainingPage() {
               {summary.totalParticipants} participante(s) total
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Sessao
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportSessions}
+              disabled={isLoading}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Exportar
+            </Button>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Nova Sessao
+            </Button>
+          </div>
         </div>
 
         {/* Summary badges */}
@@ -384,7 +631,7 @@ function AdminTrainingPage() {
                   <TableHead>Local</TableHead>
                   <TableHead>Participantes</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Accoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -432,7 +679,12 @@ function AdminTrainingPage() {
                 )}
                 {!isLoading &&
                   filtered.map((session) => {
-                    const canManage = session.status === "SCHEDULED";
+                    const canEdit =
+                      session.status === "SCHEDULED" ||
+                      session.status === "IN_PROGRESS";
+                    const canDelete = session.status !== "COMPLETED";
+                    const canComplete = session.status === "IN_PROGRESS";
+                    const canCancel = session.status === "SCHEDULED";
                     const participantCount = session.participants.length;
                     const attendedCount = session.participants.filter(
                       (p) => p.attended,
@@ -477,7 +729,7 @@ function AdminTrainingPage() {
                         </TableCell>
                         <TableCell>{statusBadge(session.status)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             <Button
                               size="sm"
                               variant="outline"
@@ -486,26 +738,70 @@ function AdminTrainingPage() {
                                 setSelectedParticipants([]);
                                 setShowDetailsDialog(true);
                               }}
+                              title="Ver detalhes"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Detalhes
+                              <Eye className="h-4 w-4" />
                             </Button>
-                            {canManage && (
+                            {canEdit && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenEdit(session)}
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canComplete && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-emerald-600 hover:text-emerald-700"
+                                onClick={() => {
+                                  setSelectedSession(session);
+                                  // Pre-select all participants
+                                  setSelectedParticipants(
+                                    session.participants.map((p) => p.id),
+                                  );
+                                  setShowDetailsDialog(true);
+                                }}
+                                title="Concluir sessao"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canCancel && (
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                className="text-slate-500 hover:text-slate-700"
                                 disabled={cancelMutation.isPending}
                                 onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Cancelar esta sessao de formacao?",
-                                    )
-                                  ) {
-                                    cancelMutation.mutate(session.id);
-                                  }
+                                  setConfirmAction({
+                                    type: "cancel",
+                                    sessionId: session.id,
+                                  });
                                 }}
+                                title="Cancelar sessao"
                               >
                                 <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500 hover:text-red-700"
+                                disabled={deleteMutation.isPending}
+                                onClick={() => {
+                                  setConfirmAction({
+                                    type: "delete",
+                                    sessionId: session.id,
+                                  });
+                                }}
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
@@ -523,9 +819,9 @@ function AdminTrainingPage() {
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Criar Sessao de Formacao</DialogTitle>
+            <DialogTitle>Criar Sessão de Formação</DialogTitle>
             <DialogDescription>
-              Agende uma nova sessao de formacao para membros da biblioteca.
+              Agende uma nova sessão de formação para membros da biblioteca.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -668,6 +964,17 @@ function AdminTrainingPage() {
                   {statusBadge(selectedSession.status)}
                 </div>
 
+                {selectedSession.participants.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExportParticipants(selectedSession)}
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Exportar Participantes
+                  </Button>
+                )}
+
                 {selectedSession.participants.length > 0 ? (
                   <div className="border-t pt-4">
                     <p className="text-sm font-medium mb-3">
@@ -687,7 +994,8 @@ function AdminTrainingPage() {
                               {participant.user.email}
                             </p>
                           </div>
-                          {selectedSession.status === "SCHEDULED" ? (
+                          {selectedSession.status === "SCHEDULED" ||
+                          selectedSession.status === "IN_PROGRESS" ? (
                             <Button
                               size="sm"
                               variant={
@@ -731,7 +1039,8 @@ function AdminTrainingPage() {
                 )}
               </div>
 
-              {selectedSession.status === "SCHEDULED" &&
+              {(selectedSession.status === "SCHEDULED" ||
+                selectedSession.status === "IN_PROGRESS") &&
                 selectedSession.participants.length > 0 && (
                   <DialogFooter>
                     <Button
@@ -743,11 +1052,13 @@ function AdminTrainingPage() {
                     <Button
                       disabled={
                         selectedParticipants.length === 0 ||
-                        attendanceMutation.isPending
+                        attendanceMutation.isPending ||
+                        completeMutation.isPending
                       }
                       onClick={handleMarkAttendance}
                     >
-                      {attendanceMutation.isPending
+                      {attendanceMutation.isPending ||
+                      completeMutation.isPending
                         ? "A processar..."
                         : `Concluir Sessao (${selectedParticipants.length} presente(s))`}
                     </Button>
@@ -757,6 +1068,149 @@ function AdminTrainingPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) setSelectedSession(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Sessao de Formacao</DialogTitle>
+            <DialogDescription>
+              Altere os dados da sessao de formacao.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Titulo *</Label>
+              <Input
+                value={editForm.title}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, title: e.target.value }))
+                }
+              />
+            </div>
+            <div>
+              <Label>Descricao</Label>
+              <Textarea
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, description: e.target.value }))
+                }
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Local *</Label>
+                <Input
+                  value={editForm.location}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, location: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Vagas Maximas *</Label>
+                <Input
+                  type="number"
+                  value={editForm.maxParticipants}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      maxParticipants: e.target.value,
+                    }))
+                  }
+                  min={1}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Data e Hora *</Label>
+                <Input
+                  type="datetime-local"
+                  value={editForm.scheduledDate}
+                  onChange={(e) =>
+                    setEditForm((p) => ({
+                      ...p,
+                      scheduledDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <Label>Duracao (minutos) *</Label>
+                <Input
+                  type="number"
+                  value={editForm.duration}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, duration: e.target.value }))
+                  }
+                  min={30}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={editMutation.isPending}>
+              {editMutation.isPending ? "A guardar..." : "Guardar Alteracoes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation AlertDialog */}
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === "cancel"
+                ? "Cancelar Sessão de Formação"
+                : "Eliminar Sessão"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === "cancel"
+                ? "Tem a certeza que pretende cancelar esta sessão de formação? Os participantes serão notificados."
+                : "Eliminar permanentemente esta sessão? Esta acção não pode ser revertida."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAction?.type === "cancel") {
+                  cancelMutation.mutate(confirmAction.sessionId);
+                } else if (confirmAction?.type === "delete") {
+                  deleteMutation.mutate(confirmAction.sessionId);
+                }
+                setConfirmAction(null);
+              }}
+              className={
+                confirmAction?.type === "delete"
+                  ? "bg-red-600 hover:bg-red-700"
+                  : ""
+              }
+            >
+              {confirmAction?.type === "cancel"
+                ? "Sim, cancelar"
+                : "Sim, eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

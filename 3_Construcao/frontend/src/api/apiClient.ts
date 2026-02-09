@@ -49,6 +49,8 @@ export type Loan = BaseEntity & {
   book_id?: string;
   book_title?: string;
   cover_url?: string | null;
+  loan_policy?: string;
+  material_type?: string;
   copy_id?: string;
   renewal_count?: number;
   max_renewals?: number;
@@ -187,10 +189,12 @@ function createEntityClient<T extends { id: string }>(entity: string) {
 }
 
 type AuthUser = {
+  id?: string;
   email: string;
   full_name?: string | null;
   type?: string | null;
-  id?: string;
+  activationStatus?: string | null;
+  profile_image_url?: string | null;
 };
 
 export const api = {
@@ -221,10 +225,37 @@ export const api = {
     },
   },
   cataloging: {
+    /**
+     * Analisa imagem de livro usando Gemini Vision (API dedicada para catalogação)
+     */
+    analyzeImage: async (imageBase64: string, mimeType: string) => {
+      const res = await fetch("/api/cataloging/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, mimeType }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao analisar imagem (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
+    },
+
+    /**
+     * Enriquece dados via Google Books API
+     * Aceita ISBN, título, autor, editora e ano para buscar informações adicionais
+     */
     enrichData: async (params: {
       isbn?: string;
       title?: string;
       author?: string;
+      publisher?: string;
+      publishedYear?: number;
     }): Promise<{
       enrichedData: {
         title?: string | null;
@@ -242,28 +273,27 @@ export const api = {
       } | null;
       message?: string;
     }> => {
-      ensureBrowser();
-      return await http<{
-        enrichedData: {
-          title?: string | null;
-          subtitle?: string | null;
-          authors?: string[] | null;
-          publisher?: string | null;
-          publicationYear?: number | null;
-          pages?: number | null;
-          language?: string | null;
-          description?: string | null;
-          categories?: string[] | null;
-          thumbnail?: string | null;
-          isbn?: string | null;
-          source?: string;
-        } | null;
-        message?: string;
-      }>("/api/cataloging/enrich", {
+      const res = await fetch("/api/cataloging/enrich", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
+        credentials: "include",
       });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao enriquecer dados (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
     },
+
+    /**
+     * Cria uma entrada de catalogação com dados extraídos e enriquecidos
+     * Esta entrada fica pendente até ser aprovada pelo supervisor
+     */
     createEntry: async (data: {
       imageUrl: string;
       extractedTitle?: string;
@@ -273,19 +303,34 @@ export const api = {
       extractedYear?: number;
       enrichedData?: Record<string, unknown>;
     }): Promise<{ id: string }> => {
-      ensureBrowser();
-      return await http<{ id: string }>("/api/cataloging/entries", {
+      const res = await fetch("/api/cataloging/entries", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao criar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
     },
+
+    /**
+     * Aprova uma entrada de catalogação (cria Book + Copies no sistema)
+     * Só pode ser executado por utilizadores com permissão de supervisor
+     */
     approveEntry: async (
       entryId: string,
-      approvalData: {
+      data: {
         title: string;
         subtitle?: string;
         isbn?: string;
-        authors?: string;
+        authors: string;
         publisher?: string;
         publicationYear?: number;
         edition?: string;
@@ -296,19 +341,26 @@ export const api = {
         coverUrl?: string;
         location?: string;
         totalCopies?: number;
+        reviewNotes?: string;
         materialType?: string;
         loanPolicy?: string;
-        reviewNotes?: string;
       },
     ): Promise<{ ok: boolean; bookId: string }> => {
-      ensureBrowser();
-      return await http<{ ok: boolean; bookId: string }>(
-        `/api/cataloging/entries/${encodeURIComponent(entryId)}/approve`,
-        {
-          method: "POST",
-          body: JSON.stringify(approvalData),
-        },
-      );
+      const res = await fetch(`/api/cataloging/entries/${entryId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(
+          body?.error || `Erro ao aprovar entrada (HTTP ${res.status})`,
+        );
+      }
+
+      return await res.json();
     },
   },
   entities: {
@@ -412,127 +464,6 @@ export const api = {
         // Para perguntas de texto simples
         return "Neste momento o assistente funciona em modo offline. Posso ajudar com regras de empréstimos, renovações, reservas e horário da biblioteca." as unknown as TResponse;
       },
-    },
-  },
-  cataloging: {
-    /**
-     * Analisa imagem de livro usando Gemini Vision (API dedicada para catalogação)
-     * Muito mais preciso que OCR puro
-     */
-    analyzeImage: async (imageBase64: string, mimeType: string) => {
-      const res = await fetch("/api/cataloging/analyze-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, mimeType }),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.error || `Erro ao analisar imagem (HTTP ${res.status})`,
-        );
-      }
-
-      return await res.json();
-    },
-
-    /**
-     * Enriquece dados via Google Books API
-     */
-    enrichData: async (params: {
-      isbn?: string;
-      title?: string;
-      author?: string;
-      publisher?: string;
-      publishedYear?: number;
-    }) => {
-      const res = await fetch("/api/cataloging/enrich", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.error || `Erro ao enriquecer dados (HTTP ${res.status})`,
-        );
-      }
-
-      return await res.json();
-    },
-
-    /**
-     * Cria uma entrada de catalogação
-     */
-    createEntry: async (data: {
-      imageUrl: string;
-      extractedTitle?: string;
-      extractedAuthor?: string;
-      extractedISBN?: string;
-      extractedPublisher?: string;
-      extractedYear?: number;
-      enrichedData?: Record<string, unknown>;
-    }) => {
-      const res = await fetch("/api/cataloging/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.error || `Erro ao criar entrada (HTTP ${res.status})`,
-        );
-      }
-
-      return await res.json();
-    },
-
-    /**
-     * Aprova uma entrada de catalogação (cria Book + Copies)
-     */
-    approveEntry: async (
-      entryId: string,
-      data: {
-        title: string;
-        subtitle?: string;
-        isbn?: string;
-        authors: string;
-        publisher?: string;
-        publicationYear?: number;
-        edition?: string;
-        language?: string;
-        pages?: number;
-        categoryId: string;
-        description?: string;
-        coverUrl?: string;
-        location?: string;
-        totalCopies?: number;
-        reviewNotes?: string;
-        materialType?: string;
-        loanPolicy?: string;
-      },
-    ) => {
-      const res = await fetch(`/api/cataloging/entries/${entryId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(
-          body?.error || `Erro ao aprovar entrada (HTTP ${res.status})`,
-        );
-      }
-
-      return await res.json();
     },
   },
 };

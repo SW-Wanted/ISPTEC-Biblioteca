@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { api } from "@/api/apiClient";
+import Image from "next/image";
+import { api, Member } from "@/api/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -15,6 +16,7 @@ import {
   BadgeDollarSign,
   Ban,
   CheckCircle,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +72,8 @@ type MemberRow = {
   is_blocked?: boolean | null;
   total_fines?: number | null;
   created_date?: string | null;
-} & Record<string, unknown>;
+  profile_image_url?: string | null;
+};
 
 const ROLE_LABELS: Record<string, string> = {
   STUDENT: "Estudante",
@@ -95,7 +98,9 @@ export default function ManageMembers() {
   const [blockReason, setBlockReason] = useState("");
   const [fineAmount, setFineAmount] = useState("");
   const [fineReason, setFineReason] = useState("");
-  const [fineType, setFineType] = useState("OTHER");
+  const [fineType, setFineType] = useState("LATE_RETURN");
+  const [fineBookId, setFineBookId] = useState("");
+  const [fineBookSearch, setFineBookSearch] = useState("");
   const [newRole, setNewRole] = useState("");
 
   useEffect(() => {
@@ -118,6 +123,28 @@ export default function ManageMembers() {
     },
     initialData: [] as MemberRow[],
     refetchInterval: 30000,
+  });
+
+  // Books query for LOST_BOOK/DAMAGED_BOOK fines
+  const { data: books = [] } = useQuery<
+    { id: string; title: string; isbn: string }[]
+  >({
+    queryKey: ["books-for-fines", fineBookSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: "20" });
+      if (fineBookSearch) params.set("search", fineBookSearch);
+      const res = await fetch(`/api/books?${params}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.books ?? data).map(
+        (b: { id: string; title: string; isbn?: string }) => ({
+          id: b.id,
+          title: b.title,
+          isbn: b.isbn ?? "",
+        }),
+      );
+    },
+    enabled: fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK",
   });
 
   // Admin action mutation
@@ -156,13 +183,21 @@ export default function ManageMembers() {
     setBlockReason("");
     setFineAmount("");
     setFineReason("");
-    setFineType("OTHER");
+    setFineType("LATE_RETURN");
+    setFineBookId("");
+    setFineBookSearch("");
     setNewRole("");
   }
 
   const getStatusBadge = (member: MemberRow) => {
     if (member.is_blocked)
       return <Badge className="bg-red-100 text-red-700">Bloqueado</Badge>;
+
+    // Verificar se tem eliminação pendente (status INACTIVE por pedido de eliminação)
+    const status = member.status?.toUpperCase();
+    if (status === "INACTIVE" || (member as Member).deletion_requested) {
+      return <Badge className="bg-gray-100 text-gray-700">Inativo</Badge>;
+    }
 
     // Priorizar activation_status para status mais preciso
     const activationStatus = member.activation_status?.toUpperCase();
@@ -225,14 +260,20 @@ export default function ManageMembers() {
 
       if (filterStatus !== "all") {
         if (filterStatus === "blocked" && !member.is_blocked) return false;
-        if (filterStatus !== "blocked") {
+        if (filterStatus === "inactive") {
+          if (member.status?.toUpperCase() !== "INACTIVE") return false;
+        } else if (filterStatus !== "blocked" && filterStatus !== "inactive") {
           const activationStatus = member.activation_status?.toUpperCase();
           const filterStatusUpper = filterStatus.toUpperCase();
 
           // Priorizar activation_status — é mais preciso que status
           if (filterStatusUpper === "ACTIVE") {
-            // Só mostrar se activation_status é ACTIVE
-            if (activationStatus !== "ACTIVE") return false;
+            // Só mostrar se activation_status é ACTIVE e não INACTIVE
+            if (
+              activationStatus !== "ACTIVE" ||
+              member.status?.toUpperCase() === "INACTIVE"
+            )
+              return false;
           } else if (activationStatus !== filterStatusUpper) {
             return false;
           }
@@ -245,7 +286,10 @@ export default function ManageMembers() {
   const summary = useMemo(() => {
     const total = members.length;
     const active = members.filter(
-      (m) => m.activation_status?.toUpperCase() === "ACTIVE",
+      (m) =>
+        m.activation_status?.toUpperCase() === "ACTIVE" &&
+        m.status?.toUpperCase() !== "INACTIVE" &&
+        !m.is_blocked,
     ).length;
     const blocked = members.filter((m) => m.is_blocked).length;
     const pending = members.filter((m) => {
@@ -332,7 +376,7 @@ export default function ManageMembers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <Users className="w-7 h-7 text-indigo-600" />
+              <Users className="w-7 h-7 text-amber-600" />
               Gestão de Membros
             </h1>
             <p className="text-slate-500 mt-1">
@@ -391,6 +435,7 @@ export default function ManageMembers() {
                     Formação Agendada
                   </SelectItem>
                   <SelectItem value="BLOCKED">Bloqueados</SelectItem>
+                  <SelectItem value="inactive">Inativos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -458,11 +503,21 @@ export default function ManageMembers() {
                       <TableRow key={member.id} className="group">
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center font-medium text-indigo-600">
-                              {member.name?.charAt(0)?.toUpperCase() ||
-                                member.email?.charAt(0)?.toUpperCase() ||
-                                "U"}
-                            </div>
+                            {member.profile_image_url ? (
+                              <Image
+                                src={member.profile_image_url}
+                                alt={member.name || "Perfil"}
+                                width={40}
+                                height={40}
+                                className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600 shrink-0 aspect-square">
+                                {member.name?.charAt(0)?.toUpperCase() ||
+                                  member.email?.charAt(0)?.toUpperCase() ||
+                                  "U"}
+                              </div>
+                            )}
                             <div>
                               <p className="font-medium text-slate-800">
                                 {member.name || "Sem nome"}
@@ -508,7 +563,22 @@ export default function ManageMembers() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                              align="end"
+                              onCloseAutoFocus={(e) => e.preventDefault()}
+                            >
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  window.open(
+                                    `/profile?user=${encodeURIComponent(member.email || "")}`,
+                                    "_blank",
+                                  )
+                                }
+                              >
+                                <Eye className="h-4 w-4 mr-2 text-blue-600" />
+                                Ver perfil
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               {!isActive && !isBlocked && (
                                 <DropdownMenuItem
                                   onClick={() =>
@@ -573,7 +643,7 @@ export default function ManageMembers() {
                                   setRoleDialog(true);
                                 }}
                               >
-                                <UserCog className="h-4 w-4 mr-2 text-indigo-600" />
+                                <UserCog className="h-4 w-4 mr-2 text-amber-600" />
                                 Alterar cargo
                               </DropdownMenuItem>
 
@@ -660,7 +730,7 @@ export default function ManageMembers() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserCog className="h-5 w-5 text-indigo-600" />
+              <UserCog className="h-5 w-5 text-amber-600" />
               Alterar cargo de {selectedMember?.name}
             </DialogTitle>
             <DialogDescription>
@@ -742,12 +812,61 @@ export default function ManageMembers() {
                   <SelectItem value="LATE_RETURN">
                     Devolução em atraso
                   </SelectItem>
+                  <SelectItem value="LOCKER_OVERTIME">
+                    Excesso de tempo no cacifo
+                  </SelectItem>
+                  <SelectItem value="LOST_CREDENTIAL">
+                    Perda de credencial
+                  </SelectItem>
                   <SelectItem value="DAMAGED_BOOK">Livro danificado</SelectItem>
                   <SelectItem value="LOST_BOOK">Livro perdido</SelectItem>
-                  <SelectItem value="OTHER">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {(fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK") && (
+              <div>
+                <Label>Livro associado *</Label>
+                <Input
+                  placeholder="Pesquisar livro pelo título ou ISBN..."
+                  value={fineBookSearch}
+                  onChange={(e) => {
+                    setFineBookSearch(e.target.value);
+                    if (!e.target.value) setFineBookId("");
+                  }}
+                  className="mb-2"
+                />
+                {books.length > 0 && fineBookSearch && (
+                  <div className="max-h-40 overflow-y-auto rounded-md border">
+                    {books.map((book) => (
+                      <button
+                        key={book.id}
+                        type="button"
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
+                          fineBookId === book.id ? "bg-accent font-medium" : ""
+                        }`}
+                        onClick={() => {
+                          setFineBookId(book.id);
+                          setFineBookSearch(book.title);
+                        }}
+                      >
+                        <span>{book.title}</span>
+                        {book.isbn && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ISBN: {book.isbn}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {fineBookId && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    ⚠ O total de exemplares deste livro será decrementado ao
+                    aplicar a multa.
+                  </p>
+                )}
+              </div>
+            )}
             <div>
               <Label>Valor (Kz) *</Label>
               <Input
@@ -777,18 +896,27 @@ export default function ManageMembers() {
                 !fineAmount ||
                 !fineReason.trim() ||
                 Number(fineAmount) <= 0 ||
-                adminAction.isPending
+                adminAction.isPending ||
+                ((fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK") &&
+                  !fineBookId)
               }
               onClick={() => {
                 if (!selectedMember) return;
+                const payload: Record<string, unknown> = {
+                  action: "apply_fine",
+                  fineAmount: Number(fineAmount),
+                  fineReason,
+                  fineType,
+                };
+                if (
+                  fineBookId &&
+                  (fineType === "LOST_BOOK" || fineType === "DAMAGED_BOOK")
+                ) {
+                  payload.bookId = fineBookId;
+                }
                 adminAction.mutate({
                   memberId: selectedMember.id,
-                  payload: {
-                    action: "apply_fine",
-                    fineAmount: Number(fineAmount),
-                    fineReason,
-                    fineType,
-                  },
+                  payload,
                 });
               }}
             >

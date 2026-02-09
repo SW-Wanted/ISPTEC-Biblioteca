@@ -134,6 +134,17 @@ export async function GET(request: NextRequest) {
     const limit = filters.limit ? parseInt(filters.limit) : 10;
     const skip = (page - 1) * limit;
 
+    // Auto-transition: move SCHEDULED sessions whose date has passed to IN_PROGRESS
+    await prisma.trainingSession.updateMany({
+      where: {
+        status: "SCHEDULED",
+        scheduledDate: { lte: new Date() },
+      },
+      data: {
+        status: "IN_PROGRESS",
+      },
+    });
+
     // Construir filtros Prisma
     const where: any = {};
 

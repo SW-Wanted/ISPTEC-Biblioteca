@@ -126,21 +126,19 @@ export default function ManageFines() {
       const fine = selectedFine;
       if (!fine?.id) throw new Error("Nenhuma multa selecionada");
 
-      await api.entities.Fine.update(fine.id, {
-        status: "paid",
-        paid_at: new Date().toISOString(),
-        payment_method: paymentMethod,
-        payment_reference: paymentReference,
+      const res = await fetch(`/api/fines/${fine.id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_method: paymentMethod,
+          payment_reference: paymentReference,
+        }),
       });
 
-      await api.entities.Notification.create({
-        user_id: fine.member_id,
-        type: "in_app",
-        status: "pending",
-        title: "Pagamento confirmado",
-        message: `Seu pagamento de ${fine.amount?.toLocaleString("pt-AO", { style: "currency", currency: "AOA" })} foi confirmado.`,
-        action_type: "none",
-      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Erro ao processar pagamento");
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["manage-fines"] });
@@ -396,7 +394,10 @@ export default function ManageFines() {
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent
+              align="end"
+              onCloseAutoFocus={(e) => e.preventDefault()}
+            >
               <DropdownMenuItem
                 onClick={() => {
                   setSelectedFine(fine);
@@ -429,7 +430,7 @@ export default function ManageFines() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-              <DollarSign className="w-7 h-7 text-indigo-600" />
+              <DollarSign className="w-7 h-7 text-amber-600" />
               Gestão de Multas
             </h1>
             <p className="text-slate-500 mt-1">

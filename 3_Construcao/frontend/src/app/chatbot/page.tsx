@@ -195,7 +195,7 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
     <div className="flex flex-col h-[calc(100vh-64px)] lg:h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4">
-        <div className="w-12 h-12 bg-linear-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center">
+        <div className="w-12 h-12 bg-linear-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center">
           <Bot className="w-6 h-6 text-white" />
         </div>
         <div>
@@ -224,7 +224,7 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="h-8 w-8 bg-linear-to-br from-indigo-500 to-purple-600 shrink-0 rounded-full flex items-center justify-center">
+                  <div className="h-8 w-8 bg-linear-to-br from-amber-500 to-orange-600 shrink-0 rounded-full flex items-center justify-center">
                     <Bot className="h-4 w-4 text-white" />
                   </div>
                 )}
@@ -233,7 +233,7 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
                   className={cn(
                     "max-w-[85%] rounded-2xl px-4 py-3",
                     message.role === 'user'
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-amber-600 text-white'
                       : 'bg-white text-slate-900 shadow-sm border border-slate-100'
                   )}
                 >
@@ -257,7 +257,7 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
                   )}
                   <span className={cn(
                     "text-xs mt-1 block",
-                    message.role === 'user' ? 'text-indigo-200' : 'text-slate-400'
+                    message.role === 'user' ? 'text-amber-200' : 'text-slate-400'
                   )}>
                     {message.timestamp.toLocaleTimeString('pt-AO', {
                       hour: '2-digit',
@@ -281,12 +281,12 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
               animate={{ opacity: 1, y: 0 }}
               className="flex gap-3 justify-start"
             >
-              <div className="h-8 w-8 bg-linear-to-br from-indigo-500 to-purple-600 shrink-0 rounded-full flex items-center justify-center">
+              <div className="h-8 w-8 bg-linear-to-br from-amber-500 to-orange-600 shrink-0 rounded-full flex items-center justify-center">
                 <Bot className="h-4 w-4 text-white" />
               </div>
               <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-slate-100">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
                   <span className="text-sm text-slate-600">A pensar...</span>
                 </div>
               </div>
@@ -337,12 +337,12 @@ O assistente está optimizado para te ajudar com as questões mais comuns da bib
               onChange={(e) => setInput(e.target.value)}
               placeholder={cooldown > 0 ? `Aguarde ${cooldown}s...` : "Digite sua pergunta..."}
               disabled={isLoading || cooldown > 0}
-              className="flex-1 rounded-xl border-slate-200 focus-visible:ring-indigo-500"
+              className="flex-1 rounded-xl border-slate-200 focus-visible:ring-amber-500"
             />
             <Button
               type="submit"
               disabled={isLoading || !input.trim() || cooldown > 0}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-6"
+              className="rounded-xl bg-amber-600 hover:bg-amber-700 px-6"
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />

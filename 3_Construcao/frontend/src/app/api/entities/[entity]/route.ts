@@ -254,7 +254,7 @@ async function expireReservationsIfNeeded(bookId?: string) {
       const availableCopy = await tx.copy.findFirst({
         where: { bookId: res.bookId, status: BookStatus.AVAILABLE },
         select: { id: true },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
       });
 
       if (availableCopy) {
@@ -571,7 +571,15 @@ export async function GET(
         user: { select: { email: true, name: true, type: true } },
         copy: {
           include: {
-            book: { select: { id: true, title: true, coverUrl: true } },
+            book: {
+              select: {
+                id: true,
+                title: true,
+                coverUrl: true,
+                loanPolicy: true,
+                materialType: true,
+              },
+            },
           },
         },
       },
@@ -589,6 +597,8 @@ export async function GET(
         book_id: l.copy.book.id,
         book_title: l.copy.book.title,
         cover_url: l.copy.book.coverUrl,
+        loan_policy: l.copy.book.loanPolicy,
+        material_type: l.copy.book.materialType,
         copy_id: l.copyId,
         renewal_count: l.renewalCount,
         max_renewals: l.maxRenewals,
@@ -1724,16 +1734,40 @@ export async function POST(
           }
         }
 
-        const copy = await tx.copy.findFirst({
-          where: {
-            bookId,
-            status: reservationId
-              ? { in: [BookStatus.RESERVED, BookStatus.AVAILABLE] }
-              : BookStatus.AVAILABLE,
-          },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        });
+        // Quando há reserva, priorizar o exemplar já marcado como RESERVED;
+        // para empréstimos diretos, usar ordem decrescente (último exemplar primeiro)
+        let copy;
+        if (reservationId) {
+          // Primeiro tentar o exemplar já reservado
+          copy = await tx.copy.findFirst({
+            where: {
+              bookId,
+              status: BookStatus.RESERVED,
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true },
+          });
+          // Se não encontrar reservado, tentar disponível
+          if (!copy) {
+            copy = await tx.copy.findFirst({
+              where: {
+                bookId,
+                status: BookStatus.AVAILABLE,
+              },
+              orderBy: { createdAt: "desc" },
+              select: { id: true },
+            });
+          }
+        } else {
+          copy = await tx.copy.findFirst({
+            where: {
+              bookId,
+              status: BookStatus.AVAILABLE,
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true },
+          });
+        }
         if (!copy) {
           throw new Error("NO_COPY");
         }

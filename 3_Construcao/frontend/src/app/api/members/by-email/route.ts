@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
         blockedReason: true,
         totalFines: true,
         qrCode: true,
+        profileImageUrl: true,
+        coverImageUrl: true,
+        deletionRequestedAt: true,
+        deletionScheduledAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -51,6 +55,8 @@ export async function GET(request: NextRequest) {
     const member = {
       id: user.id,
       user_id: user.email,
+      name: user.name,
+      email: user.email,
       phone: user.phone,
       preferred_notification: user.preferredNotification,
       member_type: user.type, // Manter enum do Prisma (STUDENT, TEACHER, etc)
@@ -63,6 +69,10 @@ export async function GET(request: NextRequest) {
       department: user.department,
       qr_code: user.qrCode,
       total_fines: Number(user.totalFines),
+      profile_image_url: user.profileImageUrl,
+      cover_image_url: user.coverImageUrl,
+      deletion_requested_at: user.deletionRequestedAt?.toISOString() ?? null,
+      deletion_scheduled_at: user.deletionScheduledAt?.toISOString() ?? null,
     };
 
     return NextResponse.json(member, { status: 200 });
