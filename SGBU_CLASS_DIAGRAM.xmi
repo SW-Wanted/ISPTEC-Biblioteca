@@ -1,0 +1,780 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.0"
+         xmlns:uml="http://www.omg.org/spec/UML/20110701"
+         xmlns:xmi="http://www.omg.org/XMI"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <uml:Model xmi:id="_0" name="SGBU - Sistema de Gestão de Biblioteca Universitária">
+    
+    <!-- ============================================ -->
+    <!-- PACKAGE: Domain Entities -->
+    <!-- ============================================ -->
+    <packagedElement xmi:type="uml:Package" xmi:id="package_domain" name="Domínio">
+      
+      <!-- ============================================ -->
+      <!-- CLASSE: Utilizador -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_User" name="Utilizador">
+        <ownedAttribute xmi:id="attr_User_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_email" name="email" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_password" name="palavra-passe" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_name" name="nome" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_phone" name="telefone" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_User_type" name="tipo" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_status" name="estado" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_activationStatus" name="estadoAtivação" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_totalFines" name="multasTotal" type="xsd:decimal">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_isBlocked" name="éBloqueado" type="xsd:boolean">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_qrCode" name="codigoQR" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_User_createdAt" name="criadoEm" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_User_updatedAt" name="atualizadoEm" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Livro -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Book" name="Livro">
+        <ownedAttribute xmi:id="attr_Book_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_isbn" name="isbn" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_title" name="title" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_subtitle" name="subtitle" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_edition" name="edition" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_publicationYear" name="publicationYear" type="xsd:integer"/>
+        <ownedAttribute xmi:id="attr_Book_language" name="language" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="pt"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_pages" name="pages" type="xsd:integer"/>
+        <ownedAttribute xmi:id="attr_Book_description" name="description" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_coverUrl" name="coverUrl" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_materialType" name="materialType" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_loanPolicy" name="loanPolicy" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Book_totalCopies" name="totalCopies" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_availableCopies" name="availableCopies" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_extractedByOCR" name="extractedByOCR" type="xsd:boolean">
+          <defaultValue xmi:type="uml:LiteralBoolean" value="false"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_categoryId" name="categoryId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Book_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Cópia -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Copy" name="Cópia">
+        <ownedAttribute xmi:id="attr_Copy_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_bookId" name="bookId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_barcode" name="barcode" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_rfidTag" name="rfidTag" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Copy_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="AVAILABLE"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_condition" name="condition" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Copy_location" name="location" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_acquisitionDate" name="acquisitionDate" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_acquisitionPrice" name="acquisitionPrice" type="xsd:decimal"/>
+        <ownedAttribute xmi:id="attr_Copy_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Copy_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Empréstimo -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Loan" name="Empréstimo">
+        <ownedAttribute xmi:id="attr_Loan_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_copyId" name="copyId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="ACTIVE"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_loanDate" name="loanDate" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_dueDate" name="dueDate" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_returnDate" name="returnDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Loan_renewalCount" name="renewalCount" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_maxRenewals" name="maxRenewals" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="2"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_fineAmount" name="fineAmount" type="xsd:decimal">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_daysOverdue" name="daysOverdue" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Loan_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Reserva -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Reservation" name="Reserva">
+        <ownedAttribute xmi:id="attr_Reservation_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_bookId" name="bookId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="ACTIVE"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_reservationDate" name="reservationDate" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_availableDate" name="availableDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Reservation_expiryDate" name="expiryDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Reservation_collectionDate" name="collectionDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Reservation_queuePosition" name="queuePosition" type="xsd:integer">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_notifiedAt" name="notifiedAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Reservation_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Reservation_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Multa -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Fine" name="Multa">
+        <ownedAttribute xmi:id="attr_Fine_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_loanId" name="loanId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Fine_type" name="type" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_amount" name="amount" type="xsd:decimal">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="PENDING"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_reason" name="reason" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Fine_generatedAt" name="generatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_paidAt" name="paidAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Fine_paymentMethod" name="paymentMethod" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Fine_waivedAt" name="waivedAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Fine_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Fine_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Notificação -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Notification" name="Notificação">
+        <ownedAttribute xmi:id="attr_Notification_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_type" name="type" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="PENDING"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_title" name="title" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_message" name="message" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_loanId" name="loanId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Notification_reservationId" name="reservationId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Notification_sentAt" name="sentAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Notification_deliveredAt" name="deliveredAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Notification_readAt" name="readAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Notification_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Notification_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Categoria -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Category" name="Categoria">
+        <ownedAttribute xmi:id="attr_Category_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Category_name" name="name" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Category_description" name="description" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Category_parentId" name="parentId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Category_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Category_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Autor -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Author" name="Autor">
+        <ownedAttribute xmi:id="attr_Author_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Author_name" name="name" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Author_biography" name="biography" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Author_birthDate" name="birthDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_Author_nationality" name="nationality" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Author_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Author_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Editora -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Publisher" name="Editora">
+        <ownedAttribute xmi:id="attr_Publisher_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Publisher_name" name="name" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Publisher_country" name="country" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Publisher_website" name="website" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_Publisher_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Publisher_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: EntradaCatalogo -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_CatalogEntry" name="EntradaCatalogo">
+        <ownedAttribute xmi:id="attr_CatalogEntry_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_CatalogEntry_bookId" name="bookId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_extractedTitle" name="extractedTitle" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_extractedAuthor" name="extractedAuthor" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_extractedISBN" name="extractedISBN" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_extractedPublisher" name="extractedPublisher" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_extractedYear" name="extractedYear" type="xsd:integer"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_imageUrl" name="imageUrl" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="DRAFT"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_CatalogEntry_catalogerId" name="catalogerId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_CatalogEntry_supervisorId" name="supervisorId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_reviewNotes" name="reviewNotes" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_rejectionReason" name="rejectionReason" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_CatalogEntry_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_CatalogEntry_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_CatalogEntry_approvedAt" name="approvedAt" type="xsd:dateTime"/>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: AluguelCacifo -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_LockerRental" name="AluguelCacifo">
+        <ownedAttribute xmi:id="attr_LockerRental_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_lockerId" name="lockerId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_startTime" name="startTime" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_endTime" name="endTime" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_LockerRental_expectedEnd" name="expectedEnd" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_overtimeMinutes" name="overtimeMinutes" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_fineAmount" name="fineAmount" type="xsd:decimal">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_LockerRental_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Cacifo -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Locker" name="Cacifo">
+        <ownedAttribute xmi:id="attr_Locker_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Locker_number" name="number" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Locker_location" name="location" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Locker_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="AVAILABLE"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Locker_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Locker_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: SessãoComputador -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_ComputerSession" name="SessãoComputador">
+        <ownedAttribute xmi:id="attr_ComputerSession_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_computerId" name="computerId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_startTime" name="startTime" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_endTime" name="endTime" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_ComputerSession_expectedEnd" name="expectedEnd" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_renewalCount" name="renewalCount" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="0"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_maxRenewals" name="maxRenewals" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ComputerSession_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: Computador -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_Computer" name="Computador">
+        <ownedAttribute xmi:id="attr_Computer_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Computer_number" name="number" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Computer_location" name="location" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Computer_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="AVAILABLE"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Computer_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_Computer_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: SessãoFrmação -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_TrainingSession" name="Sessãoformação">
+        <ownedAttribute xmi:id="attr_TrainingSession_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_trainerId" name="trainerId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_title" name="title" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_description" name="description" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_TrainingSession_location" name="location" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_maxParticipants" name="maxParticipants" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="20"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_scheduledDate" name="scheduledDate" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_actualDate" name="actualDate" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_TrainingSession_duration" name="duration" type="xsd:integer">
+          <defaultValue xmi:type="uml:LiteralInteger" value="120"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_status" name="status" type="xsd:string">
+          <defaultValue xmi:type="uml:LiteralString" value="SCHEDULED"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingSession_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: ParticipanteFormación -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_TrainingParticipant" name="ParticipanteFormación">
+        <ownedAttribute xmi:id="attr_TrainingParticipant_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_userId" name="userId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_sessionId" name="sessionId" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_attended" name="attended" type="xsd:boolean">
+          <defaultValue xmi:type="uml:LiteralBoolean" value="false"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_attendedAt" name="attendedAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_certificateUrl" name="certificateUrl" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_certificateGeneratedAt" name="certificateGeneratedAt" type="xsd:dateTime"/>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_registeredAt" name="registeredAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_TrainingParticipant_updatedAt" name="updatedAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- CLASSE: RegistoAtividade -->
+      <!-- ============================================ -->
+      <packagedElement xmi:type="uml:Class" xmi:id="class_ActivityLog" name="RegistoAtividade">
+        <ownedAttribute xmi:id="attr_ActivityLog_id" name="id" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ActivityLog_userId" name="userId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_ActivityLog_action" name="action" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ActivityLog_entity" name="entity" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ActivityLog_entityId" name="entityId" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_ActivityLog_description" name="description" type="xsd:string">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:id="attr_ActivityLog_ipAddress" name="ipAddress" type="xsd:string"/>
+        <ownedAttribute xmi:id="attr_ActivityLog_createdAt" name="createdAt" type="xsd:dateTime">
+          <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+        </ownedAttribute>
+      </packagedElement>
+
+      <!-- ============================================ -->
+      <!-- ASSOCIAÇÕES -->
+      <!-- ============================================ -->
+
+      <!-- User -> Loan -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_User_Loan" name="User_to_Loan">
+        <ownedEnd xmi:id="end_User_Loan_user" aggregation="none" type="class_User" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_User_Loan_loan" aggregation="none" type="class_Loan" lowerBound="0" upperBound="-1" name="loans"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_User_Loan_loan"/>
+      </packagedElement>
+
+      <!-- User -> Reservation -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_User_Reservation" name="User_to_Reservation">
+        <ownedEnd xmi:id="end_User_Res_user" aggregation="none" type="class_User" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_User_Res_res" aggregation="none" type="class_Reservation" lowerBound="0" upperBound="-1" name="reservations"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_User_Res_res"/>
+      </packagedElement>
+
+      <!-- User -> Fine -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_User_Fine" name="User_to_Fine">
+        <ownedEnd xmi:id="end_User_Fine_user" aggregation="none" type="class_User" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_User_Fine_fine" aggregation="none" type="class_Fine" lowerBound="0" upperBound="-1" name="fines"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_User_Fine_fine"/>
+      </packagedElement>
+
+      <!-- Book -> Copy -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Book_Copy" name="Book_to_Copy">
+        <ownedEnd xmi:id="end_Book_Copy_book" aggregation="composite" type="class_Book" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Book_Copy_copy" aggregation="none" type="class_Copy" lowerBound="0" upperBound="-1" name="copies"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Book_Copy_copy"/>
+      </packagedElement>
+
+      <!-- Book -> Reservation -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Book_Reservation" name="Book_to_Reservation">
+        <ownedEnd xmi:id="end_Book_Res_book" aggregation="none" type="class_Book" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Book_Res_res" aggregation="none" type="class_Reservation" lowerBound="0" upperBound="-1" name="reservations"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Book_Res_res"/>
+      </packagedElement>
+
+      <!-- Copy -> Loan -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Copy_Loan" name="Copy_to_Loan">
+        <ownedEnd xmi:id="end_Copy_Loan_copy" aggregation="none" type="class_Copy" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Copy_Loan_loan" aggregation="none" type="class_Loan" lowerBound="0" upperBound="-1" name="loans"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Copy_Loan_loan"/>
+      </packagedElement>
+
+      <!-- Loan -> Fine -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Loan_Fine" name="Loan_to_Fine">
+        <ownedEnd xmi:id="end_Loan_Fine_loan" aggregation="none" type="class_Loan" lowerBound="0" upperBound="1"/>
+        <ownedEnd xmi:id="end_Loan_Fine_fine" aggregation="none" type="class_Fine" lowerBound="0" upperBound="-1" name="fines"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Loan_Fine_fine"/>
+      </packagedElement>
+
+      <!-- Category -> Book -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Category_Book" name="Category_to_Book">
+        <ownedEnd xmi:id="end_Category_Book_cat" aggregation="none" type="class_Category" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Category_Book_book" aggregation="none" type="class_Book" lowerBound="0" upperBound="-1" name="books"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Category_Book_book"/>
+      </packagedElement>
+
+      <!-- Book -> Author -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Book_Author" name="Book_to_Author">
+        <ownedEnd xmi:id="end_Book_Author_book" aggregation="none" type="class_Book" lowerBound="0" upperBound="-1"/>
+        <ownedEnd xmi:id="end_Book_Author_author" aggregation="none" type="class_Author" lowerBound="0" upperBound="-1" name="authors"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Book_Author_author"/>
+      </packagedElement>
+
+      <!-- Book -> Publisher -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Book_Publisher" name="Book_to_Publisher">
+        <ownedEnd xmi:id="end_Book_Pub_book" aggregation="none" type="class_Book" lowerBound="0" upperBound="-1"/>
+        <ownedEnd xmi:id="end_Book_Pub_pub" aggregation="none" type="class_Publisher" lowerBound="0" upperBound="1" name="publisher"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Book_Pub_pub"/>
+      </packagedElement>
+
+      <!-- Locker -> LockerRental -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Locker_Rental" name="Locker_to_LockerRental">
+        <ownedEnd xmi:id="end_Locker_Rental_locker" aggregation="composite" type="class_Locker" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Locker_Rental_rental" aggregation="none" type="class_LockerRental" lowerBound="0" upperBound="-1" name="rentals"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Locker_Rental_rental"/>
+      </packagedElement>
+
+      <!-- Computer -> ComputerSession -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Computer_Session" name="Computer_to_ComputerSession">
+        <ownedEnd xmi:id="end_Computer_Sess_computer" aggregation="composite" type="class_Computer" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Computer_Sess_session" aggregation="none" type="class_ComputerSession" lowerBound="0" upperBound="-1" name="sessions"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Computer_Sess_session"/>
+      </packagedElement>
+
+      <!-- TrainingSession -> TrainingParticipant -->
+      <packagedElement xmi:type="uml:Association" xmi:id="assoc_Training_Participant" name="TrainingSession_to_TrainingParticipant">
+        <ownedEnd xmi:id="end_Training_Participant_session" aggregation="composite" type="class_TrainingSession" lowerBound="1" upperBound="1"/>
+        <ownedEnd xmi:id="end_Training_Participant_participant" aggregation="none" type="class_TrainingParticipant" lowerBound="0" upperBound="-1" name="participants"/>
+        <navigableOwnedEnd xmi:type="uml:Property" xmi:idref="end_Training_Participant_participant"/>
+      </packagedElement>
+
+    </packagedElement>
+
+  </uml:Model>
+</xmi:XMI>
