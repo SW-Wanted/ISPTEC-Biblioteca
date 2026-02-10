@@ -29,6 +29,12 @@ export type Book = BaseEntity & {
 };
 
 export type Category = BaseEntity & { name?: string };
+export type Author = BaseEntity & {
+  name: string;
+  biography?: string | null;
+  birth_date?: string | null;
+  nationality?: string | null;
+};
 export type Copy = BaseEntity & { book_id?: string; status?: string };
 export type Member = BaseEntity & {
   user_id?: string;
@@ -366,6 +372,7 @@ export const api = {
   entities: {
     Book: createEntityClient<Book>("Book"),
     Category: createEntityClient<Category>("Category"),
+    Author: createEntityClient<Author>("Author"),
     Copy: createEntityClient<Copy>("Copy"),
     Member: createEntityClient<Member>("Member"),
     Loan: createEntityClient<Loan>("Loan"),

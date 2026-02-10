@@ -172,6 +172,18 @@ export default function ManageBooks() {
     material_type: "BOOK",
     loan_policy: "STANDARD",
   });
+  // Authors selection + dialog
+  type AuthorOption = { id: string; name: string };
+  const [authorsOptions, setAuthorsOptions] = useState<AuthorOption[]>([]);
+  const [authorsSelected, setAuthorsSelected] = useState<AuthorOption[]>([]);
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [showAuthorDialog, setShowAuthorDialog] = useState(false);
+  const [newAuthor, setNewAuthor] = useState({
+    name: "",
+    biography: "",
+    nationality: "",
+    birth_date: "",
+  });
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -198,6 +210,22 @@ export default function ManageBooks() {
     refetchInterval: 60000,
   });
 
+  // Load authors for selection
+  const { data: allAuthors = [] } = useQuery({
+    queryKey: ["authors"],
+    queryFn: () => api.entities.Author.list("-created_date", 200),
+    initialData: [],
+    refetchInterval: 60000,
+  });
+
+  useEffect(() => {
+    if (Array.isArray(allAuthors)) {
+      setAuthorsOptions(
+        allAuthors.map((a: any) => ({ id: a.id, name: a.name })) as AuthorOption[],
+      );
+    }
+  }, [allAuthors]);
+
   const getPolicyBadge = useBookPolicyBadge();
 
   type BookFormData = typeof formData;
@@ -210,10 +238,13 @@ export default function ManageBooks() {
         title: data.title.trim(),
         subtitle: data.subtitle?.trim() || null,
         isbn: data.isbn?.trim() || null,
-        authors: String(data.authors ?? "")
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean),
+        authors:
+          authorsSelected && authorsSelected.length > 0
+            ? authorsSelected.map((a) => a.name)
+            : String(data.authors ?? "")
+                .split(",")
+                .map((a) => a.trim())
+                .filter(Boolean),
         publisher: data.publisher?.trim() || null,
         publication_year: data.publication_year
           ? parseInt(String(data.publication_year), 10)
@@ -327,6 +358,24 @@ export default function ManageBooks() {
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+
+  // Mutation to create authors inline
+  const createAuthorMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      return await api.entities.Author.create(payload);
+    },
+    onSuccess: (author: any) => {
+      const opt = { id: author.id, name: author.name } as AuthorOption;
+      setAuthorsOptions((prev) => [opt, ...prev.filter((p) => p.id !== opt.id)]);
+      setAuthorsSelected((prev) => [...prev, opt]);
+      setShowAuthorDialog(false);
+      setNewAuthor({ name: "", biography: "", nationality: "", birth_date: "" });
+      toast.success("Autor criado!");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Erro ao criar autor");
     },
   });
 
@@ -731,14 +780,64 @@ export default function ManageBooks() {
                   <Label>
                     Autores <span className="text-red-600">*</span>
                   </Label>
-                  <Input
-                    value={formData.authors}
-                    onChange={(e) =>
-                      setFormData({ ...formData, authors: e.target.value })
-                    }
-                    placeholder="Separar por vírgula"
-                    className={!formData.authors.trim() ? "border-red-300" : ""}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {authorsSelected.map((a) => (
+                        <Badge key={a.id} className="flex items-center gap-2">
+                          <span>{a.name}</span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAuthorsSelected((prev) =>
+                                prev.filter((p) => p.id !== a.id),
+                              )
+                            }
+                            className="text-xs text-slate-500 hover:text-red-600"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+
+                    <Input
+                      value={authorQuery}
+                      onChange={(e) => setAuthorQuery(e.target.value)}
+                      placeholder="Pesquisar autores (digite para filtrar)"
+                    />
+
+                    {authorQuery.trim() !== "" && (
+                      <div className="border rounded bg-white max-h-40 overflow-auto">
+                        {(authorsOptions
+                          .filter((o) =>
+                            o.name.toLowerCase().includes(authorQuery.toLowerCase()),
+                          )
+                          .filter((o) => !authorsSelected.some((s) => s.name === o.name))
+                          .slice(0, 10) as AuthorOption[])
+                          .map((opt) => (
+                            <div
+                              key={opt.id}
+                              className="px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                              onClick={() => {
+                                setAuthorsSelected((prev) => [...prev, opt]);
+                                setAuthorQuery("");
+                              }}
+                            >
+                              {opt.name}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+
+                    <div>
+                      <Button
+                        onClick={() => setShowAuthorDialog(true)}
+                        variant="outline"
+                      >
+                        Novo Autor
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <Label>
@@ -1064,6 +1163,71 @@ export default function ManageBooks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+          {/* Novo Autor Dialog */}
+          <Dialog open={showAuthorDialog} onOpenChange={setShowAuthorDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo Autor</DialogTitle>
+                <DialogDescription>Crie um autor para associar ao livro.</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <Label>Nome</Label>
+                  <Input
+                    value={newAuthor.name}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, name: e.target.value })}
+                    placeholder="Nome do autor"
+                  />
+                </div>
+
+                <div>
+                  <Label>Biografia</Label>
+                  <Textarea
+                    value={newAuthor.biography}
+                    onChange={(e) => setNewAuthor({ ...newAuthor, biography: e.target.value })}
+                    placeholder="Breve biografia (opcional)"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Nacionalidade</Label>
+                    <Input
+                      value={newAuthor.nationality}
+                      onChange={(e) => setNewAuthor({ ...newAuthor, nationality: e.target.value })}
+                      placeholder="Ex: Angola"
+                    />
+                  </div>
+                  <div>
+                    <Label>Data de Nascimento</Label>
+                    <Input
+                      type="date"
+                      value={newAuthor.birth_date}
+                      onChange={(e) => setNewAuthor({ ...newAuthor, birth_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAuthorDialog(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => createAuthorMutation.mutate(newAuthor)}
+                  disabled={createAuthorMutation.isPending || !newAuthor.name.trim()}
+                >
+                  {createAuthorMutation.isPending && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  Criar Autor
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
