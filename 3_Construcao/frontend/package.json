@@ -7,7 +7,7 @@
     "build": "prisma generate --no-engine --no-hints && next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate --no-engine --no-hints",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate --no-engine --no-hints",
     "prisma:format": "prisma format",
     "prisma:migrate": "prisma migrate dev",
