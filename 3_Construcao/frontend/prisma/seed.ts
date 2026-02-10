@@ -1,17 +1,23 @@
 import { PrismaClient, UserStatus, UserType } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// Configuração do Adaptador (Necessário no Prisma 7)
+const connectionString = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🗑️  RESET COMPLETO DO BANCO DE DADOS...");
 
-  // PRIMEIRO: Deletar todas as dependências (ordem é CRÍTICA!)
+  // PRIMEIRO: Deletar todas as dependências
   console.log("⚠️  Deletando notificações, mensagens e dependências...");
   await prisma.chatMessage.deleteMany({});
   await prisma.bookRecommendation.deleteMany({});
   await prisma.bookReview.deleteMany({});
-  await prisma.notification.deleteMany({}); // ← CRÍTICO: deletar antes dos users
+  await prisma.notification.deleteMany({}); 
   await prisma.activityLog.deleteMany({});
   await prisma.specialRequest.deleteMany({});
   await prisma.computerSession.deleteMany({});
@@ -38,7 +44,7 @@ async function main() {
   await prisma.publisher.deleteMany({});
   await prisma.category.deleteMany({});
 
-  // AGORA SIM: Deletar utilizadores não-admin
+  // Deletar utilizadores não-admin
   console.log("⚠️  Deletando utilizadores não-admin...");
   await prisma.user.deleteMany({
     where: {
