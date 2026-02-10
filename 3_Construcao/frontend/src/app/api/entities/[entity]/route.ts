@@ -1258,6 +1258,43 @@ export async function POST(
     return NextResponse.json({ id: created.id });
   }
 
+  if (entity === "Author") {
+    if (!canManageBooks(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const authorCreateSchema = z.object({
+      name: z.string().min(1),
+      biography: z.string().nullable().optional(),
+      birth_date: z.string().nullable().optional(),
+      nationality: z.string().nullable().optional(),
+    });
+
+    const parsed = authorCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const name = parsed.data.name.trim();
+    if (!name) {
+      return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+    }
+
+    const created = await prisma.author.create({
+      data: {
+        name,
+        biography: parsed.data.biography ?? null,
+        birthDate: parsed.data.birth_date ? new Date(String(parsed.data.birth_date)) : null,
+        nationality: parsed.data.nationality ?? null,
+      },
+      select: { id: true },
+    });
+
+    return NextResponse.json({ id: created.id });
+  }
+
   if (entity === "Reservation") {
     // Any authenticated user can reserve
     const reservationCreateSchema = z.object({ book_id: z.string().min(1) });
