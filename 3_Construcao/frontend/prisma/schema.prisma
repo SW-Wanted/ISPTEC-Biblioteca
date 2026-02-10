@@ -1,7 +1,3 @@
-// Schema Prisma para Sistema de Gestão de Biblioteca Universitária - ISPTEC
-// Versão: 1.0
-// Data: Janeiro 2026
-
 generator client {
   provider = "prisma-client-js"
 }
