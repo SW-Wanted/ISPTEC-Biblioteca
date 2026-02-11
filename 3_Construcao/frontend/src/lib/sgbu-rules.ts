@@ -188,9 +188,14 @@ export const COPY_CLASSIFICATION_COLORS: Record<
  */
 export function getCopyClassification(
   copyNumber: number,
-  rules: CopyClassificationRule[] = DEFAULT_COPY_CLASSIFICATION_RULES,
+  rules: CopyClassificationRule[] | null | undefined = DEFAULT_COPY_CLASSIFICATION_RULES,
 ): CopyClassificationRule | null {
-  for (const rule of rules) {
+  // Garantir que rules é um array válido
+  const validRules = Array.isArray(rules) && rules.length > 0 
+    ? rules 
+    : DEFAULT_COPY_CLASSIFICATION_RULES;
+
+  for (const rule of validRules) {
     if (
       copyNumber >= rule.fromCopy &&
       (rule.toCopy === null || copyNumber <= rule.toCopy)
@@ -198,5 +203,5 @@ export function getCopyClassification(
       return rule;
     }
   }
-  return rules.find((r) => r.toCopy === null) || null;
+  return validRules.find((r) => r.toCopy === null) || null;
 }

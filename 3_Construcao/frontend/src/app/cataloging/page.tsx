@@ -14,6 +14,7 @@ import {
   Loader2,
   Wand2,
   X,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type AuthorOption = { id: string; name: string };
 
 export default function Cataloging() {
   const [step, setStep] = useState<number>(1);
@@ -46,6 +57,18 @@ export default function Cataloging() {
     null,
   );
   const [isExtracting, setIsExtracting] = useState(false);
+
+  // Authors selection
+  const [authorsOptions, setAuthorsOptions] = useState<AuthorOption[]>([]);
+  const [authorsSelected, setAuthorsSelected] = useState<AuthorOption[]>([]);
+  const [authorQuery, setAuthorQuery] = useState("");
+  const [showAuthorDialog, setShowAuthorDialog] = useState(false);
+  const [newAuthor, setNewAuthor] = useState({
+    name: "",
+    biography: "",
+    nationality: "",
+    birth_date: "",
+  });
 
   type CatalogFormState = {
     title: string;
@@ -121,6 +144,32 @@ export default function Cataloging() {
     initialData: [],
     refetchInterval: 60000,
   });
+
+  // Load authors for selection
+  const { data: allAuthors = [], isLoading: authorsLoading } = useQuery({
+    queryKey: ["authors"],
+    queryFn: async () => {
+      console.log("🔄 Carregando autores...");
+      const result = await api.entities.Author.list("-created_date", 200);
+      console.log("📥 Autores recebidos da API:", result);
+      return result;
+    },
+    initialData: [],
+    refetchInterval: 60000,
+  });
+
+  useEffect(() => {
+    console.log("🔍 allAuthors mudou:", allAuthors);
+    if (Array.isArray(allAuthors) && allAuthors.length > 0) {
+      const mapped = allAuthors
+        .filter((a: any) => a && a.id && a.name)
+        .map((a: any) => ({ id: String(a.id), name: String(a.name) }));
+      console.log("📚 Autores mapeados:", mapped);
+      setAuthorsOptions(mapped);
+    } else {
+      console.log("⚠️ Nenhum autor para mapear");
+    }
+  }, [allAuthors]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -221,6 +270,18 @@ export default function Cataloging() {
         description: extracted.description || "",
       }));
 
+      // Tentar mapear autores extraídos para authorsSelected
+      if (extracted.authors) {
+        const authorNames = extracted.authors.split(",").map((a) => a.trim());
+        const mappedAuthors = authorNames
+          .map((name) => {
+            const found = authorsOptions.find((opt) => opt.name === name);
+            return found || null;
+          })
+          .filter((a): a is AuthorOption => a !== null);
+        setAuthorsSelected(mappedAuthors);
+      }
+
       console.log("🔄 Mudando para step 2");
       setStep(2);
       toast.success("Dados extraídos! Enriquecendo via Google Books...");
@@ -259,7 +320,7 @@ export default function Cataloging() {
       const enrichParams = params || {
         isbn: formData.isbn,
         title: formData.title,
-        author: formData.authors,
+        author: authorsSelected.map((a) => a.name).join(", ") || formData.authors,
       };
 
       if (!enrichParams.isbn && !enrichParams.title) {
@@ -291,6 +352,24 @@ export default function Cataloging() {
           language: enrichedData.language || prev.language,
           isbn: enrichedData.isbn || prev.isbn,
         }));
+
+        // Mapear autores enriquecidos
+        if (enrichedData.authors) {
+          const authorNames = Array.isArray(enrichedData.authors)
+            ? enrichedData.authors
+            : enrichedData.authors.split(",").map((a: string) => a.trim());
+          
+          const mappedAuthors = authorNames
+            .map((name: string) => {
+              const found = authorsOptions.find((opt) => opt.name === name);
+              return found || null;
+            })
+            .filter((a): a is AuthorOption => a !== null);
+          
+          if (mappedAuthors.length > 0) {
+            setAuthorsSelected(mappedAuthors);
+          }
+        }
 
         // Atualizar capa se não houver e se a API retornou thumbnail
         if (enrichedData.thumbnail && !uploadedImageUrl) {
@@ -324,7 +403,7 @@ export default function Cataloging() {
       const entry = await api.cataloging.createEntry({
         imageUrl: uploadedImageUrl || "",
         extractedTitle: formData.title,
-        extractedAuthor: formData.authors,
+        extractedAuthor: authorsSelected.map((a) => a.name).join(", ") || formData.authors,
         extractedISBN: formData.isbn,
         extractedPublisher: formData.publisher,
         extractedYear: formData.publication_year
@@ -341,7 +420,9 @@ export default function Cataloging() {
         title: formData.title,
         subtitle: formData.subtitle,
         isbn: formData.isbn,
-        authors: formData.authors,
+        authors: authorsSelected.length > 0 
+          ? authorsSelected.map((a) => a.name).join(", ")
+          : formData.authors,
         publisher: formData.publisher,
         publicationYear: formData.publication_year
           ? parseInt(formData.publication_year, 10)
@@ -373,7 +454,7 @@ export default function Cataloging() {
     return (
       formData.title.trim() !== "" &&
       formData.isbn?.trim() !== "" &&
-      formData.authors.trim() !== "" &&
+      authorsSelected.length > 0 &&
       formData.publication_year !== "" &&
       formData.category !== "" &&
       formData.publisher?.trim() !== "" &&
@@ -388,6 +469,8 @@ export default function Cataloging() {
     setUploadedImageUrl(null);
     setUploadedImage(null);
     setExtractedData(null);
+    setAuthorsSelected([]);
+    setAuthorQuery("");
     setFormData({
       title: "",
       subtitle: "",
@@ -408,6 +491,30 @@ export default function Cataloging() {
       loan_policy: "STANDARD",
     });
   };
+
+  // Mutation to create authors inline
+  const createAuthorMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      return await api.entities.Author.create(payload);
+    },
+    onSuccess: (author: any) => {
+      if (!author || !author.id || !author.name) {
+        toast.error("Erro: dados do autor inválidos");
+        return;
+      }
+      const opt: AuthorOption = { id: String(author.id), name: String(author.name) };
+      console.log("✅ Autor criado:", opt);
+      setAuthorsOptions((prev) => [opt, ...prev.filter((p) => p.id !== opt.id)]);
+      setAuthorsSelected((prev) => [...prev, opt]);
+      setShowAuthorDialog(false);
+      setNewAuthor({ name: "", biography: "", nationality: "", birth_date: "" });
+      toast.success(`Autor "${opt.name}" criado e adicionado!`);
+    },
+    onError: (err: any) => {
+      console.error("❌ Erro ao criar autor:", err);
+      toast.error(err?.message || "Erro ao criar autor");
+    },
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 py-8">
@@ -626,19 +733,103 @@ export default function Cataloging() {
                         <Label>
                           Autores <span className="text-red-600">*</span>
                         </Label>
-                        <Input
-                          value={formData.authors || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              authors: e.target.value,
-                            })
-                          }
-                          className={
-                            !formData.authors.trim() ? "border-red-300" : ""
-                          }
-                          placeholder="Separar por vírgula"
-                        />
+                        <div className="space-y-2">
+                          {/* Autores selecionados */}
+                          {authorsSelected.length > 0 && (
+                            <div className="flex flex-wrap gap-2 p-2 border rounded bg-slate-50">
+                              {authorsSelected.map((a) => {
+                                if (!a || !a.id || !a.name) return null;
+                                return (
+                                  <Badge key={a.id} className="flex items-center gap-1.5 bg-amber-100 text-amber-800 hover:bg-amber-200">
+                                    <span>{a.name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setAuthorsSelected((prev) =>
+                                          prev.filter((p) => p.id !== a.id),
+                                        )
+                                      }
+                                      className="text-amber-600 hover:text-red-600 font-bold text-base leading-none"
+                                    >
+                                      ×
+                                    </button>
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Campo de pesquisa */}
+                          <div className="relative">
+                            <Input
+                              value={authorQuery}
+                              onChange={(e) => setAuthorQuery(e.target.value)}
+                              placeholder="Digite para pesquisar autores existentes..."
+                              className={authorsSelected.length === 0 ? "border-red-300" : ""}
+                            />
+                            
+                            {/* Dropdown de resultados */}
+                            {authorQuery.trim() !== "" && authorsOptions.length > 0 && (
+                              <div className="absolute z-10 w-full mt-1 border rounded-lg bg-white shadow-lg max-h-48 overflow-auto">
+                                {(() => {
+                                  const filtered = authorsOptions
+                                    .filter((o) => {
+                                      if (!o || !o.name || typeof o.name !== 'string') return false;
+                                      const query = authorQuery.toLowerCase();
+                                      return o.name.toLowerCase().includes(query);
+                                    })
+                                    .filter((o) => !authorsSelected.some((s) => s.id === o.id))
+                                    .slice(0, 10);
+
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="px-3 py-2 text-sm text-slate-500 text-center">
+                                        Nenhum autor encontrado
+                                      </div>
+                                    );
+                                  }
+
+                                  return filtered.map((opt) => (
+                                    <div
+                                      key={opt.id}
+                                      className="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b last:border-b-0"
+                                      onClick={() => {
+                                        setAuthorsSelected((prev) => [...prev, opt]);
+                                        setAuthorQuery("");
+                                      }}
+                                    >
+                                      {opt.name}
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info sobre autores carregados */}
+                          {authorsOptions.length === 0 && (
+                            <p className="text-xs text-slate-500">
+                              Carregando autores... ou nenhum autor cadastrado ainda.
+                            </p>
+                          )}
+                          {authorsOptions.length > 0 && (
+                            <p className="text-xs text-slate-500">
+                              {authorsOptions.length} autor(es) disponível(is)
+                            </p>
+                          )}
+
+                          {/* Botão criar novo autor */}
+                          <Button
+                            type="button"
+                            onClick={() => setShowAuthorDialog(true)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Criar Novo Autor
+                          </Button>
+                        </div>
                       </div>
                       <div>
                         <Label>
@@ -990,6 +1181,86 @@ export default function Cataloging() {
           </motion.div>
         )}
       </div>
+
+      {/* Dialog para criar novo autor */}
+      <Dialog open={showAuthorDialog} onOpenChange={setShowAuthorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Autor</DialogTitle>
+            <DialogDescription>
+              Crie um autor para associar ao livro.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <Label>Nome *</Label>
+              <Input
+                value={newAuthor.name}
+                onChange={(e) =>
+                  setNewAuthor({ ...newAuthor, name: e.target.value })
+                }
+                placeholder="Nome do autor"
+              />
+            </div>
+
+            <div>
+              <Label>Biografia</Label>
+              <Textarea
+                value={newAuthor.biography}
+                onChange={(e) =>
+                  setNewAuthor({ ...newAuthor, biography: e.target.value })
+                }
+                placeholder="Breve biografia (opcional)"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Nacionalidade</Label>
+                <Input
+                  value={newAuthor.nationality}
+                  onChange={(e) =>
+                    setNewAuthor({ ...newAuthor, nationality: e.target.value })
+                  }
+                  placeholder="Ex: Angola"
+                />
+              </div>
+              <div>
+                <Label>Data de Nascimento</Label>
+                <Input
+                  type="date"
+                  value={newAuthor.birth_date}
+                  onChange={(e) =>
+                    setNewAuthor({ ...newAuthor, birth_date: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowAuthorDialog(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createAuthorMutation.mutate(newAuthor)}
+              disabled={
+                createAuthorMutation.isPending || !newAuthor.name.trim()
+              }
+            >
+              {createAuthorMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Criar Autor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
