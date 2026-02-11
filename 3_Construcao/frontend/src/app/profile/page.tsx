@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/lib/router";
@@ -173,6 +173,14 @@ function toDate(value: unknown): Date | null {
 }
 
 export default function Profile() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando perfil...</div>}>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const userEmailParam = searchParams.get("user"); // Email do usuário a visualizar
