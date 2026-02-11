@@ -54,6 +54,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createSessionSchema.parse(body);
 
+    // Validar se a data não é no passado
+    const scheduledDate = new Date(validatedData.scheduledDate);
+    const now = new Date();
+    
+    if (scheduledDate < now) {
+      return NextResponse.json(
+        { error: "Não é possível agendar uma formação para o passado" },
+        { status: 400 },
+      );
+    }
+
     // Criar sessão de formação
     const trainingSession = await prisma.trainingSession.create({
       data: {
@@ -62,7 +73,7 @@ export async function POST(request: NextRequest) {
         description: validatedData.description,
         location: validatedData.location,
         maxParticipants: validatedData.maxParticipants,
-        scheduledDate: new Date(validatedData.scheduledDate),
+        scheduledDate: scheduledDate,
         duration: validatedData.duration,
         status: "SCHEDULED",
       },

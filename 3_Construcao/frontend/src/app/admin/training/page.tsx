@@ -386,12 +386,21 @@ function AdminTrainingPage() {
       toast.error("Preencha os campos obrigatorios");
       return;
     }
+
+    // Validar se a data não é no passado
+    const selectedDate = new Date(createForm.scheduledDate);
+    const now = new Date();
+    if (selectedDate < now) {
+      toast.error("Não pode agendar uma formação para o passado");
+      return;
+    }
+
     createMutation.mutate({
       title: createForm.title,
       description: createForm.description || undefined,
       location: createForm.location,
       maxParticipants: parseInt(createForm.maxParticipants),
-      scheduledDate: new Date(createForm.scheduledDate).toISOString(),
+      scheduledDate: selectedDate.toISOString(),
       duration: parseInt(createForm.duration),
     });
   };
@@ -437,6 +446,24 @@ function AdminTrainingPage() {
       toast.error("Preencha os campos obrigatorios");
       return;
     }
+
+    // Validar se a data não é no passado
+    const selectedDate = new Date(editForm.scheduledDate);
+    const now = new Date();
+    if (selectedDate < now) {
+      toast.error("Não pode agendar uma formação para o passado");
+      return;
+    }
+
+    // Determinar o status baseado na data
+    let newStatus = selectedSession.status;
+    
+    // Se a data foi alterada para o futuro e o status era IN_PROGRESS, mudar para SCHEDULED
+    const originalDate = new Date(selectedSession.scheduledDate);
+    if (selectedSession.status === "IN_PROGRESS" && selectedDate > now) {
+      newStatus = "SCHEDULED";
+    }
+
     editMutation.mutate({
       sessionId: selectedSession.id,
       data: {
@@ -444,8 +471,9 @@ function AdminTrainingPage() {
         description: editForm.description || null,
         location: editForm.location,
         maxParticipants: parseInt(editForm.maxParticipants),
-        scheduledDate: new Date(editForm.scheduledDate).toISOString(),
+        scheduledDate: selectedDate.toISOString(),
         duration: parseInt(editForm.duration),
+        status: newStatus, // Incluir o novo status
       },
     });
   };
@@ -884,7 +912,11 @@ function AdminTrainingPage() {
                       scheduledDate: e.target.value,
                     }))
                   }
+                  min={new Date().toISOString().slice(0, 16)}
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Apenas datas futuras são permitidas
+                </p>
               </div>
               <div>
                 <Label>Duracao (minutos) *</Label>
@@ -1141,7 +1173,11 @@ function AdminTrainingPage() {
                       scheduledDate: e.target.value,
                     }))
                   }
+                  min={new Date().toISOString().slice(0, 16)}
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Apenas datas futuras são permitidas
+                </p>
               </div>
               <div>
                 <Label>Duracao (minutos) *</Label>
