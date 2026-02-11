@@ -423,10 +423,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors"
                 >
                   {user.profile_image_url ? (
-                    <img
+                    <Image
                       src={user.profile_image_url}
-                      alt=""
+                      alt={user.full_name || user.email || "Perfil"}
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
+                      unoptimized={user.profile_image_url.includes('googleusercontent.com')}
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-linear-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-semibold shrink-0 aspect-square">

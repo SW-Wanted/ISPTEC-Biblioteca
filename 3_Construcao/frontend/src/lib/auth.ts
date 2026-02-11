@@ -121,6 +121,9 @@ export const authOptions: NextAuthOptions = {
         return false; // Bloquear login
       }
 
+      // Capturar foto do perfil do Google
+      const googleProfileImage = user.image ?? (profile as { picture?: string })?.picture ?? null;
+
       const existing = await prisma.user.findUnique({
         where: { email },
         select: {
@@ -128,6 +131,7 @@ export const authOptions: NextAuthOptions = {
           status: true,
           isBlocked: true,
           deletionScheduledAt: true,
+          profileImageUrl: true,
         },
       });
 
@@ -147,7 +151,7 @@ export const authOptions: NextAuthOptions = {
         const needsValidation =
           userType === UserType.STUDENT || userType === UserType.TEACHER;
 
-        // ✅ Criar usuário
+        // ✅ Criar usuário com foto do Google
         await prisma.user.create({
           data: {
             email,
@@ -156,6 +160,7 @@ export const authOptions: NextAuthOptions = {
             type: userType,
             status: needsValidation ? UserStatus.PENDING : UserStatus.ACTIVE,
             activationStatus: needsValidation ? "PENDING_DOCUMENTS" : "ACTIVE",
+            profileImageUrl: googleProfileImage,
             lastLoginAt: new Date(),
           },
         });
@@ -180,9 +185,19 @@ export const authOptions: NextAuthOptions = {
           return false;
         }
 
+        // Atualizar foto do Google se não tiver foto ou se for diferente
+        const updateData: { lastLoginAt: Date; profileImageUrl?: string | null } = {
+          lastLoginAt: new Date(),
+        };
+
+        if (googleProfileImage && !existing.profileImageUrl) {
+          updateData.profileImageUrl = googleProfileImage;
+          console.log(`✅ Foto do Google adicionada para: ${email}`);
+        }
+
         await prisma.user.update({
           where: { email },
-          data: { lastLoginAt: new Date() },
+          data: updateData,
         });
       }
 

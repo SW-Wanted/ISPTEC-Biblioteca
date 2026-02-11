@@ -510,6 +510,7 @@ export default function ManageMembers() {
                                 width={40}
                                 height={40}
                                 className="w-10 h-10 rounded-full object-cover aspect-square shrink-0"
+                                unoptimized={member.profile_image_url.includes('googleusercontent.com')}
                               />
                             ) : (
                               <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center font-medium text-amber-600 shrink-0 aspect-square">
