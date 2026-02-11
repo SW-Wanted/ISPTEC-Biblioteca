@@ -1633,14 +1633,17 @@ export default function ManageLoans() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={approveMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedReservation) {
+                if (selectedReservation && !approveMutation.isPending) {
                   approveMutation.mutate(selectedReservation);
                 }
               }}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={approveMutation.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {approveMutation.isPending ? (
                 <>
@@ -1698,16 +1701,26 @@ export default function ManageLoans() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={processReservationMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedReservation) {
+                if (selectedReservation && !processReservationMutation.isPending) {
                   processReservationMutation.mutate(selectedReservation);
                 }
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              disabled={processReservationMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Notificar e Disponibilizar
+              {processReservationMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Notificar e Disponibilizar"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

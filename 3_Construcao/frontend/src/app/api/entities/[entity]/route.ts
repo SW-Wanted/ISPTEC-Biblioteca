@@ -1711,6 +1711,23 @@ export async function POST(
         if (reservation.status !== ReservationStatus.AVAILABLE) {
           throw new Error("RESERVATION_NOT_AVAILABLE");
         }
+
+        // 🔒 PROTEÇÃO: Verificar se já existe empréstimo ativo para esta reserva
+        const existingLoanForReservation = await prisma.loan.findFirst({
+          where: {
+            userId: member.id,
+            copy: { bookId: book.id },
+            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+            createdAt: {
+              // Verificar empréstimos criados nos últimos 5 minutos
+              gte: new Date(Date.now() - 5 * 60 * 1000),
+            },
+          },
+          select: { id: true },
+        });
+        if (existingLoanForReservation) {
+          throw new Error("LOAN_ALREADY_EXISTS");
+        }
       }
 
       // 📚 SGBU-007: Validar se material permite empréstimo
@@ -1747,14 +1764,6 @@ export async function POST(
         throw new Error("HAS_RESERVATIONS");
       }
 
-      // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
-      const dueDate = calculateDueDate(
-        member.type,
-        book.loanPolicy,
-        new Date(),
-        policyConfig.loanDays,
-      );
-
       const result = await prisma.$transaction(async (tx) => {
         if (reservationId) {
           const reservation = await tx.reservation.findUnique({
@@ -1781,8 +1790,8 @@ export async function POST(
               bookId,
               status: BookStatus.RESERVED,
             },
-            orderBy: { createdAt: "desc" },
-            select: { id: true },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, createdAt: true },
           });
           // Se não encontrar reservado, tentar disponível
           if (!copy) {
@@ -1791,8 +1800,8 @@ export async function POST(
                 bookId,
                 status: BookStatus.AVAILABLE,
               },
-              orderBy: { createdAt: "desc" },
-              select: { id: true },
+              orderBy: { createdAt: "asc" },
+              select: { id: true, createdAt: true },
             });
           }
         } else {
@@ -1801,13 +1810,69 @@ export async function POST(
               bookId,
               status: BookStatus.AVAILABLE,
             },
-            orderBy: { createdAt: "desc" },
-            select: { id: true },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, createdAt: true },
           });
         }
         if (!copy) {
           throw new Error("NO_COPY");
         }
+
+        // 📚 SGBU-007: Determinar número do exemplar (posição cronológica)
+        const allCopies = await tx.copy.findMany({
+          where: { bookId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+        const copyNumber = allCopies.findIndex((c) => c.id === copy.id) + 1;
+
+        // 📚 SGBU-007: Obter regras de classificação de exemplares
+        const classificationPolicy = await tx.systemPolicy.findUnique({
+          where: { key: "COPY_CLASSIFICATION_RULES" },
+          select: { value: true },
+        });
+
+        let copyClassificationRules = null;
+        try {
+          if (classificationPolicy?.value) {
+            copyClassificationRules = JSON.parse(classificationPolicy.value);
+          }
+        } catch {
+          // Em caso de erro, usa regras padrão (null será tratado pela função)
+        }
+
+        // 📚 SGBU-007: Aplicar classificação do exemplar (vermelho/amarelo/branco)
+        const { getCopyClassification } = await import("@/lib/sgbu-rules");
+        const classification = getCopyClassification(
+          copyNumber,
+          copyClassificationRules,
+        );
+
+        // 📅 SGBU-007: Calcular dueDate baseado na política do exemplar
+        let effectiveLoanPolicy = book.loanPolicy;
+        let effectiveLoanDays = policyConfig.loanDays;
+
+        if (classification) {
+          // Se a classificação define uma política específica, usa ela
+          effectiveLoanPolicy = classification.loanPolicy as LoanPolicy;
+          
+          // Se a classificação define dias máximos, usa eles
+          if (classification.maxLoanDays !== null) {
+            effectiveLoanDays = classification.maxLoanDays;
+          }
+        }
+
+        // Validar se o exemplar permite empréstimo
+        if (effectiveLoanPolicy === "NO_LOAN") {
+          throw new Error("NO_LOAN_REFERENCE");
+        }
+
+        const dueDate = calculateDueDate(
+          member.type,
+          effectiveLoanPolicy,
+          new Date(),
+          effectiveLoanDays,
+        );
 
         const loan = await tx.loan.create({
           data: {
@@ -1855,18 +1920,18 @@ export async function POST(
           },
         });
 
-        return loan;
+        return { loan, dueDate };
       });
 
       // ✅ SGBU-011: Log de atividade crítica (empréstimo criado)
       await logLoanCreated({
         userId: member.id,
-        loanId: result.id,
+        loanId: result.loan.id,
         bookTitle: book.title,
-        dueDate,
+        dueDate: result.dueDate,
       }).catch((err) => console.error("Erro ao logar empréstimo:", err));
 
-      return NextResponse.json({ id: result.id });
+      return NextResponse.json({ id: result.loan.id });
     } catch (error) {
       // 🚨 SGBU-007: Tratamento de erros específicos
       const errorMap: Record<string, { message: string; status: number }> = {
@@ -1903,6 +1968,10 @@ export async function POST(
         },
         RESERVATION_NOT_AVAILABLE: {
           message: "Reserva já não está disponível",
+          status: 409,
+        },
+        LOAN_ALREADY_EXISTS: {
+          message: "Empréstimo já foi criado para esta reserva",
           status: 409,
         },
       };

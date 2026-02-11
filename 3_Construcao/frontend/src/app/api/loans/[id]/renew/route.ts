@@ -211,11 +211,55 @@ export async function POST(
         throw new Error("PENDING_FINES");
       }
 
+      // 📚 SGBU-007: Determinar número do exemplar (posição cronológica)
+      const allCopies = await tx.copy.findMany({
+        where: { bookId: loan.copy.book.id },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+      const copyNumber = allCopies.findIndex((c) => c.id === loan.copyId) + 1;
+
+      // 📚 SGBU-007: Obter regras de classificação de exemplares
+      const classificationPolicy = await tx.systemPolicy.findUnique({
+        where: { key: "COPY_CLASSIFICATION_RULES" },
+        select: { value: true },
+      });
+
+      let copyClassificationRules = null;
+      try {
+        if (classificationPolicy?.value) {
+          copyClassificationRules = JSON.parse(classificationPolicy.value);
+        }
+      } catch {
+        // Em caso de erro, usa regras padrão (null será tratado pela função)
+      }
+
+      // 📚 SGBU-007: Aplicar classificação do exemplar (vermelho/amarelo/branco)
+      const { getCopyClassification } = await import("@/lib/sgbu-rules");
+      const classification = getCopyClassification(
+        copyNumber,
+        copyClassificationRules,
+      );
+
+      // 📅 SGBU-007: Calcular dueDate baseado na política do exemplar
+      let effectiveLoanPolicy = loan.copy.book.loanPolicy;
+      let effectiveLoanDays = policyConfig.loanDays;
+
+      if (classification) {
+        // Se a classificação define uma política específica, usa ela
+        effectiveLoanPolicy = classification.loanPolicy as any;
+        
+        // Se a classificação define dias máximos, usa eles
+        if (classification.maxLoanDays !== null) {
+          effectiveLoanDays = classification.maxLoanDays;
+        }
+      }
+
       const newDueDate = calculateDueDate(
         loan.user.type,
-        loan.copy.book.loanPolicy,
+        effectiveLoanPolicy,
         now,
-        policyConfig.loanDays,
+        effectiveLoanDays,
       );
 
       const updated = await tx.loan.update({
