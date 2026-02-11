@@ -63,27 +63,31 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Você é um especialista em catalogação bibliográfica. Analise esta imagem de um livro (capa, contracapa ou folha de rosto) e extraia APENAS as informações que estão CLARAMENTE VISÍVEIS.
 
-**Regras CRÍTICAS:**
+**PRIORIDADE MÁXIMA: ISBN**
+O ISBN é a informação MAIS IMPORTANTE! Procure EXAUSTIVAMENTE por:
+- Código de barras com números abaixo (geralmente 13 dígitos começando com 978 ou 979)
+- Texto "ISBN" seguido de números
+- Pode estar em QUALQUER lugar: contracapa, capa traseira, lombada, página de créditos
+- Formatos aceitos: 978-XX-XXX-XXXX-X ou 978XXXXXXXXXX (10 ou 13 dígitos)
+- Pode ter hífens, espaços ou estar junto - remova tudo exceto os dígitos
+- Se houver múltiplos ISBNs (capa dura/brochura), pegue o primeiro
+- **PROCURE EM TODA A IMAGEM, ESPECIALMENTE PERTO DE CÓDIGOS DE BARRAS**
+
+**Outras informações importantes:**
 1. **TÍTULO**: Extraia o título EXATO como aparece na capa/folha de rosto. NÃO invente, NÃO resuma, NÃO traduza.
 2. **SUBTÍTULO**: Se houver subtítulo separado visível, extraia-o.
-3. **ISBN**: MUITO IMPORTANTE! Procure atentamente por:
-   - Código de barras com números abaixo
-   - Texto "ISBN" seguido de números (978-XX-XXX-XXXX-X ou 978XXXXXXXXXX)
-   - Geralmente está na contracapa, capa traseira, ou página de créditos
-   - Pode ter 10 ou 13 dígitos (com ou sem hífens)
-   - Remova todos os hífens ao retornar
-4. **AUTORES**: Nomes dos autores como aparecem no livro. Se múltiplos, separe por vírgula.
-5. **EDITORA**: Nome da editora/publisher.
-6. **ANO**: Ano de publicação (4 dígitos).
-7. **EDIÇÃO**: Número da edição se visível (ex: "2ª edição", "3rd edition").
-8. **IDIOMA**: Código do idioma (pt, en, es, fr) baseado no texto visível.
+3. **AUTORES**: Nomes dos autores como aparecem no livro. Se múltiplos, separe por vírgula.
+4. **EDITORA**: Nome da editora/publisher.
+5. **ANO**: Ano de publicação (4 dígitos).
+6. **EDIÇÃO**: Número da edição se visível (ex: "2ª edição", "3rd edition").
+7. **IDIOMA**: Código do idioma (pt, en, es, fr) baseado no texto visível.
 
 **IMPORTANTE:**
 - Se alguma informação NÃO estiver claramente visível, deixe como null
 - Não invente ou deduza informações
 - Seja preciso e fiel ao que está escrito
 - Prefira extração literal a interpretação
-- **ISBN é PRIORITÁRIO** - procure em toda a imagem, especialmente em códigos de barras
+- **DEDIQUE TEMPO EXTRA PROCURANDO O ISBN - É ESSENCIAL PARA CATALOGAÇÃO**
 
 Retorne APENAS um objeto JSON válido com esta estrutura:
 {

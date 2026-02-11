@@ -140,6 +140,7 @@ export default function ManageBooks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [permanentDelete, setPermanentDelete] = useState(false);
   const [showCopiesDialog, setShowCopiesDialog] = useState(false);
   const [editingCopy, setEditingCopy] = useState<CopyRow | null>(null);
   const [showAddCopyForm, setShowAddCopyForm] = useState(false);
@@ -177,6 +178,7 @@ export default function ManageBooks() {
   const [authorsOptions, setAuthorsOptions] = useState<AuthorOption[]>([]);
   const [authorsSelected, setAuthorsSelected] = useState<AuthorOption[]>([]);
   const [authorQuery, setAuthorQuery] = useState("");
+  const [showAuthorDropdown, setShowAuthorDropdown] = useState(false);
   const [showAuthorDialog, setShowAuthorDialog] = useState(false);
   const [newAuthor, setNewAuthor] = useState({
     name: "",
@@ -211,18 +213,29 @@ export default function ManageBooks() {
   });
 
   // Load authors for selection
-  const { data: allAuthors = [] } = useQuery({
+  const { data: allAuthors = [], isLoading: authorsLoading } = useQuery({
     queryKey: ["authors"],
-    queryFn: () => api.entities.Author.list("-created_date", 200),
+    queryFn: async () => {
+      console.log("🔄 Carregando autores...");
+      const result = await api.entities.Author.list("-created_date", 200);
+      console.log("📥 Autores recebidos da API:", result);
+      return result;
+    },
     initialData: [],
     refetchInterval: 60000,
   });
 
   useEffect(() => {
-    if (Array.isArray(allAuthors)) {
-      setAuthorsOptions(
-        allAuthors.map((a: any) => ({ id: a.id, name: a.name })) as AuthorOption[],
-      );
+    console.log("🔍 allAuthors mudou:", allAuthors);
+    if (Array.isArray(allAuthors) && allAuthors.length > 0) {
+      const mapped = allAuthors
+        .filter((a: any) => a && a.id && a.name && typeof a.name === 'string')
+        .map((a: any) => ({ id: String(a.id), name: String(a.name) }));
+      console.log("📚 Autores mapeados:", mapped);
+      setAuthorsOptions(mapped);
+    } else {
+      console.log("⚠️ Nenhum autor para mapear");
+      setAuthorsOptions([]);
     }
   }, [allAuthors]);
 
@@ -301,22 +314,35 @@ export default function ManageBooks() {
   });
 
   const deleteBookMutation = useMutation({
-    mutationFn: async (bookId: string) => {
-      // Soft delete: archive the book instead of hard delete
-      const res = await fetch(`/api/books/${bookId}/copies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "archive" }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Erro ao arquivar livro");
+    mutationFn: async ({ bookId, permanent }: { bookId: string; permanent: boolean }) => {
+      if (permanent) {
+        // Hard delete: permanently remove the book
+        const res = await fetch(`/api/entities/Book/${bookId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Erro ao eliminar livro");
+        }
+        return { message: "Livro eliminado permanentemente!" };
+      } else {
+        // Soft delete: archive the book
+        const res = await fetch(`/api/books/${bookId}/copies`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "archive" }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Erro ao arquivar livro");
+        }
+        return res.json();
       }
-      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["manage-books"] });
       setShowDeleteDialog(false);
+      setPermanentDelete(false);
       setSelectedBook(null);
       toast.success(data.message || "Livro arquivado!");
     },
@@ -367,14 +393,30 @@ export default function ManageBooks() {
       return await api.entities.Author.create(payload);
     },
     onSuccess: (author: any) => {
-      const opt = { id: author.id, name: author.name } as AuthorOption;
+      if (!author || !author.id || !author.name) {
+        toast.error("Erro: dados do autor inválidos");
+        return;
+      }
+      const opt: AuthorOption = { id: String(author.id), name: String(author.name) };
+      console.log("✅ Autor criado:", opt);
+      
+      // Atualizar a lista de autores disponíveis
       setAuthorsOptions((prev) => [opt, ...prev.filter((p) => p.id !== opt.id)]);
+      
+      // Adicionar automaticamente aos autores selecionados
       setAuthorsSelected((prev) => [...prev, opt]);
+      
+      // Invalidar query para recarregar autores do servidor
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+      
+      // Fechar dialog e limpar form
       setShowAuthorDialog(false);
       setNewAuthor({ name: "", biography: "", nationality: "", birth_date: "" });
-      toast.success("Autor criado!");
+      
+      toast.success(`Autor "${opt.name}" criado e adicionado!`);
     },
     onError: (err: any) => {
+      console.error("❌ Erro ao criar autor:", err);
       toast.error(err?.message || "Erro ao criar autor");
     },
   });
@@ -401,6 +443,8 @@ export default function ManageBooks() {
     });
     setSelectedBook(null);
     setIsEditing(false);
+    setAuthorsSelected([]);
+    setAuthorQuery("");
   };
 
   const handleEdit = (book: Book) => {
@@ -423,6 +467,20 @@ export default function ManageBooks() {
       material_type: (book as any).material_type || "BOOK",
       loan_policy: (book as any).loan_policy || "STANDARD",
     });
+    
+    // Mapear autores do livro para authorsSelected
+    if (book.authors && Array.isArray(book.authors)) {
+      const selectedAuthors = book.authors
+        .map((authorName) => {
+          const found = authorsOptions.find((opt) => opt.name === authorName);
+          return found || null;
+        })
+        .filter((a): a is AuthorOption => a !== null);
+      setAuthorsSelected(selectedAuthors);
+    } else {
+      setAuthorsSelected([]);
+    }
+    
     setSelectedBook(book);
     setIsEditing(true);
     setShowAddDialog(true);
@@ -442,7 +500,7 @@ export default function ManageBooks() {
     return (
       formData.title.trim() !== "" &&
       formData.isbn?.trim() !== "" &&
-      formData.authors.trim() !== "" &&
+      authorsSelected.length > 0 &&
       formData.publication_year !== "" &&
       formData.category !== "" &&
       formData.publisher?.trim() !== "" &&
@@ -781,62 +839,119 @@ export default function ManageBooks() {
                     Autores <span className="text-red-600">*</span>
                   </Label>
                   <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      {authorsSelected.map((a) => (
-                        <Badge key={a.id} className="flex items-center gap-2">
-                          <span>{a.name}</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAuthorsSelected((prev) =>
-                                prev.filter((p) => p.id !== a.id),
-                              )
-                            }
-                            className="text-xs text-slate-500 hover:text-red-600"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <Input
-                      value={authorQuery}
-                      onChange={(e) => setAuthorQuery(e.target.value)}
-                      placeholder="Pesquisar autores (digite para filtrar)"
-                    />
-
-                    {authorQuery.trim() !== "" && (
-                      <div className="border rounded bg-white max-h-40 overflow-auto">
-                        {(authorsOptions
-                          .filter((o) =>
-                            o.name.toLowerCase().includes(authorQuery.toLowerCase()),
-                          )
-                          .filter((o) => !authorsSelected.some((s) => s.name === o.name))
-                          .slice(0, 10) as AuthorOption[])
-                          .map((opt) => (
-                            <div
-                              key={opt.id}
-                              className="px-3 py-2 hover:bg-slate-50 cursor-pointer"
-                              onClick={() => {
-                                setAuthorsSelected((prev) => [...prev, opt]);
-                                setAuthorQuery("");
-                              }}
-                            >
-                              {opt.name}
-                            </div>
-                          ))}
+                    {/* Autores selecionados */}
+                    {authorsSelected.length > 0 && (
+                      <div className="flex flex-wrap gap-2 p-2 border rounded bg-slate-50">
+                        {authorsSelected.map((a) => {
+                          if (!a || !a.id || !a.name) return null;
+                          return (
+                            <Badge key={a.id} className="flex items-center gap-1.5 bg-amber-100 text-amber-800 hover:bg-amber-200">
+                              <span>{a.name}</span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setAuthorsSelected((prev) =>
+                                    prev.filter((p) => p.id !== a.id),
+                                  )
+                                }
+                                className="text-amber-600 hover:text-red-600 font-bold text-base leading-none"
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          );
+                        })}
                       </div>
                     )}
 
-                    <div>
-                      <Button
-                        onClick={() => setShowAuthorDialog(true)}
-                        variant="outline"
-                      >
-                        Novo Autor
-                      </Button>
+                    {/* Campo de pesquisa */}
+                    <div className="relative">
+                      <Input
+                        value={authorQuery}
+                        onChange={(e) => {
+                          setAuthorQuery(e.target.value);
+                          setShowAuthorDropdown(e.target.value.trim().length > 0);
+                        }}
+                        onFocus={() => {
+                          if (authorQuery.trim().length > 0) {
+                            setShowAuthorDropdown(true);
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay to allow click on dropdown items
+                          setTimeout(() => setShowAuthorDropdown(false), 200);
+                        }}
+                        placeholder="Digite para pesquisar autores existentes..."
+                        className={authorsSelected.length === 0 ? "border-red-300" : ""}
+                      />
+                      
+                      {/* Dropdown de resultados */}
+                      {showAuthorDropdown && authorQuery.trim() !== "" && authorsOptions.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 border rounded-lg bg-white shadow-lg max-h-48 overflow-auto">
+                          {(() => {
+                            const query = authorQuery.toLowerCase();
+                            const filtered = authorsOptions
+                              .filter((o) => {
+                                // Validação rigorosa para evitar erros
+                                if (!o || !o.name || typeof o.name !== 'string') {
+                                  console.warn('⚠️ Autor inválido encontrado:', o);
+                                  return false;
+                                }
+                                return o.name.toLowerCase().includes(query);
+                              })
+                              .filter((o) => !authorsSelected.some((s) => s.id === o.id))
+                              .slice(0, 10);
+
+                            if (filtered.length === 0) {
+                              return (
+                                <div className="px-3 py-2 text-sm text-slate-500 text-center">
+                                  Nenhum autor encontrado
+                                </div>
+                              );
+                            }
+
+                            return filtered.map((opt) => (
+                              <div
+                                key={opt.id}
+                                className="px-3 py-2 hover:bg-amber-50 cursor-pointer border-b last:border-b-0"
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // Prevent blur
+                                  setAuthorsSelected((prev) => [...prev, opt]);
+                                  setAuthorQuery("");
+                                  setShowAuthorDropdown(false);
+                                }}
+                              >
+                                {opt.name}
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Info sobre autores carregados */}
+                    {authorsOptions.length === 0 && (
+                      <p className="text-xs text-slate-500">
+                        Carregando autores... ou nenhum autor cadastrado ainda.
+                      </p>
+                    )}
+                    {authorsOptions.length > 0 && (
+                      <p className="text-xs text-slate-500">
+                        {authorsOptions.length} autor(es) disponível(is)
+                      </p>
+                    )}
+
+                    {/* Botão criar novo autor */}
+                    <Button
+                      type="button"
+                      onClick={() => setShowAuthorDialog(true)}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Criar Novo Autor
+                    </Button>
                   </div>
                 </div>
                 <div>
@@ -1169,17 +1284,53 @@ export default function ManageBooks() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Novo Autor</DialogTitle>
-                <DialogDescription>Crie um autor para associar ao livro.</DialogDescription>
+                <DialogDescription>
+                  Crie um autor para associar ao livro. Se o autor já existir, pesquise-o no campo acima.
+                </DialogDescription>
               </DialogHeader>
 
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <Label>Nome</Label>
+                  <Label>Nome *</Label>
                   <Input
                     value={newAuthor.name}
                     onChange={(e) => setNewAuthor({ ...newAuthor, name: e.target.value })}
                     placeholder="Nome do autor"
                   />
+                  {newAuthor.name.trim() && (() => {
+                    const similar = authorsOptions.filter(a => 
+                      a.name.toLowerCase().includes(newAuthor.name.toLowerCase()) ||
+                      newAuthor.name.toLowerCase().includes(a.name.toLowerCase())
+                    );
+                    if (similar.length > 0) {
+                      return (
+                        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
+                          <p className="text-xs text-amber-700 font-medium mb-1">
+                            ⚠️ Autores similares encontrados:
+                          </p>
+                          {similar.map(a => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => {
+                                setAuthorsSelected(prev => [...prev, a]);
+                                setShowAuthorDialog(false);
+                                setNewAuthor({ name: "", biography: "", nationality: "", birth_date: "" });
+                                toast.success(`Autor "${a.name}" adicionado!`);
+                              }}
+                              className="block w-full text-left px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 rounded"
+                            >
+                              📚 {a.name}
+                            </button>
+                          ))}
+                          <p className="text-xs text-amber-600 mt-1">
+                            Clique para usar um existente ou continue para criar novo.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div>
@@ -1217,7 +1368,21 @@ export default function ManageBooks() {
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => createAuthorMutation.mutate(newAuthor)}
+                  onClick={() => {
+                    // Verificar se já existe exatamente
+                    const exactMatch = authorsOptions.find(a => 
+                      a.name.toLowerCase() === newAuthor.name.trim().toLowerCase()
+                    );
+                    if (exactMatch) {
+                      // Adicionar o autor existente e fechar
+                      setAuthorsSelected(prev => [...prev, exactMatch]);
+                      setShowAuthorDialog(false);
+                      setNewAuthor({ name: "", biography: "", nationality: "", birth_date: "" });
+                      toast.success(`Autor "${exactMatch.name}" adicionado!`);
+                      return;
+                    }
+                    createAuthorMutation.mutate(newAuthor);
+                  }}
                   disabled={createAuthorMutation.isPending || !newAuthor.name.trim()}
                 >
                   {createAuthorMutation.isPending && (
@@ -1229,28 +1394,73 @@ export default function ManageBooks() {
             </DialogContent>
           </Dialog>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={(open) => {
+        setShowDeleteDialog(open);
+        if (!open) setPermanentDelete(false);
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Arquivar Livro</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja arquivar &quot;{selectedBook?.title}&quot;?
-              O livro ficará indisponível na biblioteca mas os seus dados e
-              histórico serão preservados.
+            <AlertDialogTitle>
+              {permanentDelete ? "Eliminar Livro Permanentemente" : "Arquivar Livro"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              {permanentDelete ? (
+                <div>
+                  <p>
+                    <span className="text-red-600 font-semibold">ATENÇÃO:</span> Tem certeza que deseja eliminar permanentemente &quot;{selectedBook?.title}&quot;?
+                  </p>
+                  <p className="mt-2">
+                    Esta ação é <span className="font-semibold">IRREVERSÍVEL</span> e irá remover:
+                  </p>
+                  <ul className="list-disc ml-5 mt-2 space-y-1">
+                    <li>O livro e todos os seus dados</li>
+                    <li>Todos os exemplares físicos</li>
+                    <li>Histórico de empréstimos</li>
+                    <li>Avaliações e comentários</li>
+                  </ul>
+                </div>
+              ) : (
+                <p>
+                  Tem certeza que deseja arquivar &quot;{selectedBook?.title}&quot;?
+                  O livro ficará indisponível na biblioteca mas os seus dados e
+                  histórico serão preservados.
+                </p>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          
+          {!permanentDelete && (
+            <div className="flex items-center space-x-2 px-6 py-2">
+              <input
+                type="checkbox"
+                id="permanent-delete"
+                checked={permanentDelete}
+                onChange={(e) => setPermanentDelete(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <label htmlFor="permanent-delete" className="text-sm text-slate-600 cursor-pointer">
+                Eliminar permanentemente (não pode ser desfeito)
+              </label>
+            </div>
+          )}
+
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPermanentDelete(false)}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedBook) deleteBookMutation.mutate(selectedBook.id);
+                if (selectedBook) deleteBookMutation.mutate({ 
+                  bookId: selectedBook.id, 
+                  permanent: permanentDelete 
+                });
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className={permanentDelete ? "bg-red-700 hover:bg-red-800" : "bg-red-600 hover:bg-red-700"}
             >
               {deleteBookMutation.isPending && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
-              Arquivar
+              {permanentDelete ? "Eliminar Permanentemente" : "Arquivar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

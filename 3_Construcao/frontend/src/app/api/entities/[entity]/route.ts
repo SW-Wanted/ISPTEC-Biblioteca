@@ -336,6 +336,49 @@ export async function GET(
     ? filterSchema.parse(JSON.parse(filterRaw))
     : undefined;
 
+  if (entity === "Author") {
+    const orderBy =
+      sort === "-created_date"
+        ? { createdAt: "desc" as const }
+        : sort === "created_date"
+          ? { createdAt: "asc" as const }
+          : sort === "name"
+            ? { name: "asc" as const }
+            : { createdAt: "desc" as const };
+
+    const authors = await prisma.author.findMany({
+      orderBy,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        biography: true,
+        nationality: true,
+        birthDate: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            books: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(
+      authors.map((a) => ({
+        id: a.id,
+        name: a.name,
+        biography: a.biography,
+        nationality: a.nationality,
+        birth_date: toIso(a.birthDate) ?? null,
+        created_date: toIso(a.createdAt),
+        updated_date: toIso(a.updatedAt),
+        _count: a._count,
+      })),
+    );
+  }
+
   if (entity === "Category") {
     const categories = await prisma.category.findMany({
       orderBy: { name: "asc" },
@@ -1119,6 +1162,49 @@ export async function POST(
     return NextResponse.json({ id: saved.id });
   }
 
+  if (entity === "Author") {
+    if (!canManageBooks(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const authorCreateSchema = z.object({
+      name: z.string().min(1),
+      biography: z.string().nullable().optional(),
+      nationality: z.string().nullable().optional(),
+      birth_date: z.string().nullable().optional(),
+    });
+
+    const parsed = authorCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const name = parsed.data.name.trim();
+    if (!name)
+      return NextResponse.json(
+        { error: "Nome é obrigatório" },
+        { status: 400 },
+      );
+
+    const biography = parsed.data.biography ? parsed.data.biography.trim() : null;
+    const nationality = parsed.data.nationality ? parsed.data.nationality.trim() : null;
+    const birthDate = parsed.data.birth_date ? new Date(parsed.data.birth_date) : null;
+
+    const created = await prisma.author.create({
+      data: {
+        name,
+        biography,
+        nationality,
+        birthDate,
+      },
+      select: { id: true, name: true },
+    });
+
+    return NextResponse.json({ id: created.id, name: created.name });
+  }
+
   if (entity === "Book") {
     if (!canManageBooks(user.type))
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
@@ -1223,13 +1309,19 @@ export async function POST(
       if (authors.length > 0) {
         for (let i = 0; i < authors.length; i++) {
           const name = authors[i];
+          // Busca case-insensitive para evitar duplicação
           const existingAuthor = await tx.author.findFirst({
-            where: { name },
-            select: { id: true },
+            where: { 
+              name: {
+                equals: name,
+                mode: 'insensitive'
+              }
+            },
+            select: { id: true, name: true },
           });
           const author =
             existingAuthor ??
-            (await tx.author.create({ data: { name }, select: { id: true } }));
+            (await tx.author.create({ data: { name }, select: { id: true, name: true } }));
           await tx.bookAuthor.create({
             data: { bookId: book.id, authorId: author.id, order: i + 1 },
           });
