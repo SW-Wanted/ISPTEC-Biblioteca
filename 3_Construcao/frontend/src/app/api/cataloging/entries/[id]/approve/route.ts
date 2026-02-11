@@ -253,6 +253,10 @@ export async function POST(
           copiesCount: data.totalCopies,
         };
       },
+      {
+        maxWait: 10000, // Espera máxima de 10 segundos para adquirir a transação
+        timeout: 20000, // Timeout de 20 segundos para executar a transação
+      },
     );
 
     return NextResponse.json(result, { status: 200 });
