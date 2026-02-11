@@ -35,9 +35,20 @@ async function requireActiveUser() {
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").optional(),
-  registration_number: z.string().optional(),
-  email: z.string().email("Email inválido").optional(),
-  phone: z.string().optional(),
+  registration_number: z
+    .string()
+    .regex(/^[0-9]{8}$/, "Matrícula deve ter exatamente 8 dígitos")
+    .optional(),
+  email: z
+    .string()
+    .email("Email inválido")
+    .regex(/@isptec\.co\.ao$/, "Email deve ser do domínio @isptec.co.ao")
+    .optional(),
+  phone: z
+    .string()
+    .regex(/^\+244\s?[0-9]{9}$/, "Telefone deve estar no formato +244 933363523 (9 dígitos)")
+    .optional()
+    .or(z.literal("")),
   preferred_notification: z
     .string()
     .transform((val) => val?.toUpperCase())
