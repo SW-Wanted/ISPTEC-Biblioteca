@@ -250,7 +250,7 @@ async function expireReservationsIfNeeded(bookId?: string) {
         pos++;
       }
 
-      // Try to notify next in queue if a copy is available
+      // Try to notify next in queue if a copy is available (prefer last copy)
       const availableCopy = await tx.copy.findFirst({
         where: { bookId: res.bookId, status: BookStatus.AVAILABLE },
         select: { id: true },
@@ -1874,51 +1874,9 @@ export async function POST(
 
         // Quando há reserva, priorizar o exemplar já marcado como RESERVED;
         // para empréstimos diretos, usar ordem decrescente (último exemplar primeiro)
-        let copy;
-        if (reservationId) {
-          // Primeiro tentar o exemplar já reservado
-          copy = await tx.copy.findFirst({
-            where: {
-              bookId,
-              status: BookStatus.RESERVED,
-            },
-            orderBy: { createdAt: "asc" },
-            select: { id: true, createdAt: true },
-          });
-          // Se não encontrar reservado, tentar disponível
-          if (!copy) {
-            copy = await tx.copy.findFirst({
-              where: {
-                bookId,
-                status: BookStatus.AVAILABLE,
-              },
-              orderBy: { createdAt: "asc" },
-              select: { id: true, createdAt: true },
-            });
-          }
-        } else {
-          copy = await tx.copy.findFirst({
-            where: {
-              bookId,
-              status: BookStatus.AVAILABLE,
-            },
-            orderBy: { createdAt: "asc" },
-            select: { id: true, createdAt: true },
-          });
-        }
-        if (!copy) {
-          throw new Error("NO_COPY");
-        }
-
-        // 📚 SGBU-007: Determinar número do exemplar (posição cronológica)
-        const allCopies = await tx.copy.findMany({
-          where: { bookId },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        });
-        const copyNumber = allCopies.findIndex((c) => c.id === copy.id) + 1;
-
-        // 📚 SGBU-007: Obter regras de classificação de exemplares
+        // 📚 SGBU-007: Filtrar exemplares que podem ser emprestados (excluir NO_LOAN)
+        
+        // Obter regras de classificação para filtrar exemplares
         const classificationPolicy = await tx.systemPolicy.findUnique({
           where: { key: "COPY_CLASSIFICATION_RULES" },
           select: { value: true },
@@ -1930,11 +1888,78 @@ export async function POST(
             copyClassificationRules = JSON.parse(classificationPolicy.value);
           }
         } catch {
-          // Em caso de erro, usa regras padrão (null será tratado pela função)
+          // Em caso de erro, usa regras padrão
         }
 
-        // 📚 SGBU-007: Aplicar classificação do exemplar (vermelho/amarelo/branco)
+        // Obter todos os exemplares para determinar números e filtrar
+        const allCopies = await tx.copy.findMany({
+          where: { bookId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, status: true, createdAt: true },
+        });
+
+        // Importar função de classificação
         const { getCopyClassification } = await import("@/lib/sgbu-rules");
+
+        // Filtrar exemplares que podem ser emprestados
+        const lendableCopyIds = allCopies
+          .map((c, index) => {
+            const copyNumber = index + 1;
+            const classification = getCopyClassification(
+              copyNumber,
+              copyClassificationRules,
+            );
+            // Incluir apenas se não for NO_LOAN
+            if (classification?.loanPolicy === "NO_LOAN") {
+              return null;
+            }
+            return c.id;
+          })
+          .filter((id): id is string => id !== null);
+
+        let copy;
+        if (reservationId) {
+          // Primeiro tentar o exemplar já reservado (que pode ser emprestado)
+          copy = await tx.copy.findFirst({
+            where: {
+              bookId,
+              status: BookStatus.RESERVED,
+              id: { in: lendableCopyIds },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, createdAt: true },
+          });
+          // Se não encontrar reservado, tentar disponível (ordem decrescente)
+          if (!copy) {
+            copy = await tx.copy.findFirst({
+              where: {
+                bookId,
+                status: BookStatus.AVAILABLE,
+                id: { in: lendableCopyIds },
+              },
+              orderBy: { createdAt: "desc" },
+              select: { id: true, createdAt: true },
+            });
+          }
+        } else {
+          copy = await tx.copy.findFirst({
+            where: {
+              bookId,
+              status: BookStatus.AVAILABLE,
+              id: { in: lendableCopyIds },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, createdAt: true },
+          });
+        }
+        if (!copy) {
+          throw new Error("NO_COPY");
+        }
+
+        // 📚 SGBU-007: Determinar número do exemplar (posição cronológica)
+        const copyNumber = allCopies.findIndex((c) => c.id === copy.id) + 1;
+
+        // 📚 SGBU-007: Aplicar classificação do exemplar (vermelho/amarelo/branco)
         const classification = getCopyClassification(
           copyNumber,
           copyClassificationRules,

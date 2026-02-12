@@ -233,7 +233,7 @@ async function notifyNextReservation(
 
   const availableCopy = await tx.copy.findFirst({
     where: { bookId, status: BookStatus.AVAILABLE },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     select: { id: true },
   });
 
@@ -433,13 +433,13 @@ export async function PATCH(
             );
           }
 
-          // Verificar se há cópia disponível
+          // Verificar se há cópia disponível (ordem decrescente para evitar exemplar de referência)
           const availableCopy = await prisma.copy.findFirst({
             where: {
               bookId: reservation.bookId,
               status: BookStatus.AVAILABLE,
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: { createdAt: "desc" },
           });
 
           if (!availableCopy) {
