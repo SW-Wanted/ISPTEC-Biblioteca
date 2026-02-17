@@ -812,11 +812,12 @@ export default function ManageLoans() {
                               setShowProcessDialog(true);
                             }}
                             size="sm"
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={
                               isLoanLimitReached ||
                               processReservationMutation.isPending ||
-                              rejectMutation.isPending
+                              rejectMutation.isPending ||
+                              approveMutation.isPending
                             }
                           >
                             {processReservationMutation.isPending &&
@@ -850,11 +851,12 @@ export default function ManageLoans() {
                               setShowConfirmDialog(true);
                             }}
                             size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700"
+                            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={
                               isLoanLimitReached ||
                               approveMutation.isPending ||
                               rejectMutation.isPending ||
+                              processReservationMutation.isPending ||
                               reservation.status !== "available"
                             }
                           >
@@ -895,8 +897,10 @@ export default function ManageLoans() {
                           }}
                           disabled={
                             approveMutation.isPending ||
-                            rejectMutation.isPending
+                            rejectMutation.isPending ||
+                            processReservationMutation.isPending
                           }
+                          className="disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <XCircle className="w-4 h-4 text-red-600" />
                         </Button>
@@ -1633,14 +1637,17 @@ export default function ManageLoans() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={approveMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedReservation) {
+                if (selectedReservation && !approveMutation.isPending) {
                   approveMutation.mutate(selectedReservation);
                 }
               }}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={approveMutation.isPending}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {approveMutation.isPending ? (
                 <>
@@ -1668,16 +1675,26 @@ export default function ManageLoans() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={rejectMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedReservation) {
+                if (selectedReservation && !rejectMutation.isPending) {
                   rejectMutation.mutate(selectedReservation);
                 }
               }}
-              className="bg-red-600 hover:bg-red-700"
+              disabled={rejectMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Marcar como Expirada
+              {rejectMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Marcar como Expirada"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1698,16 +1715,26 @@ export default function ManageLoans() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={processReservationMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (selectedReservation) {
+                if (selectedReservation && !processReservationMutation.isPending) {
                   processReservationMutation.mutate(selectedReservation);
                 }
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              disabled={processReservationMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Notificar e Disponibilizar
+              {processReservationMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Notificar e Disponibilizar"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

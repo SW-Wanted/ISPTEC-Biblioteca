@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Link } from "@/lib/router";
@@ -14,6 +14,13 @@ import {
   getNotificationTypeLabel,
   getNotificationTypeOptions,
 } from "@/lib/user-helpers";
+import { 
+  validateMatricula, 
+  validateTelefone, 
+  validateEmailIsptec,
+  formatTelefone,
+  formatMatricula 
+} from "@/lib/validation";
 import { DocumentsManager } from "@/components/documents-manager";
 import { QRCodeDisplay } from "@/components/qrcode-display";
 import {
@@ -173,6 +180,14 @@ function toDate(value: unknown): Date | null {
 }
 
 export default function Profile() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando perfil...</div>}>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const userEmailParam = searchParams.get("user"); // Email do usuário a visualizar
@@ -193,6 +208,11 @@ export default function Profile() {
     phone: "",
     preferred_notification: "push",
   });
+  const [validationErrors, setValidationErrors] = useState<{
+    registration_number?: string;
+    phone?: string;
+    email?: string;
+  }>({});
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [showDeleteAccountDialog, setShowDeleteAccountDialog] = useState(false);
   const [deletionPending, setDeletionPending] = useState(false);
@@ -802,27 +822,55 @@ export default function Profile() {
                           <Label>Nº de Matrícula</Label>
                           <Input
                             value={editForm.registration_number}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const formatted = formatMatricula(e.target.value);
                               setEditForm({
                                 ...editForm,
-                                registration_number: e.target.value,
-                              })
-                            }
+                                registration_number: formatted,
+                              });
+                              // Validar em tempo real
+                              const validation = validateMatricula(formatted);
+                              setValidationErrors(prev => ({
+                                ...prev,
+                                registration_number: validation.error
+                              }));
+                            }}
                             placeholder="Ex: 20230001"
+                            maxLength={8}
+                            className={validationErrors.registration_number ? "border-red-500" : ""}
                           />
+                          {validationErrors.registration_number && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {validationErrors.registration_number}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <Label>Telefone</Label>
                           <Input
                             value={editForm.phone}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const formatted = formatTelefone(e.target.value);
                               setEditForm({
                                 ...editForm,
-                                phone: e.target.value,
-                              })
-                            }
-                            placeholder="+244 XXX XXX XXX"
+                                phone: formatted,
+                              });
+                              // Validar em tempo real
+                              const validation = validateTelefone(formatted);
+                              setValidationErrors(prev => ({
+                                ...prev,
+                                phone: validation.error
+                              }));
+                            }}
+                            placeholder="+244 933363523"
+                            maxLength={13}
+                            className={validationErrors.phone ? "border-red-500" : ""}
                           />
+                          {validationErrors.phone && (
+                            <p className="text-xs text-red-500 mt-1">
+                              {validationErrors.phone}
+                            </p>
+                          )}
                         </div>
                         <div>
                           <Label>Preferência de Notificação</Label>
@@ -1116,14 +1164,36 @@ export default function Profile() {
                         <div className="flex gap-2 justify-end">
                           <Button
                             variant="outline"
-                            onClick={() => setIsEditing(false)}
+                            onClick={() => {
+                              setIsEditing(false);
+                              setValidationErrors({});
+                            }}
                           >
                             Cancelar
                           </Button>
                           <Button
-                            onClick={() =>
-                              updateMemberMutation.mutate(editForm)
-                            }
+                            onClick={() => {
+                              // Validar todos os campos antes de salvar
+                              const matriculaValidation = validateMatricula(editForm.registration_number);
+                              const telefoneValidation = validateTelefone(editForm.phone);
+                              
+                              const errors: typeof validationErrors = {};
+                              if (!matriculaValidation.valid) {
+                                errors.registration_number = matriculaValidation.error;
+                              }
+                              if (!telefoneValidation.valid) {
+                                errors.phone = telefoneValidation.error;
+                              }
+                              
+                              setValidationErrors(errors);
+                              
+                              // Se houver erros, não submeter
+                              if (Object.keys(errors).length > 0) {
+                                return;
+                              }
+                              
+                              updateMemberMutation.mutate(editForm);
+                            }}
                             disabled={updateMemberMutation.isPending}
                           >
                             {updateMemberMutation.isPending && (

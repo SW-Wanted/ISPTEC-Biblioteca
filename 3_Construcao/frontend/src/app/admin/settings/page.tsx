@@ -35,6 +35,14 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { AuthGuard } from "@/components/AuthGuard";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Settings,
   Plus,
@@ -47,6 +55,8 @@ import {
   GripVertical,
   Eye,
   EyeOff,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -469,6 +479,7 @@ function CopyClassificationTab() {
 function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("categories");
+  const [viewingAuthorBooks, setViewingAuthorBooks] = useState<string | null>(null);
 
   // Fetch current user to check role
   const { data: currentUser } = useQuery({
@@ -490,10 +501,11 @@ function AdminSettingsPage() {
     "copies",
     "system",
     "categories",
+    "authors",
     "faqs",
     "audit",
   ];
-  const nonSupervisorTabs = ["categories", "faqs"];
+  const nonSupervisorTabs = ["categories", "authors", "faqs"];
   const allowedTabs = isSupervisor ? allTabs : nonSupervisorTabs;
 
   // Sincronizar tab com URL hash
@@ -507,6 +519,7 @@ function AdminSettingsPage() {
         "copies",
         "system",
         "categories",
+        "authors",
         "faqs",
         "audit",
       ].includes(hash)
@@ -575,6 +588,35 @@ function AdminSettingsPage() {
       if (!res.ok) throw new Error("Erro ao carregar categorias");
       return res.json();
     },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch Authors
+  const [authorSearch, setAuthorSearch] = useState("");
+
+  const { data: authorsData, isLoading: authorsLoading } = useQuery({
+    queryKey: ["authors-settings", authorSearch],
+    queryFn: async () => {
+      const query = authorSearch
+        ? `?q=${encodeURIComponent(authorSearch)}`
+        : "";
+      const res = await fetch(`/api/settings/authors${query}`);
+      if (!res.ok) throw new Error("Erro ao carregar autores");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch books for a specific author
+  const { data: authorBooksData, isLoading: authorBooksLoading } = useQuery({
+    queryKey: ["author-books", viewingAuthorBooks],
+    queryFn: async () => {
+      if (!viewingAuthorBooks) return { books: [] };
+      const res = await fetch(`/api/settings/authors/${viewingAuthorBooks}/books`);
+      if (!res.ok) throw new Error("Erro ao carregar livros do autor");
+      return res.json();
+    },
+    enabled: !!viewingAuthorBooks,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -747,6 +789,124 @@ function AdminSettingsPage() {
     },
   });
 
+  // Author Mutations
+  const createAuthorMutation = useMutation({
+    mutationFn: async (data: {
+      name: string;
+      biography?: string;
+      nationality?: string;
+      birthDate?: string;
+    }) => {
+      const res = await fetch("/api/settings/authors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao criar autor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["authors-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-log"] });
+      toast.success("Autor criado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro: ${error.message}`);
+    },
+  });
+
+  const updateAuthorMutation = useMutation({
+    mutationFn: async (data: {
+      id: string;
+      name: string;
+      biography?: string | null;
+      nationality?: string | null;
+      birthDate?: string | null;
+    }) => {
+      const res = await fetch("/api/settings/authors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao atualizar autor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["authors-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-log"] });
+      toast.success("Autor atualizado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro: ${error.message}`);
+    },
+  });
+
+  const deleteAuthorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch("/api/settings/authors", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao eliminar autor");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["authors-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-log"] });
+      toast.success("Autor eliminado com sucesso!");
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro: ${error.message}`);
+    },
+  });
+
+  // Disassociate author from book
+  const disassociateAuthorMutation = useMutation({
+    mutationFn: async ({ authorId, bookId }: { authorId: string; bookId: string }) => {
+      const res = await fetch(`/api/settings/authors/${authorId}/books`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookId }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Erro ao desassociar autor");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["author-books"] });
+      queryClient.invalidateQueries({ queryKey: ["authors-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["authors"] });
+      queryClient.invalidateQueries({ queryKey: ["manage-books"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-log"] });
+      
+      if (data.bookDeleted) {
+        toast.success("Autor desassociado e livro eliminado (era o único autor)");
+      } else {
+        toast.success("Autor desassociado do livro com sucesso!");
+      }
+      
+      setBookToDisassociate(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro: ${error.message}`);
+    },
+  });
+
   // FAQ Mutations
   const createFAQMutation = useMutation({
     mutationFn: async (data: {
@@ -860,6 +1020,16 @@ function AdminSettingsPage() {
   const [editingCategoryParentId, setEditingCategoryParentId] = useState<
     string | null
   >(null);
+  const [showAuthorForm, setShowAuthorForm] = useState(false);
+  const [newAuthorName, setNewAuthorName] = useState("");
+  const [newAuthorBiography, setNewAuthorBiography] = useState("");
+  const [newAuthorNationality, setNewAuthorNationality] = useState("");
+  const [newAuthorBirthDate, setNewAuthorBirthDate] = useState("");
+  const [editingAuthorId, setEditingAuthorId] = useState<string | null>(null);
+  const [editingAuthorName, setEditingAuthorName] = useState("");
+  const [editingAuthorBiography, setEditingAuthorBiography] = useState("");
+  const [editingAuthorNationality, setEditingAuthorNationality] = useState("");
+  const [editingAuthorBirthDate, setEditingAuthorBirthDate] = useState("");
   const [showFAQForm, setShowFAQForm] = useState(false);
   const [newFAQQuestion, setNewFAQQuestion] = useState("");
   const [newFAQAnswer, setNewFAQAnswer] = useState("");
@@ -870,6 +1040,12 @@ function AdminSettingsPage() {
   const [faqToDelete, setFaqToDelete] = useState<string | null>(null);
   const [draggingFaqId, setDraggingFaqId] = useState<string | null>(null);
   const [dragOverFaqId, setDragOverFaqId] = useState<string | null>(null);
+  const [bookToDisassociate, setBookToDisassociate] = useState<{
+    authorId: string;
+    bookId: string;
+    bookTitle: string;
+    willDeleteBook: boolean;
+  } | null>(null);
 
   // Handlers para drag and drop de FAQs
   const handleFaqDragStart = (faqId: string) => {
@@ -966,7 +1142,7 @@ function AdminSettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-4"
         >
-          <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-7">
+          <TabsList className="w-full flex flex-wrap gap-2 sm:grid sm:grid-cols-8">
             {isSupervisor && (
               <TabsTrigger value="fines" className="flex-1 min-w-[120px]">
                 Multas
@@ -987,6 +1163,9 @@ function AdminSettingsPage() {
             )}
             <TabsTrigger value="categories" className="flex-1 min-w-[120px]">
               Categorias
+            </TabsTrigger>
+            <TabsTrigger value="authors" className="flex-1 min-w-[120px]">
+              Autores
             </TabsTrigger>
             <TabsTrigger value="faqs" className="flex-1 min-w-[120px]">
               FAQs
@@ -1523,6 +1702,317 @@ function AdminSettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* Autores Tab */}
+          <TabsContent value="authors" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Autores</CardTitle>
+                  <CardDescription>
+                    Gerenciar autores disponíveis na biblioteca
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setShowAuthorForm(!showAuthorForm)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Novo Autor
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    placeholder="Pesquisar por nome, biografia ou nacionalidade"
+                    value={authorSearch}
+                    onChange={(e) => setAuthorSearch(e.target.value)}
+                  />
+                </div>
+                {showAuthorForm && (
+                  <div className="p-4 border rounded-lg bg-slate-50 space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Nome *</Label>
+                        <Input
+                          placeholder="Nome do autor"
+                          value={newAuthorName}
+                          onChange={(e) => setNewAuthorName(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Nacionalidade</Label>
+                        <Input
+                          placeholder="Ex: Angola, Portugal"
+                          value={newAuthorNationality}
+                          onChange={(e) =>
+                            setNewAuthorNationality(e.target.value)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Data de Nascimento</Label>
+                        <Input
+                          type="date"
+                          value={newAuthorBirthDate}
+                          onChange={(e) =>
+                            setNewAuthorBirthDate(e.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Biografia</Label>
+                      <Textarea
+                        placeholder="Breve biografia (opcional)"
+                        value={newAuthorBiography}
+                        onChange={(e) => setNewAuthorBiography(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          if (newAuthorName.trim()) {
+                            createAuthorMutation.mutate({
+                              name: newAuthorName,
+                              biography: newAuthorBiography || undefined,
+                              nationality: newAuthorNationality || undefined,
+                              birthDate: newAuthorBirthDate || undefined,
+                            });
+                            setNewAuthorName("");
+                            setNewAuthorBiography("");
+                            setNewAuthorNationality("");
+                            setNewAuthorBirthDate("");
+                            setShowAuthorForm(false);
+                          } else {
+                            toast.error("Nome é obrigatório");
+                          }
+                        }}
+                        disabled={createAuthorMutation.isPending}
+                      >
+                        {createAuthorMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            A criar...
+                          </>
+                        ) : (
+                          "Criar"
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowAuthorForm(false);
+                          setNewAuthorName("");
+                          setNewAuthorBiography("");
+                          setNewAuthorNationality("");
+                          setNewAuthorBirthDate("");
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {authorsLoading ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : (
+                  <div className="space-y-2">
+                    {(authorsData?.authors || []).length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        Nenhum autor encontrado.
+                      </div>
+                    ) : (
+                      (authorsData?.authors || []).map((author: any) => (
+                        <div
+                          key={author.id}
+                          className="p-3 border rounded-lg space-y-3"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium">{author.name}</p>
+                              {author.nationality && (
+                                <p className="text-sm text-muted-foreground">
+                                  {author.nationality}
+                                  {author.birthDate &&
+                                    ` • ${new Date(author.birthDate).toLocaleDateString("pt-PT", { year: "numeric", month: "long", day: "numeric" })}`}
+                                </p>
+                              )}
+                              {author.biography && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {author.biography}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {author.booksCount > 0 && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setViewingAuthorBooks(author.id)}
+                                  >
+                                    <BookOpen className="w-4 h-4 mr-1" />
+                                    Ver Livros ({author.booksCount})
+                                  </Button>
+                                  <Badge variant="secondary">
+                                    {author.booksCount} livro(s)
+                                  </Badge>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingAuthorId(author.id);
+                                  setEditingAuthorName(author.name);
+                                  setEditingAuthorBiography(
+                                    author.biography || "",
+                                  );
+                                  setEditingAuthorNationality(
+                                    author.nationality || "",
+                                  );
+                                  setEditingAuthorBirthDate(
+                                    author.birthDate
+                                      ? new Date(author.birthDate)
+                                          .toISOString()
+                                          .split("T")[0]
+                                      : "",
+                                  );
+                                }}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    disabled={author.booksCount > 0}
+                                    title={
+                                      author.booksCount > 0
+                                        ? "Não é possível eliminar autor com livros associados"
+                                        : "Eliminar autor"
+                                    }
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogTitle>
+                                    Eliminar autor
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja eliminar este autor?
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                  <div className="flex justify-end gap-2 mt-4">
+                                    <AlertDialogCancel>
+                                      Cancelar
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        deleteAuthorMutation.mutate(author.id)
+                                      }
+                                      className="bg-red-600 hover:bg-red-700"
+                                    >
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </div>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </div>
+
+                          {editingAuthorId === author.id && (
+                            <div className="grid gap-3 sm:grid-cols-2 pt-3 border-t">
+                              <div className="space-y-1">
+                                <Label>Nome *</Label>
+                                <Input
+                                  value={editingAuthorName}
+                                  onChange={(e) =>
+                                    setEditingAuthorName(e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>Nacionalidade</Label>
+                                <Input
+                                  value={editingAuthorNationality}
+                                  onChange={(e) =>
+                                    setEditingAuthorNationality(e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>Data de Nascimento</Label>
+                                <Input
+                                  type="date"
+                                  value={editingAuthorBirthDate}
+                                  onChange={(e) =>
+                                    setEditingAuthorBirthDate(e.target.value)
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label>Biografia</Label>
+                                <Textarea
+                                  value={editingAuthorBiography}
+                                  onChange={(e) =>
+                                    setEditingAuthorBiography(e.target.value)
+                                  }
+                                  rows={3}
+                                />
+                              </div>
+                              <div className="flex gap-2 sm:col-span-2">
+                                <Button
+                                  onClick={() => {
+                                    if (!editingAuthorName.trim()) {
+                                      toast.error("Nome é obrigatório");
+                                      return;
+                                    }
+                                    updateAuthorMutation.mutate({
+                                      id: author.id,
+                                      name: editingAuthorName,
+                                      biography:
+                                        editingAuthorBiography.trim() || null,
+                                      nationality:
+                                        editingAuthorNationality.trim() || null,
+                                      birthDate:
+                                        editingAuthorBirthDate || null,
+                                    });
+                                    setEditingAuthorId(null);
+                                  }}
+                                  disabled={updateAuthorMutation.isPending}
+                                >
+                                  {updateAuthorMutation.isPending ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      A guardar...
+                                    </>
+                                  ) : (
+                                    "Guardar"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setEditingAuthorId(null)}
+                                >
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* FAQs Tab */}
           <TabsContent value="faqs" className="space-y-4">
             <Card>
@@ -1817,6 +2307,156 @@ function AdminSettingsPage() {
             <ConsolidatedAuditLogs />
           </TabsContent>
         </Tabs>
+
+        {/* Dialog para visualizar livros do autor */}
+        <Dialog open={!!viewingAuthorBooks} onOpenChange={(open) => !open && setViewingAuthorBooks(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                Livros do Autor
+              </DialogTitle>
+              <DialogDescription>
+                Livros associados a este autor. Clique para ver detalhes ou desassociar.
+              </DialogDescription>
+            </DialogHeader>
+
+            {authorBooksLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+              </div>
+            ) : (authorBooksData?.books || []).length === 0 ? (
+              <div className="text-center py-8 text-slate-500">
+                <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>Nenhum livro associado a este autor</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(authorBooksData?.books || []).map((book: any) => (
+                  <div
+                    key={book.id}
+                    className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/book-details?id=${book.id}`}
+                          target="_blank"
+                          className="font-medium text-slate-800 hover:text-amber-600 hover:underline flex items-center gap-1"
+                        >
+                          {book.title}
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      </div>
+                      {book.isbn && (
+                        <p className="text-xs text-slate-500 mt-1">ISBN: {book.isbn}</p>
+                      )}
+                      {book.publicationYear && (
+                        <p className="text-xs text-slate-500">Ano: {book.publicationYear}</p>
+                      )}
+                      {book.authors && book.authors.length > 1 && (
+                        <p className="text-xs text-slate-600 mt-1">
+                          Outros autores: {book.authors.filter((a: any) => a.id !== viewingAuthorBooks).map((a: any) => a.name).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {book.coverUrl && (
+                        <img
+                          src={book.coverUrl}
+                          alt={book.title}
+                          className="w-12 h-16 object-cover rounded"
+                        />
+                      )}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setBookToDisassociate({
+                            authorId: viewingAuthorBooks!,
+                            bookId: book.id,
+                            bookTitle: book.title,
+                            willDeleteBook: book.authorsCount === 1,
+                          });
+                        }}
+                        title={
+                          book.authorsCount === 1
+                            ? "Desassociar (livro será eliminado pois é o único autor)"
+                            : "Desassociar autor deste livro"
+                        }
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Desassociar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de confirmação de desassociação */}
+        <AlertDialog
+          open={!!bookToDisassociate}
+          onOpenChange={(open) => !open && setBookToDisassociate(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogTitle>
+              {bookToDisassociate?.willDeleteBook
+                ? "Desassociar e Eliminar Livro"
+                : "Desassociar Autor"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {bookToDisassociate?.willDeleteBook ? (
+                  <>
+                    <p className="text-red-600 font-semibold mb-2">
+                      ⚠️ ATENÇÃO: Este é o único autor do livro!
+                    </p>
+                    <p>
+                      Ao desassociar este autor do livro &quot;{bookToDisassociate?.bookTitle}&quot;,
+                      o livro será <span className="font-semibold">eliminado permanentemente</span> pois
+                      ficará sem autores.
+                    </p>
+                    <p className="mt-2">
+                      Tem certeza que deseja continuar?
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    Tem certeza que deseja desassociar este autor do livro &quot;{bookToDisassociate?.bookTitle}&quot;?
+                    O livro continuará disponível com os outros autores associados.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+            <div className="flex justify-end gap-2 mt-4">
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (bookToDisassociate) {
+                    disassociateAuthorMutation.mutate({
+                      authorId: bookToDisassociate.authorId,
+                      bookId: bookToDisassociate.bookId,
+                    });
+                  }
+                }}
+                className={bookToDisassociate?.willDeleteBook ? "bg-red-700 hover:bg-red-800" : "bg-red-600 hover:bg-red-700"}
+              >
+                {disassociateAuthorMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    A processar...
+                  </>
+                ) : bookToDisassociate?.willDeleteBook ? (
+                  "Desassociar e Eliminar Livro"
+                ) : (
+                  "Desassociar"
+                )}
+              </AlertDialogAction>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

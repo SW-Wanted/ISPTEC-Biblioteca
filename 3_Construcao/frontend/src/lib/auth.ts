@@ -22,13 +22,24 @@ const credentialsSchema = z.object({
 });
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 dias
+  },
   providers: [
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [
           GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            authorization: {
+              params: {
+                prompt: "consent",
+                access_type: "offline",
+                response_type: "code",
+                hd: "isptec.co.ao", // Restringir apenas ao domínio ISPTEC
+              },
+            },
           }),
         ]
       : []),
@@ -110,6 +121,9 @@ export const authOptions: NextAuthOptions = {
         return false; // Bloquear login
       }
 
+      // Capturar foto do perfil do Google
+      const googleProfileImage = user.image ?? (profile as { picture?: string })?.picture ?? null;
+
       const existing = await prisma.user.findUnique({
         where: { email },
         select: {
@@ -117,6 +131,7 @@ export const authOptions: NextAuthOptions = {
           status: true,
           isBlocked: true,
           deletionScheduledAt: true,
+          profileImageUrl: true,
         },
       });
 
@@ -136,7 +151,7 @@ export const authOptions: NextAuthOptions = {
         const needsValidation =
           userType === UserType.STUDENT || userType === UserType.TEACHER;
 
-        // ✅ Criar usuário
+        // ✅ Criar usuário com foto do Google
         await prisma.user.create({
           data: {
             email,
@@ -145,6 +160,7 @@ export const authOptions: NextAuthOptions = {
             type: userType,
             status: needsValidation ? UserStatus.PENDING : UserStatus.ACTIVE,
             activationStatus: needsValidation ? "PENDING_DOCUMENTS" : "ACTIVE",
+            profileImageUrl: googleProfileImage,
             lastLoginAt: new Date(),
           },
         });
@@ -169,50 +185,62 @@ export const authOptions: NextAuthOptions = {
           return false;
         }
 
+        // Atualizar foto do Google se não tiver foto ou se for diferente
+        const updateData: { lastLoginAt: Date; profileImageUrl?: string | null } = {
+          lastLoginAt: new Date(),
+        };
+
+        if (googleProfileImage && !existing.profileImageUrl) {
+          updateData.profileImageUrl = googleProfileImage;
+          console.log(`✅ Foto do Google adicionada para: ${email}`);
+        }
+
         await prisma.user.update({
           where: { email },
-          data: { lastLoginAt: new Date() },
+          data: updateData,
         });
       }
 
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token, trigger }) {
       if (!token.email) return token;
 
-      const dbUser = await prisma.user.findUnique({
-        where: { email: token.email },
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          isBlocked: true,
-          name: true,
-          activationStatus: true,
-          deletionScheduledAt: true,
-          profileImageUrl: true,
-        },
-      });
+      // Apenas buscar dados do DB quando necessário (não em toda requisição)
+      if (trigger === "signIn" || trigger === "update" || !token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            isBlocked: true,
+            name: true,
+            activationStatus: true,
+            deletionScheduledAt: true,
+            profileImageUrl: true,
+          },
+        });
 
-      if (!dbUser || dbUser.isBlocked) {
-        // Invalidate session
-        return {};
+        if (!dbUser || dbUser.isBlocked) {
+          return {};
+        }
+
+        if (
+          dbUser.status === UserStatus.INACTIVE &&
+          !dbUser.deletionScheduledAt
+        ) {
+          return {};
+        }
+
+        token.id = dbUser.id;
+        token.type = dbUser.type;
+        token.name = dbUser.name;
+        token.activationStatus = dbUser.activationStatus;
+        token.deletionPending = !!dbUser.deletionScheduledAt;
+        token.profileImageUrl = dbUser.profileImageUrl;
       }
 
-      // Permitir INACTIVE se tiver eliminação agendada (para cancelar)
-      if (
-        dbUser.status === UserStatus.INACTIVE &&
-        !dbUser.deletionScheduledAt
-      ) {
-        return {};
-      }
-
-      token.id = dbUser.id;
-      token.type = dbUser.type;
-      token.name = dbUser.name;
-      token.activationStatus = dbUser.activationStatus;
-      token.deletionPending = !!dbUser.deletionScheduledAt;
-      token.profileImageUrl = dbUser.profileImageUrl;
       return token;
     },
     async session({ session, token }) {

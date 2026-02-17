@@ -29,13 +29,28 @@ CREATE TYPE "NotificationStatus" AS ENUM ('PENDING', 'SENT', 'DELIVERED', 'FAILE
 CREATE TYPE "CatalogStatus" AS ENUM ('DRAFT', 'PENDING_REVIEW', 'APPROVED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "LockerStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE');
+CREATE TYPE "LockerStatus" AS ENUM ('AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE');
 
 -- CreateEnum
-CREATE TYPE "ComputerStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'MAINTENANCE');
+CREATE TYPE "ComputerStatus" AS ENUM ('AVAILABLE', 'RESERVED', 'OCCUPIED', 'MAINTENANCE');
+
+-- CreateEnum
+CREATE TYPE "ServiceReservationStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "RequestStatus" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "AccountActivationStatus" AS ENUM ('PENDING_DOCUMENTS', 'PENDING_TRAINING', 'TRAINING_SCHEDULED', 'ACTIVE', 'BLOCKED');
+
+-- CreateEnum
+CREATE TYPE "TrainingStatus" AS ENUM ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "MaterialType" AS ENUM ('BOOK', 'DAILY_LOAN', 'REFERENCE', 'CD_DVD', 'MAGAZINE', 'THESIS');
+
+-- CreateEnum
+CREATE TYPE "LoanPolicy" AS ENUM ('STANDARD', 'DAILY', 'SHORT_TERM', 'NO_LOAN', 'EXTENDED');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -46,6 +61,7 @@ CREATE TABLE "User" (
     "phone" TEXT,
     "type" "UserType" NOT NULL,
     "status" "UserStatus" NOT NULL DEFAULT 'PENDING',
+    "activationStatus" "AccountActivationStatus" NOT NULL DEFAULT 'PENDING_DOCUMENTS',
     "registrationNumber" TEXT,
     "course" TEXT,
     "department" TEXT,
@@ -55,13 +71,29 @@ CREATE TABLE "User" (
     "isBlocked" BOOLEAN NOT NULL DEFAULT false,
     "blockedReason" TEXT,
     "blockedAt" TIMESTAMP(3),
+    "profileImageUrl" TEXT,
+    "coverImageUrl" TEXT,
     "preferredNotification" "NotificationType" NOT NULL DEFAULT 'EMAIL',
     "language" TEXT NOT NULL DEFAULT 'pt',
+    "deletionRequestedAt" TIMESTAMP(3),
+    "deletionScheduledAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastLoginAt" TIMESTAMP(3),
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PasswordResetToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -85,6 +117,7 @@ CREATE TABLE "Category" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "parentId" TEXT,
+    "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -131,6 +164,8 @@ CREATE TABLE "Book" (
     "categoryId" TEXT NOT NULL,
     "keywords" TEXT[],
     "deweyDecimal" TEXT,
+    "materialType" "MaterialType" NOT NULL DEFAULT 'BOOK',
+    "loanPolicy" "LoanPolicy" NOT NULL DEFAULT 'STANDARD',
     "totalCopies" INTEGER NOT NULL DEFAULT 0,
     "availableCopies" INTEGER NOT NULL DEFAULT 0,
     "extractedByOCR" BOOLEAN NOT NULL DEFAULT false,
@@ -254,6 +289,7 @@ CREATE TABLE "Fine" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "loanId" TEXT,
+    "bookId" TEXT,
     "type" "FineType" NOT NULL,
     "amount" DECIMAL(10,2) NOT NULL,
     "status" "FineStatus" NOT NULL DEFAULT 'PENDING',
@@ -308,6 +344,23 @@ CREATE TABLE "LockerRental" (
 );
 
 -- CreateTable
+CREATE TABLE "LockerReservation" (
+    "id" TEXT NOT NULL,
+    "lockerId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "status" "ServiceReservationStatus" NOT NULL DEFAULT 'PENDING',
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "approvedAt" TIMESTAMP(3),
+    "rejectedAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
+    "rentalId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "LockerReservation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Locker" (
     "id" TEXT NOT NULL,
     "number" TEXT NOT NULL,
@@ -333,6 +386,23 @@ CREATE TABLE "ComputerSession" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ComputerSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ComputerReservation" (
+    "id" TEXT NOT NULL,
+    "computerId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "status" "ServiceReservationStatus" NOT NULL DEFAULT 'PENDING',
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "approvedAt" TIMESTAMP(3),
+    "rejectedAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
+    "sessionId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ComputerReservation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -365,6 +435,40 @@ CREATE TABLE "SpecialRequest" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "SpecialRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TrainingSession" (
+    "id" TEXT NOT NULL,
+    "trainerId" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "location" TEXT NOT NULL,
+    "maxParticipants" INTEGER NOT NULL DEFAULT 20,
+    "scheduledDate" TIMESTAMP(3) NOT NULL,
+    "actualDate" TIMESTAMP(3),
+    "duration" INTEGER NOT NULL DEFAULT 120,
+    "status" "TrainingStatus" NOT NULL DEFAULT 'SCHEDULED',
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TrainingSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TrainingParticipant" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "attended" BOOLEAN NOT NULL DEFAULT false,
+    "attendedAt" TIMESTAMP(3),
+    "certificateUrl" TEXT,
+    "certificateGeneratedAt" TIMESTAMP(3),
+    "registeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TrainingParticipant_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -472,6 +576,92 @@ CREATE TABLE "SystemConfiguration" (
     CONSTRAINT "SystemConfiguration_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "FineConfiguration" (
+    "id" TEXT NOT NULL,
+    "type" "FineType" NOT NULL,
+    "amount" DECIMAL(10,2) NOT NULL,
+    "description" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" TEXT,
+
+    CONSTRAINT "FineConfiguration_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LoanPolicyConfig" (
+    "id" TEXT NOT NULL,
+    "userType" "UserType" NOT NULL,
+    "loanDays" INTEGER NOT NULL,
+    "maxBooks" INTEGER NOT NULL,
+    "maxRenewals" INTEGER NOT NULL DEFAULT 2,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" TEXT,
+
+    CONSTRAINT "LoanPolicyConfig_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SystemPolicy" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "description" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" TEXT,
+
+    CONSTRAINT "SystemPolicy_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Permission" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "module" TEXT NOT NULL,
+
+    CONSTRAINT "Permission_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RolePermission" (
+    "role" "UserType" NOT NULL,
+    "permissionId" TEXT NOT NULL,
+
+    CONSTRAINT "RolePermission_pkey" PRIMARY KEY ("role","permissionId")
+);
+
+-- CreateTable
+CREATE TABLE "ConfigurationAudit" (
+    "id" TEXT NOT NULL,
+    "configKey" TEXT NOT NULL,
+    "oldValue" TEXT,
+    "newValue" TEXT NOT NULL,
+    "changedBy" TEXT NOT NULL,
+    "changedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "ipAddress" TEXT,
+    "reason" TEXT,
+
+    CONSTRAINT "ConfigurationAudit_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FAQ" (
+    "id" TEXT NOT NULL,
+    "question" TEXT NOT NULL,
+    "answer" TEXT NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "createdById" TEXT,
+    "updatedById" TEXT,
+
+    CONSTRAINT "FAQ_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
@@ -489,6 +679,15 @@ CREATE INDEX "User_registrationNumber_idx" ON "User"("registrationNumber");
 
 -- CreateIndex
 CREATE INDEX "User_type_status_idx" ON "User"("type", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
+
+-- CreateIndex
+CREATE INDEX "PasswordResetToken_expiresAt_idx" ON "PasswordResetToken"("expiresAt");
 
 -- CreateIndex
 CREATE INDEX "UserDocument_userId_idx" ON "UserDocument"("userId");
@@ -581,6 +780,9 @@ CREATE INDEX "Fine_status_idx" ON "Fine"("status");
 CREATE INDEX "Fine_type_idx" ON "Fine"("type");
 
 -- CreateIndex
+CREATE INDEX "Fine_bookId_idx" ON "Fine"("bookId");
+
+-- CreateIndex
 CREATE INDEX "Notification_userId_idx" ON "Notification"("userId");
 
 -- CreateIndex
@@ -596,6 +798,15 @@ CREATE INDEX "LockerRental_userId_idx" ON "LockerRental"("userId");
 CREATE INDEX "LockerRental_lockerId_idx" ON "LockerRental"("lockerId");
 
 -- CreateIndex
+CREATE INDEX "LockerReservation_lockerId_idx" ON "LockerReservation"("lockerId");
+
+-- CreateIndex
+CREATE INDEX "LockerReservation_userId_idx" ON "LockerReservation"("userId");
+
+-- CreateIndex
+CREATE INDEX "LockerReservation_status_idx" ON "LockerReservation"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Locker_number_key" ON "Locker"("number");
 
 -- CreateIndex
@@ -606,6 +817,15 @@ CREATE INDEX "ComputerSession_userId_idx" ON "ComputerSession"("userId");
 
 -- CreateIndex
 CREATE INDEX "ComputerSession_computerId_idx" ON "ComputerSession"("computerId");
+
+-- CreateIndex
+CREATE INDEX "ComputerReservation_computerId_idx" ON "ComputerReservation"("computerId");
+
+-- CreateIndex
+CREATE INDEX "ComputerReservation_userId_idx" ON "ComputerReservation"("userId");
+
+-- CreateIndex
+CREATE INDEX "ComputerReservation_status_idx" ON "ComputerReservation"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Computer_number_key" ON "Computer"("number");
@@ -621,6 +841,27 @@ CREATE INDEX "SpecialRequest_type_idx" ON "SpecialRequest"("type");
 
 -- CreateIndex
 CREATE INDEX "SpecialRequest_status_idx" ON "SpecialRequest"("status");
+
+-- CreateIndex
+CREATE INDEX "TrainingSession_trainerId_idx" ON "TrainingSession"("trainerId");
+
+-- CreateIndex
+CREATE INDEX "TrainingSession_scheduledDate_idx" ON "TrainingSession"("scheduledDate");
+
+-- CreateIndex
+CREATE INDEX "TrainingSession_status_idx" ON "TrainingSession"("status");
+
+-- CreateIndex
+CREATE INDEX "TrainingParticipant_userId_idx" ON "TrainingParticipant"("userId");
+
+-- CreateIndex
+CREATE INDEX "TrainingParticipant_sessionId_idx" ON "TrainingParticipant"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "TrainingParticipant_attended_idx" ON "TrainingParticipant"("attended");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "TrainingParticipant_userId_sessionId_key" ON "TrainingParticipant"("userId", "sessionId");
 
 -- CreateIndex
 CREATE INDEX "BookRecommendation_bookId_idx" ON "BookRecommendation"("bookId");
@@ -670,11 +911,56 @@ CREATE UNIQUE INDEX "SystemConfiguration_key_key" ON "SystemConfiguration"("key"
 -- CreateIndex
 CREATE INDEX "SystemConfiguration_key_idx" ON "SystemConfiguration"("key");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "FineConfiguration_type_key" ON "FineConfiguration"("type");
+
+-- CreateIndex
+CREATE INDEX "FineConfiguration_type_idx" ON "FineConfiguration"("type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LoanPolicyConfig_userType_key" ON "LoanPolicyConfig"("userType");
+
+-- CreateIndex
+CREATE INDEX "LoanPolicyConfig_userType_idx" ON "LoanPolicyConfig"("userType");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SystemPolicy_key_key" ON "SystemPolicy"("key");
+
+-- CreateIndex
+CREATE INDEX "SystemPolicy_key_idx" ON "SystemPolicy"("key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Permission_code_key" ON "Permission"("code");
+
+-- CreateIndex
+CREATE INDEX "Permission_code_idx" ON "Permission"("code");
+
+-- CreateIndex
+CREATE INDEX "RolePermission_permissionId_idx" ON "RolePermission"("permissionId");
+
+-- CreateIndex
+CREATE INDEX "ConfigurationAudit_configKey_idx" ON "ConfigurationAudit"("configKey");
+
+-- CreateIndex
+CREATE INDEX "ConfigurationAudit_changedAt_idx" ON "ConfigurationAudit"("changedAt");
+
+-- CreateIndex
+CREATE INDEX "FAQ_order_idx" ON "FAQ"("order");
+
+-- CreateIndex
+CREATE INDEX "FAQ_isActive_idx" ON "FAQ"("isActive");
+
+-- AddForeignKey
+ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "UserDocument" ADD CONSTRAINT "UserDocument_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Category" ADD CONSTRAINT "Category_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Category" ADD CONSTRAINT "Category_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Book" ADD CONSTRAINT "Book_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -719,6 +1005,9 @@ ALTER TABLE "Fine" ADD CONSTRAINT "Fine_userId_fkey" FOREIGN KEY ("userId") REFE
 ALTER TABLE "Fine" ADD CONSTRAINT "Fine_loanId_fkey" FOREIGN KEY ("loanId") REFERENCES "Loan"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Fine" ADD CONSTRAINT "Fine_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -734,13 +1023,40 @@ ALTER TABLE "LockerRental" ADD CONSTRAINT "LockerRental_lockerId_fkey" FOREIGN K
 ALTER TABLE "LockerRental" ADD CONSTRAINT "LockerRental_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "LockerReservation" ADD CONSTRAINT "LockerReservation_lockerId_fkey" FOREIGN KEY ("lockerId") REFERENCES "Locker"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LockerReservation" ADD CONSTRAINT "LockerReservation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LockerReservation" ADD CONSTRAINT "LockerReservation_rentalId_fkey" FOREIGN KEY ("rentalId") REFERENCES "LockerRental"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ComputerSession" ADD CONSTRAINT "ComputerSession_computerId_fkey" FOREIGN KEY ("computerId") REFERENCES "Computer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ComputerSession" ADD CONSTRAINT "ComputerSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ComputerReservation" ADD CONSTRAINT "ComputerReservation_computerId_fkey" FOREIGN KEY ("computerId") REFERENCES "Computer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ComputerReservation" ADD CONSTRAINT "ComputerReservation_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ComputerReservation" ADD CONSTRAINT "ComputerReservation_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "ComputerSession"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SpecialRequest" ADD CONSTRAINT "SpecialRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TrainingSession" ADD CONSTRAINT "TrainingSession_trainerId_fkey" FOREIGN KEY ("trainerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TrainingParticipant" ADD CONSTRAINT "TrainingParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TrainingParticipant" ADD CONSTRAINT "TrainingParticipant_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "TrainingSession"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "BookRecommendation" ADD CONSTRAINT "BookRecommendation_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "Book"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -756,3 +1072,24 @@ ALTER TABLE "BookReview" ADD CONSTRAINT "BookReview_userId_fkey" FOREIGN KEY ("u
 
 -- AddForeignKey
 ALTER TABLE "ActivityLog" ADD CONSTRAINT "ActivityLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FineConfiguration" ADD CONSTRAINT "FineConfiguration_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LoanPolicyConfig" ADD CONSTRAINT "LoanPolicyConfig_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SystemPolicy" ADD CONSTRAINT "SystemPolicy_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConfigurationAudit" ADD CONSTRAINT "ConfigurationAudit_changedBy_fkey" FOREIGN KEY ("changedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FAQ" ADD CONSTRAINT "FAQ_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "FAQ" ADD CONSTRAINT "FAQ_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;

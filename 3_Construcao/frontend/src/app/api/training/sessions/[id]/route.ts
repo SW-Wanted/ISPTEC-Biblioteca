@@ -131,10 +131,34 @@ export async function PUT(
     if (validatedData.location) updateData.location = validatedData.location;
     if (validatedData.maxParticipants)
       updateData.maxParticipants = validatedData.maxParticipants;
-    if (validatedData.scheduledDate)
-      updateData.scheduledDate = new Date(validatedData.scheduledDate);
+    
+    // Validar e processar data agendada
+    if (validatedData.scheduledDate) {
+      const newDate = new Date(validatedData.scheduledDate);
+      const now = new Date();
+      
+      // Validar se a data não é no passado
+      if (newDate < now) {
+        return NextResponse.json(
+          { error: "Não é possível agendar uma formação para o passado" },
+          { status: 400 },
+        );
+      }
+      
+      updateData.scheduledDate = newDate;
+      
+      // Se a data foi alterada para o futuro e o status era IN_PROGRESS, mudar para SCHEDULED
+      if (existing.status === "IN_PROGRESS" && newDate > now) {
+        updateData.status = "SCHEDULED";
+      }
+    }
+    
     if (validatedData.duration) updateData.duration = validatedData.duration;
-    if (validatedData.status) updateData.status = validatedData.status;
+    
+    // Permitir atualização manual do status (se fornecido e não foi alterado automaticamente)
+    if (validatedData.status && !updateData.status) {
+      updateData.status = validatedData.status;
+    }
 
     const updated = await prisma.trainingSession.update({
       where: { id: sessionId },

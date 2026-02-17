@@ -250,7 +250,7 @@ async function expireReservationsIfNeeded(bookId?: string) {
         pos++;
       }
 
-      // Try to notify next in queue if a copy is available
+      // Try to notify next in queue if a copy is available (prefer last copy)
       const availableCopy = await tx.copy.findFirst({
         where: { bookId: res.bookId, status: BookStatus.AVAILABLE },
         select: { id: true },
@@ -335,6 +335,49 @@ export async function GET(
   const filter = filterRaw
     ? filterSchema.parse(JSON.parse(filterRaw))
     : undefined;
+
+  if (entity === "Author") {
+    const orderBy =
+      sort === "-created_date"
+        ? { createdAt: "desc" as const }
+        : sort === "created_date"
+          ? { createdAt: "asc" as const }
+          : sort === "name"
+            ? { name: "asc" as const }
+            : { createdAt: "desc" as const };
+
+    const authors = await prisma.author.findMany({
+      orderBy,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        biography: true,
+        nationality: true,
+        birthDate: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            books: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(
+      authors.map((a) => ({
+        id: a.id,
+        name: a.name,
+        biography: a.biography,
+        nationality: a.nationality,
+        birth_date: toIso(a.birthDate) ?? null,
+        created_date: toIso(a.createdAt),
+        updated_date: toIso(a.updatedAt),
+        _count: a._count,
+      })),
+    );
+  }
 
   if (entity === "Category") {
     const categories = await prisma.category.findMany({
@@ -1119,6 +1162,49 @@ export async function POST(
     return NextResponse.json({ id: saved.id });
   }
 
+  if (entity === "Author") {
+    if (!canManageBooks(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const authorCreateSchema = z.object({
+      name: z.string().min(1),
+      biography: z.string().nullable().optional(),
+      nationality: z.string().nullable().optional(),
+      birth_date: z.string().nullable().optional(),
+    });
+
+    const parsed = authorCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const name = parsed.data.name.trim();
+    if (!name)
+      return NextResponse.json(
+        { error: "Nome é obrigatório" },
+        { status: 400 },
+      );
+
+    const biography = parsed.data.biography ? parsed.data.biography.trim() : null;
+    const nationality = parsed.data.nationality ? parsed.data.nationality.trim() : null;
+    const birthDate = parsed.data.birth_date ? new Date(parsed.data.birth_date) : null;
+
+    const created = await prisma.author.create({
+      data: {
+        name,
+        biography,
+        nationality,
+        birthDate,
+      },
+      select: { id: true, name: true },
+    });
+
+    return NextResponse.json({ id: created.id, name: created.name });
+  }
+
   if (entity === "Book") {
     if (!canManageBooks(user.type))
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
@@ -1223,13 +1309,19 @@ export async function POST(
       if (authors.length > 0) {
         for (let i = 0; i < authors.length; i++) {
           const name = authors[i];
+          // Busca case-insensitive para evitar duplicação
           const existingAuthor = await tx.author.findFirst({
-            where: { name },
-            select: { id: true },
+            where: { 
+              name: {
+                equals: name,
+                mode: 'insensitive'
+              }
+            },
+            select: { id: true, name: true },
           });
           const author =
             existingAuthor ??
-            (await tx.author.create({ data: { name }, select: { id: true } }));
+            (await tx.author.create({ data: { name }, select: { id: true, name: true } }));
           await tx.bookAuthor.create({
             data: { bookId: book.id, authorId: author.id, order: i + 1 },
           });
@@ -1253,6 +1345,43 @@ export async function POST(
       }
 
       return book;
+    });
+
+    return NextResponse.json({ id: created.id });
+  }
+
+  if (entity === "Author") {
+    if (!canManageBooks(user.type))
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+
+    const authorCreateSchema = z.object({
+      name: z.string().min(1),
+      biography: z.string().nullable().optional(),
+      birth_date: z.string().nullable().optional(),
+      nationality: z.string().nullable().optional(),
+    });
+
+    const parsed = authorCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const name = parsed.data.name.trim();
+    if (!name) {
+      return NextResponse.json({ error: "Nome é obrigatório" }, { status: 400 });
+    }
+
+    const created = await prisma.author.create({
+      data: {
+        name,
+        biography: parsed.data.biography ?? null,
+        birthDate: parsed.data.birth_date ? new Date(String(parsed.data.birth_date)) : null,
+        nationality: parsed.data.nationality ?? null,
+      },
+      select: { id: true },
     });
 
     return NextResponse.json({ id: created.id });
@@ -1674,6 +1803,23 @@ export async function POST(
         if (reservation.status !== ReservationStatus.AVAILABLE) {
           throw new Error("RESERVATION_NOT_AVAILABLE");
         }
+
+        // 🔒 PROTEÇÃO: Verificar se já existe empréstimo ativo para esta reserva
+        const existingLoanForReservation = await prisma.loan.findFirst({
+          where: {
+            userId: member.id,
+            copy: { bookId: book.id },
+            status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+            createdAt: {
+              // Verificar empréstimos criados nos últimos 5 minutos
+              gte: new Date(Date.now() - 5 * 60 * 1000),
+            },
+          },
+          select: { id: true },
+        });
+        if (existingLoanForReservation) {
+          throw new Error("LOAN_ALREADY_EXISTS");
+        }
       }
 
       // 📚 SGBU-007: Validar se material permite empréstimo
@@ -1710,14 +1856,6 @@ export async function POST(
         throw new Error("HAS_RESERVATIONS");
       }
 
-      // 📅 SGBU-007: Calcular dueDate baseado em loanPolicy
-      const dueDate = calculateDueDate(
-        member.type,
-        book.loanPolicy,
-        new Date(),
-        policyConfig.loanDays,
-      );
-
       const result = await prisma.$transaction(async (tx) => {
         if (reservationId) {
           const reservation = await tx.reservation.findUnique({
@@ -1736,26 +1874,71 @@ export async function POST(
 
         // Quando há reserva, priorizar o exemplar já marcado como RESERVED;
         // para empréstimos diretos, usar ordem decrescente (último exemplar primeiro)
+        // 📚 SGBU-007: Filtrar exemplares que podem ser emprestados (excluir NO_LOAN)
+        
+        // Obter regras de classificação para filtrar exemplares
+        const classificationPolicy = await tx.systemPolicy.findUnique({
+          where: { key: "COPY_CLASSIFICATION_RULES" },
+          select: { value: true },
+        });
+
+        let copyClassificationRules = null;
+        try {
+          if (classificationPolicy?.value) {
+            copyClassificationRules = JSON.parse(classificationPolicy.value);
+          }
+        } catch {
+          // Em caso de erro, usa regras padrão
+        }
+
+        // Obter todos os exemplares para determinar números e filtrar
+        const allCopies = await tx.copy.findMany({
+          where: { bookId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, status: true, createdAt: true },
+        });
+
+        // Importar função de classificação
+        const { getCopyClassification } = await import("@/lib/sgbu-rules");
+
+        // Filtrar exemplares que podem ser emprestados
+        const lendableCopyIds = allCopies
+          .map((c, index) => {
+            const copyNumber = index + 1;
+            const classification = getCopyClassification(
+              copyNumber,
+              copyClassificationRules,
+            );
+            // Incluir apenas se não for NO_LOAN
+            if (classification?.loanPolicy === "NO_LOAN") {
+              return null;
+            }
+            return c.id;
+          })
+          .filter((id): id is string => id !== null);
+
         let copy;
         if (reservationId) {
-          // Primeiro tentar o exemplar já reservado
+          // Primeiro tentar o exemplar já reservado (que pode ser emprestado)
           copy = await tx.copy.findFirst({
             where: {
               bookId,
               status: BookStatus.RESERVED,
+              id: { in: lendableCopyIds },
             },
             orderBy: { createdAt: "desc" },
-            select: { id: true },
+            select: { id: true, createdAt: true },
           });
-          // Se não encontrar reservado, tentar disponível
+          // Se não encontrar reservado, tentar disponível (ordem decrescente)
           if (!copy) {
             copy = await tx.copy.findFirst({
               where: {
                 bookId,
                 status: BookStatus.AVAILABLE,
+                id: { in: lendableCopyIds },
               },
               orderBy: { createdAt: "desc" },
-              select: { id: true },
+              select: { id: true, createdAt: true },
             });
           }
         } else {
@@ -1763,14 +1946,50 @@ export async function POST(
             where: {
               bookId,
               status: BookStatus.AVAILABLE,
+              id: { in: lendableCopyIds },
             },
             orderBy: { createdAt: "desc" },
-            select: { id: true },
+            select: { id: true, createdAt: true },
           });
         }
         if (!copy) {
           throw new Error("NO_COPY");
         }
+
+        // 📚 SGBU-007: Determinar número do exemplar (posição cronológica)
+        const copyNumber = allCopies.findIndex((c) => c.id === copy.id) + 1;
+
+        // 📚 SGBU-007: Aplicar classificação do exemplar (vermelho/amarelo/branco)
+        const classification = getCopyClassification(
+          copyNumber,
+          copyClassificationRules,
+        );
+
+        // 📅 SGBU-007: Calcular dueDate baseado na política do exemplar
+        let effectiveLoanPolicy = book.loanPolicy;
+        let effectiveLoanDays = policyConfig.loanDays;
+
+        if (classification) {
+          // Se a classificação define uma política específica, usa ela
+          effectiveLoanPolicy = classification.loanPolicy as LoanPolicy;
+          
+          // Se a classificação define dias máximos, usa eles
+          if (classification.maxLoanDays !== null) {
+            effectiveLoanDays = classification.maxLoanDays;
+          }
+        }
+
+        // Validar se o exemplar permite empréstimo
+        if (effectiveLoanPolicy === "NO_LOAN") {
+          throw new Error("NO_LOAN_REFERENCE");
+        }
+
+        const dueDate = calculateDueDate(
+          member.type,
+          effectiveLoanPolicy,
+          new Date(),
+          effectiveLoanDays,
+        );
 
         const loan = await tx.loan.create({
           data: {
@@ -1818,18 +2037,18 @@ export async function POST(
           },
         });
 
-        return loan;
+        return { loan, dueDate };
       });
 
       // ✅ SGBU-011: Log de atividade crítica (empréstimo criado)
       await logLoanCreated({
         userId: member.id,
-        loanId: result.id,
+        loanId: result.loan.id,
         bookTitle: book.title,
-        dueDate,
+        dueDate: result.dueDate,
       }).catch((err) => console.error("Erro ao logar empréstimo:", err));
 
-      return NextResponse.json({ id: result.id });
+      return NextResponse.json({ id: result.loan.id });
     } catch (error) {
       // 🚨 SGBU-007: Tratamento de erros específicos
       const errorMap: Record<string, { message: string; status: number }> = {
@@ -1866,6 +2085,10 @@ export async function POST(
         },
         RESERVATION_NOT_AVAILABLE: {
           message: "Reserva já não está disponível",
+          status: 409,
+        },
+        LOAN_ALREADY_EXISTS: {
+          message: "Empréstimo já foi criado para esta reserva",
           status: 409,
         },
       };

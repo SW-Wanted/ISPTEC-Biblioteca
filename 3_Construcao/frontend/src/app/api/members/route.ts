@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
+    const withoutPhoto = searchParams.get("withoutPhoto") === "true";
     const limit = parseInt(searchParams.get("limit") || "200");
 
     // Construir filtros
@@ -70,6 +71,12 @@ export async function GET(request: NextRequest) {
         { name: { contains: search, mode: "insensitive" } },
         { registrationNumber: { contains: search, mode: "insensitive" } },
       ];
+    }
+
+    // Filtrar usuários sem foto
+    if (withoutPhoto) {
+      where.profileImageUrl = null;
+      where.email = { endsWith: "@isptec.co.ao" };
     }
 
     // Buscar membros
